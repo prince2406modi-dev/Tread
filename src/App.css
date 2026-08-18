@@ -1,0 +1,53 @@
+.app-shell {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f7fbff 0%, #e9eff6 100%);
+}
+
+body {
+  background: #edf2f7;
+}
+
+h1, h2 {
+  color: #1f2937;
+}
+
+.voice-output {
+  min-height: 120px;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 767px) {
+  .app-shell {
+    padding-top: 1rem;
+  }
+}
+.app-logo {
+  max-height: 72px;
+  width: auto;
+  border-radius: 12px;
+}
+
+.brand-title {
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.brand-tagline,
+.brand-subtitle {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.brand-tagline {
+  color: #374151;
+}
+
+@media (max-width: 767px) {
+  .brand-title {
+    font-size: 3rem;
+  }
+}
