@@ -1,0 +1,56 @@
+type User @table {
+  businessName: String!
+  email: String!
+  gstNumber: String!
+  phoneNumber: String
+  address: String
+}
+
+type Product @table {
+  name: String!
+  sku: String!
+  price: Float!
+  stockQuantity: Int!
+  gstRate: Float!
+  description: String
+  category: String
+  user: User!
+}
+
+type Customer @table {
+  name: String!
+  gstNumber: String!
+  stateCode: String!
+  email: String
+  phoneNumber: String
+  billingAddress: String
+  user: User!
+}
+
+type Invoice @table {
+  issueDate: Date!
+  totalAmount: Float!
+  cgstAmount: Float!
+  sgstAmount: Float!
+  igstAmount: Float!
+  status: String!
+  dueDate: Date
+  notes: String
+  user: User!
+  customer: Customer!
+}
+
+type InvoiceItem @table {
+  quantity: Int!
+  unitPrice: Float!
+  lineTotal: Float!
+  invoice: Invoice!
+  product: Product!
+}
+
+type Payment @table {
+  amount: Float!
+  paymentDate: Timestamp!
+  paymentMethod: String!
+  invoice: Invoice!
+}

@@ -1,0 +1,80 @@
+mutation SeedDatabase @transaction {
+  user_insertMany(data: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      businessName: "Tech Corp",
+      email: "contact@techcorp.com",
+      gstNumber: "GST001"
+    },
+    {
+      id: "550e8400-e29b-41d4-a716-446655440002",
+      businessName: "Creative Studio",
+      email: "hello@creative.studio",
+      gstNumber: "GST002"
+    }
+  ])
+  product_insertMany(data: [
+    {
+      name: "Laptop",
+      sku: "PROD-001",
+      price: 1200.0,
+      stockQuantity: 10,
+      gstRate: 0.18,
+      userId: "550e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      name: "Monitor",
+      sku: "PROD-002",
+      price: 300.0,
+      stockQuantity: 20,
+      gstRate: 0.18,
+      userId: "550e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  customer_insertMany(data: [
+    {
+      id: "770e8400-e29b-41d4-a716-446655440001",
+      name: "Alice Johnson",
+      gstNumber: "CUST-001",
+      stateCode: "NY",
+      userId: "550e8400-e29b-41d4-a716-446655440001"
+    },
+    {
+      id: "770e8400-e29b-41d4-a716-446655440002",
+      name: "Bob Smith",
+      gstNumber: "CUST-002",
+      stateCode: "CA",
+      userId: "550e8400-e29b-41d4-a716-446655440002"
+    }
+  ])
+  invoice_insertMany(data: [
+    {
+      id: "990e8400-e29b-41d4-a716-446655440001",
+      issueDate: "2023-10-01",
+      totalAmount: 1500.0,
+      cgstAmount: 135.0,
+      sgstAmount: 135.0,
+      igstAmount: 0.0,
+      status: "PAID",
+      userId: "550e8400-e29b-41d4-a716-446655440001",
+      customerId: "770e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  invoiceItem_insertMany(data: [
+    {
+      quantity: 1,
+      unitPrice: 1200.0,
+      lineTotal: 1200.0,
+      invoiceId: "990e8400-e29b-41d4-a716-446655440001",
+      productId: "880e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+  payment_insertMany(data: [
+    {
+      amount: 1500.0,
+      paymentDate: "2023-10-02T10:00:00Z",
+      paymentMethod: "Credit Card",
+      invoiceId: "990e8400-e29b-41d4-a716-446655440001"
+    }
+  ])
+}

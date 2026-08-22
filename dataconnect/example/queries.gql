@@ -1,0 +1,98 @@
+mutation CreateUser {
+  user_insert(data: {
+    id_expr: "auth.uid",
+    businessName: "Example Business",
+    email: "user@example.com",
+    gstNumber: "GST12345"
+  })
+}
+
+mutation CreateCustomer($name: String!, $gst: String!, $state: String!) @auth(level: USER) {
+  customer_insert(data: {
+    name: $name,
+    gstNumber: $gst,
+    stateCode: $state,
+    userId_expr: "auth.uid"
+  })
+}
+
+mutation CreateProduct($name: String!, $sku: String!, $price: Float!, $gstRate: Float!) @auth(level: USER) {
+  product_insert(data: {
+    name: $name,
+    sku: $sku,
+    price: $price,
+    gstRate: $gstRate,
+    stockQuantity: 0,
+    userId_expr: "auth.uid"
+  })
+}
+
+mutation CreateInvoice($total: Float!, $cust: Customer_Key!) @auth(level: USER) {
+  invoice_insert(data: {
+    issueDate: "2023-10-27",
+    totalAmount: $total,
+    cgstAmount: 0.0,
+    sgstAmount: 0.0,
+    igstAmount: 0.0,
+    status: "DRAFT",
+    customer: $cust,
+    userId_expr: "auth.uid"
+  })
+}
+
+mutation CreatePayment($amt: Float!, $inv: Invoice_Key!) @auth(level: USER) {
+  payment_insert(data: {
+    amount: $amt,
+    paymentDate_time: {now: true},
+    paymentMethod: "Cash",
+    invoice: $inv
+  })
+}
+
+mutation UpdateCustomer($id: UUID!, $name: String!) @auth(level: USER) {
+  customer_update(key: {id: $id}, data: {name: $name})
+}
+
+mutation UpdateProduct($id: UUID!, $price: Float!) @auth(level: USER) {
+  product_update(key: {id: $id}, data: {price: $price})
+}
+
+mutation UpdateInvoiceStatus($id: UUID!, $status: String!) @auth(level: USER) {
+  invoice_update(key: {id: $id}, data: {status: $status})
+}
+
+mutation DeleteCustomer($id: UUID!) @auth(level: USER) {
+  customer_delete(key: {id: $id})
+}
+
+mutation DeleteProduct($id: UUID!) @auth(level: USER) {
+  product_delete(key: {id: $id})
+}
+
+mutation DeleteInvoice($id: UUID!) @auth(level: USER) {
+  invoice_delete(key: {id: $id})
+}
+
+query GetMyCustomers @auth(level: USER) {
+  customers(where: {userId: {eq_expr: "auth.uid"}}) {
+    id name email
+  }
+}
+
+query GetProduct($id: UUID!) @auth(level: USER) {
+  product(key: {id: $id}) {
+    name price stockQuantity
+  }
+}
+
+query ListInvoices @auth(level: USER) {
+  invoices(where: {userId: {eq_expr: "auth.uid"}}) {
+    id issueDate totalAmount status
+  }
+}
+
+query ListPaymentsForInvoice($invId: UUID!) @auth(level: USER) {
+  payments(where: {invoiceId: {eq: $invId}}) {
+    amount paymentDate paymentMethod
+  }
+}

@@ -10,7 +10,10 @@
     "start": "npm run build && electron .",
     "dist": "npm run build && electron-builder",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting",
+    "deploy:firestore": "firebase deploy --only firestore"
   },
   "build": {
     "appId": "com.tread.app",
@@ -27,6 +30,7 @@
     }
   },
   "dependencies": {
+    "@dataconnect/generated": "file:src/dataconnect-generated",
     "@tailwindcss/vite": "^4.3.1",
     "bootstrap": "^5.3.8",
     "firebase": "^12.18.0",
