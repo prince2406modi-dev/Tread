@@ -1,52 +1,63 @@
-const STORAGE_KEY = 'gst-invoice-app'
-const SEQUENCE_KEY = 'gst-invoice-number-sequence'
+const STORAGE_KEY = 'gst-invoice-app';
 
 function safeParse(value) {
   try {
-    return JSON.parse(value)
+    return JSON.parse(value);
   } catch {
-    return null
+    return null;
   }
 }
 
 export function loadInvoices() {
-  if (typeof window === 'undefined') return []
-  const saved = window.localStorage.getItem(STORAGE_KEY)
-  const parsed = safeParse(saved)
-  return Array.isArray(parsed) ? parsed : []
+  if (typeof window === 'undefined') return [];
+  const saved = window.localStorage.getItem(STORAGE_KEY);
+  const parsed = safeParse(saved);
+  return Array.isArray(parsed) ? parsed : [];
 }
 
 export function persistInvoices(invoices) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices))
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(invoices));
 }
 
-export function getCurrentInvoiceSequence() {
-  if (typeof window === 'undefined') return 0
-  const stored = Number(window.localStorage.getItem(SEQUENCE_KEY) || 0)
-  return Number.isFinite(stored) ? stored : 0
-}
+/**
+ * Returns the next invoice number incremented by exactly 1 based on the last created invoice.
+ * Example: 'INV-0001' -> 'INV-0002', 'INV-1005' -> 'INV-1006', 'INV-2026-001' -> 'INV-2026-002'.
+ */
+export function getNextInvoiceNumber(invoices = [], defaultPrefix = 'INV') {
+  if (!Array.isArray(invoices) || invoices.length === 0) {
+    return `${defaultPrefix}-0001`;
+  }
 
-export function peekNextInvoiceNumber(invoices = []) {
-  if (typeof window === 'undefined') return ''
-  const currentSequence = getCurrentInvoiceSequence()
-  const highestSequence = invoices
-    .map((invoice) => {
-      const match = String(invoice.invoiceNumber).match(/(\d+)$/)
-      return match ? Number(match[1]) : 0
-    })
-    .reduce((max, value) => Math.max(max, value), 0)
-  const nextSequence = Math.max(currentSequence, highestSequence) + 1
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  return `INV-${year}${month}-${String(nextSequence).padStart(4, '0')}`
+  // Check the latest invoice (index 0)
+  const lastInvoice = invoices[0];
+  const lastNumberStr = String(lastInvoice?.invoiceNumber || '').trim();
+
+  const match = lastNumberStr.match(/^(.*?)(\d+)$/);
+  if (match) {
+    const prefix = match[1] || `${defaultPrefix}-`;
+    const numDigits = match[2];
+    const padLength = numDigits.length;
+
+    // Find the highest sequence number among all invoices with this prefix
+    let maxNum = parseInt(numDigits, 10);
+    invoices.forEach((inv) => {
+      const invMatch = String(inv.invoiceNumber || '').match(/^(.*?)(\d+)$/);
+      if (invMatch && invMatch[1] === prefix) {
+        const val = parseInt(invMatch[2], 10);
+        if (!isNaN(val) && val > maxNum) {
+          maxNum = val;
+        }
+      }
+    });
+
+    const nextVal = maxNum + 1;
+    return `${prefix}${String(nextVal).padStart(padLength, '0')}`;
+  }
+
+  return `${defaultPrefix}-0001`;
 }
 
 export function generateInvoiceNumber(invoices = []) {
-  if (typeof window === 'undefined') return ''
-  const nextNumber = peekNextInvoiceNumber(invoices)
-  const nextSequence = Number(nextNumber.match(/(\d+)$/)?.[1] || 0)
-  window.localStorage.setItem(SEQUENCE_KEY, String(nextSequence))
-  return nextNumber
+  return getNextInvoiceNumber(invoices);
 }

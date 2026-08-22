@@ -1,28 +1,61 @@
 body {
     margin: 0;
-    background: #105ba7;
-    font-family: Arial, sans-serif;
+    background: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b;
 }
 
-/* Main container */
+/* Main App Container */
 .menu-container {
     min-height: 100vh;
     padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f8fafc;
 }
 
-/* Top menu */
+/* =========================================================
+   TOP NAVIGATION BAR
+   ========================================================= */
 #box {
     width: 100%;
-    min-height: 55px;
-
+    min-height: 52px;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
+    background: #0f172a;
+    border-bottom: 2px solid #2563eb;
+    padding: 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 1050;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
 
-    gap: 5px;
+.brand-nav-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 1.5rem;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    cursor: pointer;
+    text-decoration: none;
+    letter-spacing: -0.02em;
+}
 
-    background: #1f2937;
-    border-bottom: 2px solid #0d6efd;
+.brand-nav-logo {
+    height: 28px;
+    width: auto;
+    border-radius: 4px;
+}
+
+.menus-horizontal {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-grow: 1;
 }
 
 /* Individual menu */
@@ -33,66 +66,56 @@ body {
 /* Top buttons */
 .top-button {
     border: none;
-
-    padding: 15px 22px;
-
+    padding: 14px 16px;
     background: transparent;
-    color: white;
-
-    font-size: 15px;
+    color: #e2e8f0;
+    font-size: 13.5px;
     font-weight: 600;
-
     cursor: pointer;
-
-    transition: 0.2s;
+    transition: all 0.18s ease;
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    white-space: nowrap;
 }
 
-/* Hover */
 .top-button:hover {
-    background: #0d6efd;
+    background: #1e293b;
+    color: #38bdf8;
 }
 
-/* Active */
 .top-button.active {
-    background: #0d6efd;
+    background: #2563eb;
+    color: #ffffff;
 }
 
 /* Arrow */
 .arrow {
-    font-size: 10px;
-    margin-left: 8px;
+    font-size: 9px;
+    margin-left: 6px;
+    opacity: 0.8;
 }
 
 /* Dropdown */
 .dropdown-menu-custom {
     position: absolute;
-
     top: 100%;
     left: 0;
-
-    min-width: 230px;
-
-    background: white;
-
-    border-radius: 0 0 8px 8px;
-
-    box-shadow:
-        0 8px 20px rgba(0, 0, 0, 0.25);
-
+    min-width: 220px;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
     overflow: hidden;
-
-    z-index: 1000;
-
-    animation: dropdownAnimation 0.15s ease;
+    z-index: 1100;
+    animation: dropdownAnimation 0.15s ease-out;
 }
 
-/* Dropdown animation */
 @keyframes dropdownAnimation {
     from {
         opacity: 0;
-        transform: translateY(-5px);
+        transform: translateY(-6px);
     }
-
     to {
         opacity: 1;
         transform: translateY(0);
@@ -102,108 +125,199 @@ body {
 /* Dropdown items */
 .dropdown-item-custom {
     width: 100%;
-
     border: none;
-
-    background: white;
-
-    padding: 12px 15px;
-
+    background: #ffffff;
+    padding: 10px 16px;
     text-align: left;
-
-    font-size: 14px;
-
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #334155;
     cursor: pointer;
-
     display: flex;
     align-items: center;
-
     gap: 10px;
-
-    transition: 0.2s;
+    transition: all 0.15s ease;
 }
 
-/* Dropdown hover */
 .dropdown-item-custom:hover {
-    background: #e9f2ff;
-    color: #0d6efd;
+    background: #eff6ff;
+    color: #2563eb;
     padding-left: 20px;
 }
 
-/* Icons */
 .item-icon {
-    width: 20px;
-
+    width: 18px;
     font-weight: bold;
-
-    color: #0d6efd;
-}
-
-/* Content */
-.content-area {
+    color: #2563eb;
     text-align: center;
-
-    color: white;
-
-    padding-top: 0px;
 }
 
-.content-area h2 {
-    font-size: 32px;
-    margin-bottom: 0px;
+/* =========================================================
+   SECONDARY SUB-NAV / STATUS BAR
+   ========================================================= */
+.sub-navbar {
+    background: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 8px 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 13px;
 }
 
-.content-area p {
-    font-size: 18px;
+.breadcrumb-tag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: #475569;
 }
 
-/* Selected menu */
-.selected-menu {
-    display: inline-block;
-    margin-top: 20px;
-    padding: 12px 25px;
-    background: white;
-    color: #222;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+.breadcrumb-tag .active-page-name {
+    color: #0f172a;
+    font-weight: 700;
+}
+
+.favourites-pills {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 2px 0;
+}
+
+.fav-pill-btn {
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.fav-pill-btn:hover {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #ffffff;
+}
+
+.fav-pill-btn.active {
+    background: #0f172a;
+    border-color: #0f172a;
+    color: #ffffff;
+}
+
+/* =========================================================
+   MAIN VIEWPORT
+   ========================================================= */
+.content-area {
+    flex-grow: 1;
+    padding: 1.5rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Footer status bar */
+.app-footer {
+    background: #ffffff;
+    border-top: 1px solid #e2e8f0;
+    padding: 10px 1.5rem;
+    font-size: 12px;
+    color: #64748b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
-
+@media (max-width: 992px) {
     #box {
-        justify-content: flex-start;
-
         overflow-x: auto;
-
-        padding: 0 5px;
+        justify-content: flex-start;
+        padding: 0 0.5rem;
     }
 
     .top-button {
-        padding: 13px 15px;
-
-        font-size: 13px;
-
-        white-space: nowrap;
+        padding: 12px 10px;
+        font-size: 12px;
     }
 
-    .dropdown-menu-custom {
-        min-width: 210px;
+    .content-area {
+        padding: 1rem 0.5rem;
     }
 }
 
-.logo-section {
-    width: 100%;
-    display: flex;
-    justify-content: flex-start;
-    align-items: flex-start;
-    padding: 0px 0px 0 450px;
-    background: transparent;
+/* Home brand screen */
+.home-brand-screen {
+    animation: fadeIn 0.25s ease-out;
 }
 
-.tread-logo {
-    width: 400px;
-    height: auto;
-    object-fit: contain;
-    display: block;
+.tread-home-logo {
+    filter: drop-shadow(0 10px 15px rgba(37, 99, 235, 0.15));
+    transition: transform 0.3s ease;
 }
+
+.tread-home-logo:hover {
+    transform: scale(1.03);
+}
+
+.letter-spacing-2 {
+    letter-spacing: 0.12em;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================================================
+   PRINT STYLES FOR GSTR-1 & MONTHLY REPORTS
+   ========================================================= */
+@media print {
+    #box,
+    .sub-navbar,
+    .app-footer,
+    .no-print,
+    .btn,
+    .nav-tabs {
+        display: none !important;
+    }
+
+    body,
+    .menu-container,
+    .content-area {
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .card {
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: none !important;
+        page-break-inside: avoid;
+    }
+
+    .table {
+        font-size: 10pt !important;
+    }
+
+    .print-header {
+        display: block !important;
+    }
+}

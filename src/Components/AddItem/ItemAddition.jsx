@@ -1,176 +1,217 @@
 import { useState } from 'react';
 
-function AddItem({ onAddItem, onClose }) {
+function AddItem({ onAddItem, onClose, stockItems = [] }) {
+  const [item, setItem] = useState({
+    name: '',
+    quantity: 1,
+    price: '',
+    gst: 18,
+  });
 
-    const [item, setItem] = useState({
-        name: "",
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setItem((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSelectFromStock = (e) => {
+    const stockId = e.target.value;
+    if (!stockId) return;
+    const selected = stockItems.find((s) => s.id === stockId);
+    if (selected) {
+      setItem({
+        name: selected.name,
         quantity: 1,
-        price: "",
-        gst: 0
+        price: selected.rate,
+        gst: selected.gst || 18,
+      });
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!item.name.trim()) {
+      alert('Please enter an item name or description.');
+      return;
+    }
+
+    const newItem = {
+      name: item.name.trim(),
+      quantity: Math.max(1, Number(item.quantity) || 1),
+      price: Math.max(0, Number(item.price) || 0),
+      gst: Number(item.gst) || 0,
+      total:
+        (Number(item.quantity) || 1) *
+        (Number(item.price) || 0) *
+        (1 + (Number(item.gst) || 0) / 100),
+    };
+
+    if (onAddItem) {
+      onAddItem(newItem);
+    }
+
+    setItem({
+      name: '',
+      quantity: 1,
+      price: '',
+      gst: 18,
     });
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    if (onClose) {
+      onClose();
+    }
+  };
 
-        setItem({
-            ...item,
-            [name]: value
-        });
-    };
+  return (
+    <div
+      className="modal show d-block"
+      tabIndex="-1"
+      style={{ backgroundColor: 'rgba(0, 0, 0, 0.6)', zIndex: 1200 }}
+    >
+      <div className="modal-dialog modal-dialog-centered">
+        <div className="modal-content shadow-lg border-0">
+          <div className="modal-header bg-primary text-white">
+            <h2 className="modal-title h5 mb-0">📦 Add Item to Invoice</h2>
+            <button
+              type="button"
+              className="btn-close btn-close-white"
+              onClick={onClose}
+            />
+          </div>
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+          <form onSubmit={handleSubmit}>
+            <div className="modal-body p-4">
+              {/* Quick Pick From Saved Stock */}
+              {stockItems.length > 0 && (
+                <div className="mb-3 p-2 bg-light rounded-3 border">
+                  <label className="form-label fw-bold small text-primary mb-1">
+                    📦 Or Select from Saved Stock Catalog:
+                  </label>
+                  <select
+                    className="form-select form-select-sm"
+                    onChange={handleSelectFromStock}
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      Choose a product from stock...
+                    </option>
+                    {stockItems.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} — ₹{s.rate} ({s.stock} {s.unit || 'in stock'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-        if (!item.name.trim() || !item.price || !item.quantity) {
-            alert("Please fill all required fields");
-            return;
-        }
+              <div className="mb-3">
+                <label className="form-label fw-semibold">
+                  Item Name / Description *
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  className="form-control"
+                  placeholder="e.g. Wireless Mouse, Laptop Adapter..."
+                  value={item.name}
+                  onChange={handleChange}
+                  autoFocus
+                  required
+                />
+              </div>
 
-        const newItem = {
-            name: item.name.trim(),
-            quantity: Number(item.quantity),
-            price: Number(item.price),
-            gst: Number(item.gst),
-            total:
-                Number(item.quantity) *
-                Number(item.price) *
-                (1 + Number(item.gst) / 100)
-        };
+              <div className="row g-3 mb-3">
+                <div className="col-6">
+                  <label className="form-label fw-semibold">Quantity *</label>
+                  <input
+                    type="number"
+                    name="quantity"
+                    className="form-control text-end"
+                    min="1"
+                    value={item.quantity}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
 
-        if (onAddItem) {
-            onAddItem(newItem);
-        }
+                <div className="col-6">
+                  <label className="form-label fw-semibold">Rate / Unit Price (₹) *</label>
+                  <input
+                    type="number"
+                    name="price"
+                    className="form-control text-end"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    value={item.price}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
 
-        setItem({
-            name: "",
-            quantity: 1,
-            price: "",
-            gst: 0
-        });
+              <div className="mb-3">
+                <label className="form-label fw-semibold">GST Rate Slab</label>
+                <select
+                  name="gst"
+                  className="form-select"
+                  value={item.gst}
+                  onChange={handleChange}
+                >
+                  <option value="0">0% (Nil / Exempt)</option>
+                  <option value="5">5% GST</option>
+                  <option value="12">12% GST</option>
+                  <option value="18">18% GST (Standard)</option>
+                  <option value="28">28% GST (Luxury)</option>
+                </select>
+              </div>
 
-        if (onClose) {
-            onClose();
-        }
-    };
-
-    return (
-        <div className="container py-4">
-
-            <div className="text-center mb-4">
-                <h2 className="h3">
-                    Add Item
-                </h2>
+              {/* Real-time preview calculation */}
+              <div className="p-3 bg-light rounded-3 border small">
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-muted">Item Subtotal:</span>
+                  <span>₹{((Number(item.quantity) || 1) * (Number(item.price) || 0)).toFixed(2)}</span>
+                </div>
+                <div className="d-flex justify-content-between mb-1">
+                  <span className="text-muted">GST ({item.gst}%):</span>
+                  <span className="text-success">
+                    ₹{(((Number(item.quantity) || 1) * (Number(item.price) || 0) * Number(item.gst)) / 100).toFixed(2)}
+                  </span>
+                </div>
+                <hr className="my-1" />
+                <div className="d-flex justify-content-between fw-bold">
+                  <span>Line Total:</span>
+                  <span className="text-primary">
+                    ₹{(
+                      (Number(item.quantity) || 1) *
+                      (Number(item.price) || 0) *
+                      (1 + Number(item.gst) / 100)
+                    ).toFixed(2)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div
-                className="card shadow p-4 mx-auto"
-                style={{ maxWidth: "600px" }}
-            >
-
-                <form onSubmit={handleSubmit}>
-
-                    <div className="mb-3">
-
-                        <label className="form-label">
-                            Item Name
-                        </label>
-
-                        <input
-                            type="text"
-                            name="name"
-                            className="form-control"
-                            placeholder="Enter item name"
-                            value={item.name}
-                            onChange={handleChange}
-                            required
-                        />
-
-                    </div>
-
-                    <div className="mb-3">
-
-                        <label className="form-label">
-                            Quantity
-                        </label>
-
-                        <input
-                            type="number"
-                            name="quantity"
-                            className="form-control"
-                            min="1"
-                            value={item.quantity}
-                            onChange={handleChange}
-                            required
-                        />
-
-                    </div>
-
-                    <div className="mb-3">
-
-                        <label className="form-label">
-                            Price
-                        </label>
-
-                        <input
-                            type="number"
-                            name="price"
-                            className="form-control"
-                            placeholder="Enter price"
-                            min="0"
-                            step="0.01"
-                            value={item.price}
-                            onChange={handleChange}
-                            required
-                        />
-
-                    </div>
-
-                    <div className="mb-4">
-
-                        <label className="form-label">
-                            GST (%)
-                        </label>
-
-                        <select
-                            name="gst"
-                            className="form-select"
-                            value={item.gst}
-                            onChange={handleChange}
-                        >
-                            <option value="0">0%</option>
-                            <option value="5">5%</option>
-                            <option value="12">12%</option>
-                            <option value="18">18%</option>
-                            <option value="28">28%</option>
-                        </select>
-
-                    </div>
-
-                    <div className="d-flex gap-2">
-
-                        <button
-                            type="submit"
-                            className="btn btn-success flex-grow-1"
-                        >
-                            + Add Item
-                        </button>
-
-                        <button
-                            type="button"
-                            className="btn btn-secondary"
-                            onClick={onClose}
-                        >
-                            Cancel
-                        </button>
-
-                    </div>
-
-                </form>
-
+            <div className="modal-footer bg-light">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onClose}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-success px-4">
+                ＋ Add to Invoice
+              </button>
             </div>
-
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 }
 
 export default AddItem;

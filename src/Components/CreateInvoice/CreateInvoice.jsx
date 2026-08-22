@@ -1,52 +1,14 @@
 function CreateInvoice({
     customerName,
     setCustomerName,
-
     invoiceNumber,
     setInvoiceNumber,
-
     invoiceDate,
     setInvoiceDate,
-
     customerPhone,
     setCustomerPhone,
-
     customerAddress,
     setCustomerAddress,
-
-    items,
-
-    itemDescription,
-    setItemDescription,
-
-    itemQty,
-    setItemQty,
-
-    itemRate,
-    setItemRate,
-
-    itemGst,
-    setItemGst,
-
-    addItem,
-    updateItem,
-    removeItem,
-
-    totals,
-
-    resetInvoice,
-    saveInvoice,
-
-    recognitionActive,
-    setRecognitionActive,
-    voiceSupported,
-    voiceTranscript,
-
-    invoices,
-    setInvoices,
-    loadInvoice,
-
-    downloadPDF
 }) {
 
     return (
