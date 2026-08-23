@@ -4,9 +4,11 @@ import {
   saveFirebaseConfig,
   testFirebaseConnection,
 } from '../../services/firebase.js';
+import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 
 const DEFAULT_SETTINGS = {
   defaultGst: '18',
+  defaultUnit: DEFAULT_UNIT,
   currencySymbol: '₹',
   invoicePrefix: 'INV',
   autoInvoiceNumber: true,
@@ -101,6 +103,25 @@ function AppSettings({ settings, onSaveSettings, onBack }) {
               </div>
 
               <div className="col-md-6">
+                <label className="form-label fw-semibold">Default Unit of Measurement (UOM)</label>
+                <select
+                  name="defaultUnit"
+                  className="form-select"
+                  value={formData.defaultUnit || DEFAULT_UNIT}
+                  onChange={handleChange}
+                >
+                  {GST_UNITS.map((u) => (
+                    <option key={u.code} value={u.code}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+                <small className="text-muted">Default unit selected when adding new items and blank invoice rows.</small>
+              </div>
+            </div>
+
+            <div className="row g-3 mb-3">
+              <div className="col-md-4">
                 <label className="form-label fw-semibold">Currency Symbol / Prefix</label>
                 <input
                   type="text"
@@ -111,10 +132,8 @@ function AppSettings({ settings, onSaveSettings, onBack }) {
                 />
                 <small className="text-muted">Displayed on reports and invoice tables (e.g. ₹, Rs., INR).</small>
               </div>
-            </div>
 
-            <div className="row g-3 mb-3">
-              <div className="col-md-6">
+              <div className="col-md-4">
                 <label className="form-label fw-semibold">Invoice Number Prefix</label>
                 <input
                   type="text"
@@ -126,7 +145,7 @@ function AppSettings({ settings, onSaveSettings, onBack }) {
                 <small className="text-muted">Used for automatic sequence numbers (e.g. INV-202608-0001).</small>
               </div>
 
-              <div className="col-md-6">
+              <div className="col-md-4">
                 <label className="form-label fw-semibold">Date Format</label>
                 <select
                   name="dateFormat"
@@ -168,6 +187,65 @@ function AppSettings({ settings, onSaveSettings, onBack }) {
               <label className="form-check-label fw-semibold" htmlFor="enableVoice">
                 Enable Voice-Assisted Billing Assistant by Default
               </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Master Units of Measurement (UOM) Card */}
+        <div className="card shadow-sm border-0 mb-4">
+          <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <div>
+              <h2 className="h5 mb-0 fw-bold">📏 Master Units of Measurement (GST UQC)</h2>
+              <small className="text-muted">
+                Standard Unique Quantity Codes (UQC) supported in Invoices, Inward Bills, and Stock Inventory.
+              </small>
+            </div>
+            <span className="badge bg-primary px-3 py-2">
+              {GST_UNITS.length} GST Units Active
+            </span>
+          </div>
+          <div className="card-body p-0">
+            <div className="table-responsive" style={{ maxHeight: '280px' }}>
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="table-light sticky-top">
+                  <tr>
+                    <th style={{ width: '20%' }}>Unit Code</th>
+                    <th style={{ width: '40%' }}>Unit Name / Description</th>
+                    <th style={{ width: '40%' }}>Standard Usage</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {GST_UNITS.map((u) => (
+                    <tr key={u.code}>
+                      <td className="fw-bold font-monospace text-primary">{u.code}</td>
+                      <td>{u.name}</td>
+                      <td className="text-muted small">
+                        {u.code === 'PCS' && 'Individual items, accessories, electronics'}
+                        {u.code === 'Laddi' && 'Strips, confectionery, packet strips'}
+                        {u.code === 'BOX' && 'Packaged master boxes, cartons'}
+                        {u.code === 'NOS' && 'Countable commodities, devices'}
+                        {u.code === 'KGS' && 'Weight in Kilograms, raw materials'}
+                        {u.code === 'LTR' && 'Liquids, oils, beverages, chemicals'}
+                        {u.code === 'MTR' && 'Cables, wires, fabrics, length items'}
+                        {u.code === 'PKT' && 'Pre-packed food packets, items'}
+                        {u.code === 'SET' && 'Combo packs, paired products'}
+                        {u.code === 'BAG' && 'Cement, grains, heavy bulk bags'}
+                        {u.code === 'DOZ' && 'Dozens (units of 12)'}
+                        {u.code === 'QTL' && 'Quintals (100 kg bulk)'}
+                        {u.code === 'TON' && 'Tonnes / Metric Tons'}
+                        {u.code === 'BTL' && 'Bottles, glass/plastic containers'}
+                        {u.code === 'CAN' && 'Cans, tins, beverages'}
+                        {u.code === 'ROL' && 'Tapes, rolls, films, stickers'}
+                        {u.code === 'SQF' && 'Square feet, tiles, ply boards'}
+                        {u.code === 'SQM' && 'Square meters, carpeting'}
+                        {u.code === 'THD' && 'Thousands count'}
+                        {u.code === 'BDL' && 'Bundles, tied units'}
+                        {u.code === 'UNT' && 'Generic units'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

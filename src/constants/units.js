@@ -1,0 +1,25 @@
+export const GST_UNITS = [
+  { code: 'PCS', name: 'Pieces', label: 'PCS - Pieces' },
+  { code: 'Laddi', name: 'Laddi', label: 'Laddi - Laddi / Strips' },
+  { code: 'BOX', name: 'Boxes', label: 'BOX - Boxes' },
+  { code: 'NOS', name: 'Numbers', label: 'NOS - Numbers' },
+  { code: 'KGS', name: 'Kilograms', label: 'KGS - Kilograms' },
+  { code: 'MTR', name: 'Meters', label: 'MTR - Meters' },
+  { code: 'PKT', name: 'Packets', label: 'PKT - Packets' },
+  { code: 'SET', name: 'Sets', label: 'SET - Sets' },
+  { code: 'BAG', name: 'Bags', label: 'BAG - Bags' },
+  { code: 'LTR', name: 'Litres', label: 'LTR - Litres' },
+  { code: 'DOZ', name: 'Dozens', label: 'DOZ - Dozens' },
+  { code: 'QTL', name: 'Quintals', label: 'QTL - Quintals' },
+  { code: 'TON', name: 'Tonnes', label: 'TON - Tonnes' },
+  { code: 'BTL', name: 'Bottles', label: 'BTL - Bottles' },
+  { code: 'CAN', name: 'Cans', label: 'CAN - Cans' },
+  { code: 'ROL', name: 'Rolls', label: 'ROL - Rolls' },
+  { code: 'SQF', name: 'Square Feet', label: 'SQF - Square Feet' },
+  { code: 'SQM', name: 'Square Meters', label: 'SQM - Square Meters' },
+  { code: 'THD', name: 'Thousands', label: 'THD - Thousands' },
+  { code: 'BDL', name: 'Bundles', label: 'BDL - Bundles' },
+  { code: 'UNT', name: 'Units', label: 'UNT - Units' },
+];
+
+export const DEFAULT_UNIT = 'PCS';

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import AddItemModal from '../AddItem/ItemAddition.jsx';
+import TaxInvoiceModal from '../Invoices/TaxInvoiceModal.jsx';
+import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 
 function InvoiceEditor({
   customerName,
@@ -26,6 +28,7 @@ function InvoiceEditor({
   downloadPDF,
   onViewAllInvoices,
   customers = [],
+  company,
   onSaveCustomer,
   onNavigateToCustomers,
   stockItems = [],
@@ -33,6 +36,7 @@ function InvoiceEditor({
 }) {
   const [showAddItemModal, setShowAddItemModal] = useState(false);
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
+  const [showTaxInvoicePreview, setShowTaxInvoicePreview] = useState(false);
   const [newCustForm, setNewCustForm] = useState({
     name: '',
     phone: '',
@@ -49,6 +53,7 @@ function InvoiceEditor({
     addItem({
       description: newItem.name,
       quantity: newItem.quantity,
+      unit: newItem.unit || DEFAULT_UNIT,
       rate: newItem.price,
       gstPercent: newItem.gst,
     });
@@ -57,13 +62,14 @@ function InvoiceEditor({
 
   const handleDescriptionChange = (id, newDesc) => {
     updateItem(id, 'description', newDesc);
-    // If it matches a saved stock item, auto-fill rate and gst
+    // If it matches a saved stock item, auto-fill rate, gst, and unit
     const matchedStock = stockItems.find(
       (s) => s.name.toLowerCase() === newDesc.trim().toLowerCase()
     );
     if (matchedStock) {
-      if (matchedStock.rate) updateItem(id, 'rate', matchedStock.rate);
+      if (matchedStock.rate !== undefined) updateItem(id, 'rate', matchedStock.rate);
       if (matchedStock.gst !== undefined) updateItem(id, 'gstPercent', matchedStock.gst);
+      if (matchedStock.unit) updateItem(id, 'unit', matchedStock.unit);
     }
   };
 
@@ -180,6 +186,15 @@ function InvoiceEditor({
           >
             💾 Save Invoice
           </button>
+          {items.length > 0 && (
+            <button
+              type="button"
+              className="btn btn-outline-info"
+              onClick={() => setShowTaxInvoicePreview(true)}
+            >
+              👁️ Preview & Print
+            </button>
+          )}
           {items.length > 0 && downloadPDF && (
             <button
               type="button"
@@ -377,6 +392,7 @@ function InvoiceEditor({
                 addItem({
                   description: '',
                   quantity: 1,
+                  unit: DEFAULT_UNIT,
                   rate: 0,
                   gstPercent: 18,
                 });
@@ -401,13 +417,14 @@ function InvoiceEditor({
             <table className="table table-bordered table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: '40%' }}>Description</th>
-                  <th style={{ width: '10%' }} className="text-end">Qty</th>
-                  <th style={{ width: '15%' }} className="text-end">Rate (₹)</th>
-                  <th style={{ width: '12%' }} className="text-end">GST %</th>
-                  <th style={{ width: '12%' }} className="text-end">GST (₹)</th>
+                  <th style={{ width: '34%' }}>Description</th>
+                  <th style={{ width: '9%' }} className="text-end">Qty</th>
+                  <th style={{ width: '11%' }}>Unit</th>
+                  <th style={{ width: '13%' }} className="text-end">Rate (₹)</th>
+                  <th style={{ width: '10%' }} className="text-end">GST %</th>
+                  <th style={{ width: '10%' }} className="text-end">GST (₹)</th>
                   <th style={{ width: '13%' }} className="text-end">Total (₹)</th>
-                  <th style={{ width: '8%' }} className="text-center">Action</th>
+                  <th style={{ width: '6%' }} className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -439,6 +456,20 @@ function InvoiceEditor({
                           value={item.quantity}
                           onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                         />
+                      </td>
+                      <td>
+                        <select
+                          className="form-select form-select-sm"
+                          value={item.unit || DEFAULT_UNIT}
+                          onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                          title="Unit of Measurement (UOM)"
+                        >
+                          {GST_UNITS.map((u) => (
+                            <option key={u.code} value={u.code}>
+                              {u.code} ({u.name})
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td>
                         <input
@@ -485,7 +516,7 @@ function InvoiceEditor({
 
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan="7" className="text-center py-5 text-muted">
+                    <td colSpan="8" className="text-center py-5 text-muted">
                       <div className="fs-2 mb-2">📦</div>
                       <p className="mb-3 fw-semibold">No items added to this invoice yet.</p>
                       <div className="d-flex justify-content-center gap-2">
@@ -503,6 +534,7 @@ function InvoiceEditor({
                             addItem({
                               description: '',
                               quantity: 1,
+                              unit: DEFAULT_UNIT,
                               rate: 0,
                               gstPercent: 18,
                             });
@@ -695,6 +727,24 @@ function InvoiceEditor({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tax Invoice View & Print Modal */}
+      {showTaxInvoicePreview && (
+        <TaxInvoiceModal
+          invoice={{
+            customerName,
+            invoiceNumber: invoiceNumber || 'INV-DRAFT',
+            invoiceDate,
+            customerPhone,
+            customerAddress,
+            items,
+            totals,
+          }}
+          company={company}
+          isOpen={showTaxInvoicePreview}
+          onClose={() => setShowTaxInvoicePreview(false)}
+        />
       )}
     </div>
   );

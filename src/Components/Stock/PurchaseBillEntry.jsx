@@ -1,5 +1,6 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 
 const EMPTY_ROW = () => ({
   id: uuidv4(),
@@ -8,7 +9,7 @@ const EMPTY_ROW = () => ({
   quantity: 1,
   rate: 0,
   gstPercent: 18,
-  unit: 'PCS',
+  unit: DEFAULT_UNIT,
 });
 
 function PurchaseBillEntry({
@@ -197,13 +198,12 @@ function PurchaseBillEntry({
                         <input type="number" min="1" className="form-control form-control-sm text-end" value={row.quantity} onChange={(e) => updateRow(row.id, 'quantity', e.target.value)} required />
                       </td>
                       <td>
-                        <select className="form-select form-select-sm" value={row.unit} onChange={(e) => updateRow(row.id, 'unit', e.target.value)}>
-                          <option value="PCS">PCS</option>
-                          <option value="NOS">NOS</option>
-                          <option value="BOX">BOX</option>
-                          <option value="KG">KG</option>
-                          <option value="MTR">MTR</option>
-                          <option value="SET">SET</option>
+                        <select className="form-select form-select-sm" value={row.unit || DEFAULT_UNIT} onChange={(e) => updateRow(row.id, 'unit', e.target.value)}>
+                          {GST_UNITS.map((u) => (
+                            <option key={u.code} value={u.code}>
+                              {u.code}
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td>

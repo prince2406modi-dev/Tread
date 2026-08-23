@@ -1,8 +1,9 @@
-﻿import { useState } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import PurchaseBillEntry from './PurchaseBillEntry.jsx';
 import PurchaseImportFile from './PurchaseImportFile.jsx';
 import PurchaseBillsList from './PurchaseBillsList.jsx';
+import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 
 const EMPTY_STOCK_ITEM = {
   name: '',
@@ -10,7 +11,7 @@ const EMPTY_STOCK_ITEM = {
   stock: 10,
   rate: 0,
   gst: 18,
-  unit: 'PCS',
+  unit: DEFAULT_UNIT,
 };
 
 function StockManagement({
@@ -29,6 +30,7 @@ function StockManagement({
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStockId, setEditingStockId] = useState(null);
   const [stockForm, setStockForm] = useState(EMPTY_STOCK_ITEM);
+  const deferredSearch = useDeferredValue(search);
 
   const updateStock = (newItems) => {
     setItems(newItems);
@@ -36,25 +38,43 @@ function StockManagement({
   };
 
   // Metrics
-  const totalStockUnits = items.reduce((sum, item) => sum + (Number(item.stock) || 0), 0);
-  const totalValuation = items.reduce(
-    (sum, item) => sum + (Number(item.stock) || 0) * (Number(item.rate) || 0),
-    0
+  const totalStockUnits = useMemo(
+    () => items.reduce((sum, item) => sum + (Number(item.stock) || 0), 0),
+    [items]
   );
-  const lowStockCount = items.filter((item) => Number(item.stock) <= 5).length;
-  const totalPurchasesAmount = (purchaseBills || []).reduce(
-    (sum, bill) => sum + (Number(bill.totals?.grandTotal || bill.totalAmount) || 0),
-    0
+  const totalValuation = useMemo(
+    () =>
+      items.reduce(
+        (sum, item) => sum + (Number(item.stock) || 0) * (Number(item.rate) || 0),
+        0
+      ),
+    [items]
+  );
+  const lowStockCount = useMemo(
+    () => items.filter((item) => Number(item.stock) <= 5).length,
+    [items]
+  );
+  const totalPurchasesAmount = useMemo(
+    () =>
+      (purchaseBills || []).reduce(
+        (sum, bill) => sum + (Number(bill.totals?.grandTotal || bill.totalAmount) || 0),
+        0
+      ),
+    [purchaseBills]
   );
 
   // Filtered Stock
-  const filteredStock = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(search.toLowerCase()) ||
-      (item.hsn && item.hsn.toLowerCase().includes(search.toLowerCase()));
-    const matchesLow = filterLowStock ? Number(item.stock) <= 5 : true;
-    return matchesSearch && matchesLow;
-  });
+  const filteredStock = useMemo(() => {
+    return items.filter((item) => {
+      const q = deferredSearch.toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.hsn && item.hsn.toLowerCase().includes(q));
+      const matchesLow = filterLowStock ? Number(item.stock) <= 5 : true;
+      return matchesSearch && matchesLow;
+    });
+  }, [items, deferredSearch, filterLowStock]);
 
   // Handler for Saving a Purchase Bill (Manual Entry)
   const handleSavePurchaseBill = (billData) => {
@@ -681,17 +701,16 @@ function StockManagement({
                       <label className="form-label fw-semibold">Unit (UOM)</label>
                       <select
                         className="form-select"
-                        value={stockForm.unit}
+                        value={stockForm.unit || DEFAULT_UNIT}
                         onChange={(e) =>
                           setStockForm((f) => ({ ...f, unit: e.target.value }))
                         }
                       >
-                        <option value="PCS">PCS (Pieces)</option>
-                        <option value="NOS">NOS (Numbers)</option>
-                        <option value="BOX">BOX (Boxes)</option>
-                        <option value="KG">KG (Kilograms)</option>
-                        <option value="MTR">MTR (Meters)</option>
-                        <option value="SET">SET (Sets)</option>
+                        {GST_UNITS.map((u) => (
+                          <option key={u.code} value={u.code}>
+                            {u.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>

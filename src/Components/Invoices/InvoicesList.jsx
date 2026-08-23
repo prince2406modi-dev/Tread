@@ -1,7 +1,9 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
+import TaxInvoiceModal from './TaxInvoiceModal.jsx';
 
 function InvoicesList({
   invoices = [],
+  company,
   onLoadInvoice,
   onDeleteInvoice,
   onClearAllInvoices,
@@ -11,11 +13,13 @@ function InvoicesList({
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] = useState(null);
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
   const filteredInvoices = useMemo(() => {
     let result = invoices.filter((inv) => {
-      if (!searchTerm) return true;
-      const term = searchTerm.toLowerCase();
+      if (!deferredSearchTerm) return true;
+      const term = deferredSearchTerm.toLowerCase();
       const numMatch = inv.invoiceNumber?.toLowerCase().includes(term);
       const custMatch = inv.customerName?.toLowerCase().includes(term);
       const phoneMatch = inv.customerPhone?.includes(term);
@@ -39,7 +43,7 @@ function InvoicesList({
     });
 
     return result;
-  }, [invoices, searchTerm, sortBy]);
+  }, [invoices, deferredSearchTerm, sortBy]);
 
   return (
     <div className="py-3">
@@ -195,6 +199,14 @@ function InvoicesList({
                           <div className="btn-group btn-group-sm">
                             <button
                               type="button"
+                              className="btn btn-outline-info"
+                              title="View & Print Tax Invoice"
+                              onClick={() => setSelectedInvoiceForPreview(invoice)}
+                            >
+                              👁️ View
+                            </button>
+                            <button
+                              type="button"
                               className="btn btn-outline-secondary"
                               title="Edit in invoice generator"
                               onClick={() => onLoadInvoice(invoice)}
@@ -244,6 +256,16 @@ function InvoicesList({
           )}
         </div>
       </div>
+
+      {/* Tax Invoice View & Print Modal */}
+      {selectedInvoiceForPreview && (
+        <TaxInvoiceModal
+          invoice={selectedInvoiceForPreview}
+          company={company}
+          isOpen={!!selectedInvoiceForPreview}
+          onClose={() => setSelectedInvoiceForPreview(null)}
+        />
+      )}
     </div>
   );
 }

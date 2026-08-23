@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 
 function AddItem({ onAddItem, onClose, stockItems = [] }) {
   const [item, setItem] = useState({
     name: '',
     quantity: 1,
+    unit: DEFAULT_UNIT,
     price: '',
     gst: 18,
   });
@@ -24,6 +26,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
       setItem({
         name: selected.name,
         quantity: 1,
+        unit: selected.unit || DEFAULT_UNIT,
         price: selected.rate,
         gst: selected.gst || 18,
       });
@@ -41,6 +44,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
     const newItem = {
       name: item.name.trim(),
       quantity: Math.max(1, Number(item.quantity) || 1),
+      unit: item.unit || DEFAULT_UNIT,
       price: Math.max(0, Number(item.price) || 0),
       gst: Number(item.gst) || 0,
       total:
@@ -56,6 +60,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
     setItem({
       name: '',
       quantity: 1,
+      unit: DEFAULT_UNIT,
       price: '',
       gst: 18,
     });
@@ -124,7 +129,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
               </div>
 
               <div className="row g-3 mb-3">
-                <div className="col-6">
+                <div className="col-4">
                   <label className="form-label fw-semibold">Quantity *</label>
                   <input
                     type="number"
@@ -137,8 +142,24 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
                   />
                 </div>
 
-                <div className="col-6">
-                  <label className="form-label fw-semibold">Rate / Unit Price (₹) *</label>
+                <div className="col-4">
+                  <label className="form-label fw-semibold">Unit *</label>
+                  <select
+                    name="unit"
+                    className="form-select"
+                    value={item.unit}
+                    onChange={handleChange}
+                  >
+                    {GST_UNITS.map((u) => (
+                      <option key={u.code} value={u.code}>
+                        {u.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="col-4">
+                  <label className="form-label fw-semibold">Rate / Price (₹) *</label>
                   <input
                     type="number"
                     name="price"

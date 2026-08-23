@@ -1,17 +1,21 @@
-﻿import { useState } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 
 function PurchaseBillsList({ purchaseBills = [], onNewBill }) {
   const [selectedBill, setSelectedBill] = useState(null);
   const [search, setSearch] = useState('');
+  const deferredSearch = useDeferredValue(search);
 
-  const filtered = (purchaseBills || []).filter((b) => {
-    const q = search.toLowerCase();
-    return (
-      b.billNumber?.toLowerCase().includes(q) ||
-      b.vendorName?.toLowerCase().includes(q) ||
-      b.vendorGstin?.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    return (purchaseBills || []).filter((b) => {
+      const q = deferredSearch.toLowerCase();
+      if (!q) return true;
+      return (
+        b.billNumber?.toLowerCase().includes(q) ||
+        b.vendorName?.toLowerCase().includes(q) ||
+        b.vendorGstin?.toLowerCase().includes(q)
+      );
+    });
+  }, [purchaseBills, deferredSearch]);
 
   return (
     <div className="card shadow-sm border-0">

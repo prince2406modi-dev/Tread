@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useDeferredValue } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 const EMPTY_FORM = {
@@ -18,37 +18,43 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
   const [search, setSearch] = useState('');
   const [activeTypeTab, setActiveTypeTab] = useState('all'); // 'all' | 'Customer' | 'Vendor'
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const deferredSearch = useDeferredValue(search);
 
   function EMPTY_ITEM_OR_FORM() {
     return { ...EMPTY_FORM };
   }
 
   // Count by category
-  const countSalesCustomers = customers.filter(
-    (c) => !c.type || c.type === 'Customer' || c.type === 'Both'
-  ).length;
-  const countPurchaseVendors = customers.filter(
-    (c) => c.type === 'Vendor' || c.type === 'Both'
-  ).length;
+  const countSalesCustomers = useMemo(
+    () => customers.filter((c) => !c.type || c.type === 'Customer' || c.type === 'Both').length,
+    [customers]
+  );
+  const countPurchaseVendors = useMemo(
+    () => customers.filter((c) => c.type === 'Vendor' || c.type === 'Both').length,
+    [customers]
+  );
 
-  const filtered = customers.filter((c) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      c.name?.toLowerCase().includes(q) ||
-      c.phone?.toLowerCase().includes(q) ||
-      c.email?.toLowerCase().includes(q) ||
-      c.gstin?.toLowerCase().includes(q) ||
-      c.address?.toLowerCase().includes(q);
+  const filtered = useMemo(() => {
+    return customers.filter((c) => {
+      const q = deferredSearch.toLowerCase();
+      const matchesSearch =
+        !q ||
+        c.name?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q) ||
+        c.gstin?.toLowerCase().includes(q) ||
+        c.address?.toLowerCase().includes(q);
 
-    let matchesTab = true;
-    if (activeTypeTab === 'Customer') {
-      matchesTab = !c.type || c.type === 'Customer' || c.type === 'Both';
-    } else if (activeTypeTab === 'Vendor') {
-      matchesTab = c.type === 'Vendor' || c.type === 'Both';
-    }
+      let matchesTab = true;
+      if (activeTypeTab === 'Customer') {
+        matchesTab = !c.type || c.type === 'Customer' || c.type === 'Both';
+      } else if (activeTypeTab === 'Vendor') {
+        matchesTab = c.type === 'Vendor' || c.type === 'Both';
+      }
 
-    return matchesSearch && matchesTab;
-  });
+      return matchesSearch && matchesTab;
+    });
+  }, [customers, deferredSearch, activeTypeTab]);
 
   const openCreate = (defaultType = 'Customer') => {
     setForm({ ...EMPTY_FORM, type: defaultType });

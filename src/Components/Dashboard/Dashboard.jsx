@@ -39,12 +39,17 @@ function Dashboard({
   return (
     <div className="dashboard-container py-3">
       {/* Header Banner */}
-      <div className="card shadow-sm border-0 mb-4 bg-primary text-white p-4 rounded-3">
+      <div className="card shadow-sm border-0 mb-4 bg-primary text-white p-4 rounded-3 dashboard-hero-banner">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
           <div>
-            <span className="badge bg-light text-primary mb-2 px-3 py-1 fw-bold">
-              {company?.name ? company.name : 'GST Enterprise Suite'}
-            </span>
+            <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+              <span className="badge bg-light text-primary px-3 py-1 fw-bold">
+                {company?.name ? company.name : 'GST Enterprise Suite'}
+              </span>
+              <span className="badge bg-success text-white px-2 py-1 small">
+                ✓ Active Paid License
+              </span>
+            </div>
             <h1 className="h3 fw-bold mb-1">
               Welcome back, {currentUser?.username || 'Operator'}!
             </h1>

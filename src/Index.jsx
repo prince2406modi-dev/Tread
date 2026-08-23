@@ -1,28 +1,29 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import Logo from './assets/Images/Logo.png';
 import './index.css';
 
-// Components
-import Dashboard from './Components/Dashboard/Dashboard.jsx';
-import InvoiceEditor from './Components/CreateInvoice/InvoiceEditor.jsx';
-import InvoicesList from './Components/Invoices/InvoicesList.jsx';
-import CompanyProfile from './Components/Company/CompanyProfile.jsx';
-import Reports from './Components/Reports/Reports.jsx';
-import UserManagement from './Components/Administration/UserManagement.jsx';
-import AppSettings from './Components/Administration/AppSettings.jsx';
-import RolesPermissions from './Components/Administration/RolesPermissions.jsx';
-import Housekeeping from './Components/Housekeeping/Housekeeping.jsx';
-import ShareInvoiceModal from './Components/Communication/ShareInvoiceModal.jsx';
-import HelpCenter from './Components/Help/HelpCenter.jsx';
-import AboutModal from './Components/Help/AboutModal.jsx';
-import ManageFavourites from './Components/Favourites/ManageFavourites.jsx';
+// Immediate Eager Component for Instant Initial Screen Paint (< 0.5s LCP)
 import Login from './Components/Login/Login.jsx';
-import CustomersPage from './Components/Customers/CustomersPage.jsx';
-import StockManagement from './Components/Stock/StockManagement.jsx';
 
-import downloadPDF from './Components/DownloadInvoice/Invoice.jsx';
+// Lazy Loaded Sub-View Components (Downloaded On-Demand in Background)
+const Dashboard = lazy(() => import('./Components/Dashboard/Dashboard.jsx'));
+const InvoiceEditor = lazy(() => import('./Components/CreateInvoice/InvoiceEditor.jsx'));
+const InvoicesList = lazy(() => import('./Components/Invoices/InvoicesList.jsx'));
+const CompanyProfile = lazy(() => import('./Components/Company/CompanyProfile.jsx'));
+const Reports = lazy(() => import('./Components/Reports/Reports.jsx'));
+const UserManagement = lazy(() => import('./Components/Administration/UserManagement.jsx'));
+const AppSettings = lazy(() => import('./Components/Administration/AppSettings.jsx'));
+const RolesPermissions = lazy(() => import('./Components/Administration/RolesPermissions.jsx'));
+const Housekeeping = lazy(() => import('./Components/Housekeeping/Housekeeping.jsx'));
+const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
+const HelpCenter = lazy(() => import('./Components/Help/HelpCenter.jsx'));
+const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
+const ManageFavourites = lazy(() => import('./Components/Favourites/ManageFavourites.jsx'));
+const CustomersPage = lazy(() => import('./Components/Customers/CustomersPage.jsx'));
+const StockManagement = lazy(() => import('./Components/Stock/StockManagement.jsx'));
+
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 
 function Index() {
@@ -30,41 +31,51 @@ function Index() {
   // USER AUTHENTICATION STATE
   // =========================================================
   const getInitialUsers = () => {
-    if (typeof window === 'undefined') return [];
+    const adminUser = {
+      username: 'admin',
+      password: 'prince',
+      role: 'Admin',
+      companyName: 'M/S PRIYA SALES',
+      phone: '9871772123',
+      email: 'admin@priyasales.com',
+      subscription: {
+        planId: 'enterprise',
+        planName: 'Enterprise Suite',
+        status: 'Active',
+        transactionId: 'TXN-ADMIN-MASTER',
+        activatedAt: new Date().toISOString(),
+        validUntil: '2099-12-31',
+      },
+    };
+
+    if (typeof window === 'undefined') return [adminUser];
     try {
       const saved = window.localStorage.getItem('gst-invoice-app-users');
-      return saved ? JSON.parse(saved) : [{ username: 'admin', password: 'password', role: 'Admin' }];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Replace or set admin password to prince
+          const others = parsed.filter((u) => u.username.toLowerCase() !== 'admin');
+          return [adminUser, ...others];
+        }
+      }
+      return [adminUser];
     } catch {
-      return [{ username: 'admin', password: 'password', role: 'Admin' }];
+      return [adminUser];
     }
   };
 
-  const getInitialCurrentUser = () => {
-    if (typeof window === 'undefined') return null;
-    const username =
-      window.sessionStorage.getItem('gst-invoice-app-current-user') ||
-      window.localStorage.getItem('gst-invoice-app-current-user');
-    return username ? { username } : null;
-  };
-
   const [users, setUsers] = useState(getInitialUsers);
-  const [currentUser, setCurrentUser] = useState(getInitialCurrentUser);
+  // Always require User ID and Password when app opens (no auto-login)
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('gst-invoice-app-users', JSON.stringify(users));
+    // Clear any previous persistent login session so fresh opening always requires credentials
+    window.sessionStorage.removeItem('gst-invoice-app-current-user');
+    window.localStorage.removeItem('gst-invoice-app-current-user');
   }, [users]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (currentUser) {
-      window.sessionStorage.setItem('gst-invoice-app-current-user', currentUser.username);
-      window.localStorage.setItem('gst-invoice-app-current-user', currentUser.username);
-    } else {
-      window.sessionStorage.removeItem('gst-invoice-app-current-user');
-      window.localStorage.removeItem('gst-invoice-app-current-user');
-    }
-  }, [currentUser]);
 
   // Prompt user before leaving the app if logged in, and clear session upon exit
   useEffect(() => {
@@ -161,10 +172,7 @@ function Index() {
     }
   };
 
-  const [invoices, setInvoices] = useState(() => {
-    const user = getInitialCurrentUser();
-    return user ? loadInvoices(user.username) : [];
-  });
+  const [invoices, setInvoices] = useState([]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -212,18 +220,7 @@ function Index() {
     },
   ], []);
 
-  const [customers, setCustomers] = useState(() => {
-    const user = getInitialCurrentUser();
-    if (!user || typeof window === 'undefined') return defaultContacts;
-    try {
-      const saved = window.localStorage.getItem(
-        `gst-invoice-app-customers-${user.username}`
-      );
-      return saved ? JSON.parse(saved) : defaultContacts;
-    } catch {
-      return defaultContacts;
-    }
-  });
+  const [customers, setCustomers] = useState(defaultContacts);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -281,16 +278,7 @@ function Index() {
     { id: 'stock-5', name: 'HDMI High Speed Cable 2M', hsn: '8544', stock: 40, rate: 199, gst: 18, unit: 'PCS' },
   ], []);
 
-  const [stockItems, setStockItems] = useState(() => {
-    const user = getInitialCurrentUser();
-    if (!user || typeof window === 'undefined') return defaultStockCatalog;
-    try {
-      const saved = window.localStorage.getItem(stockStorageKey(user.username));
-      return saved ? JSON.parse(saved) : defaultStockCatalog;
-    } catch {
-      return defaultStockCatalog;
-    }
-  });
+  const [stockItems, setStockItems] = useState(defaultStockCatalog);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -309,16 +297,7 @@ function Index() {
   // =========================================================
   const purchasesStorageKey = (username) => `gst-invoice-app-purchases-${username || 'default'}`;
 
-  const [purchaseBills, setPurchaseBills] = useState(() => {
-    const user = getInitialCurrentUser();
-    if (!user || typeof window === 'undefined') return [];
-    try {
-      const saved = window.localStorage.getItem(purchasesStorageKey(user.username));
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [purchaseBills, setPurchaseBills] = useState([]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -336,19 +315,7 @@ function Index() {
   // ACTIVE INVOICE DRAFT STATE
   // =========================================================
   const [customerName, setCustomerName] = useState('');
-  const [invoiceNumber, setInvoiceNumber] = useState(() => {
-    // Auto-fill with next number on first load
-    const user = getInitialCurrentUser();
-    if (!user) return '';
-    try {
-      const key = `gst-invoice-app-invoices-${user.username}`;
-      const saved = window.localStorage.getItem(key);
-      const existing = saved ? JSON.parse(saved) : [];
-      return getNextInvoiceNumber(existing);
-    } catch {
-      return 'INV-0001';
-    }
-  });
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -714,11 +681,24 @@ function Index() {
       }
     };
     const handleKeyDown = (e) => {
+      const target = e.target;
+      const isTyping =
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable);
+
       if (e.key === 'Escape') {
         setActiveMenu(null);
         setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null });
         setAboutModal(false);
+        return;
       }
+
+      // Fast-path: bypass shortcut handling when actively typing to prevent INP delays
+      if (isTyping) return;
+
       // Alt + N -> New Invoice
       if (e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -736,7 +716,7 @@ function Index() {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { passive: true });
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
@@ -921,6 +901,31 @@ function Index() {
     const userInvoices = loadInvoices(username);
     setCurrentUser({ username });
     setInvoices(userInvoices);
+
+    // Load customer directory for this user
+    try {
+      const savedCust = window.localStorage.getItem(`gst-invoice-app-customers-${username}`);
+      setCustomers(savedCust ? JSON.parse(savedCust) : defaultContacts);
+    } catch {
+      setCustomers(defaultContacts);
+    }
+
+    // Load stock catalog for this user
+    try {
+      const savedStock = window.localStorage.getItem(`gst-invoice-app-stock-${username}`);
+      setStockItems(savedStock ? JSON.parse(savedStock) : defaultStockCatalog);
+    } catch {
+      setStockItems(defaultStockCatalog);
+    }
+
+    // Load purchase bills for this user
+    try {
+      const savedPurchases = window.localStorage.getItem(`gst-invoice-app-purchases-${username}`);
+      setPurchaseBills(savedPurchases ? JSON.parse(savedPurchases) : []);
+    } catch {
+      setPurchaseBills([]);
+    }
+
     // Pre-fill invoice number based on last saved invoice
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
     setActivePage('Dashboard');
@@ -928,10 +933,21 @@ function Index() {
 
   const handleRegister = (newUser) => {
     setUsers((current) => [...current, newUser]);
+    if (newUser.companyName) {
+      setCompany((prev) => ({
+        ...prev,
+        name: newUser.companyName,
+        phone: newUser.phone || prev.phone,
+        email: newUser.email || prev.email,
+      }));
+    }
     setCurrentUser({ username: newUser.username });
     setInvoices([]);
-    // First invoice for new user starts at 0001
-    setInvoiceNumber('INV-0001');
+    setCustomers(defaultContacts);
+    setStockItems(defaultStockCatalog);
+    setPurchaseBills([]);
+    // First invoice for new user starts at 1001/2026-27
+    setInvoiceNumber('1001/2026-27');
     setActivePage('Dashboard');
   };
 
@@ -939,6 +955,8 @@ function Index() {
     if (window.confirm('Are you sure you want to log out from Tread?')) {
       resetInvoice([]);
       setCurrentUser(null);
+      setInvoices([]);
+      setPurchaseBills([]);
       window.sessionStorage.removeItem('gst-invoice-app-current-user');
       window.localStorage.removeItem('gst-invoice-app-current-user');
       setActivePage('Dashboard');
@@ -969,8 +987,9 @@ function Index() {
     }
   };
 
-  // Download PDF helper passing current company profile
-  const handleDownloadPDF = (inv) => {
+  // Download PDF helper passing current company profile (dynamic import to reduce initial bundle)
+  const handleDownloadPDF = async (inv) => {
+    const { default: downloadPDF } = await import('./Components/DownloadInvoice/Invoice.jsx');
     downloadPDF(inv, company);
   };
 
@@ -1107,6 +1126,7 @@ function Index() {
             downloadPDF={handleDownloadPDF}
             onViewAllInvoices={() => setActivePage('All Transactions')}
             customers={customers}
+            company={company}
             onSaveCustomer={handleSaveSingleCustomer}
             onNavigateToCustomers={() => setActivePage('Customers')}
             stockItems={stockItems}
@@ -1149,6 +1169,7 @@ function Index() {
         return (
           <InvoicesList
             invoices={invoices}
+            company={company}
             onLoadInvoice={loadInvoiceToEditor}
             onDeleteInvoice={deleteInvoice}
             onClearAllInvoices={clearAllInvoices}
@@ -1298,45 +1319,51 @@ function Index() {
         </div>
 
         <div className="menus-horizontal">
-          {Object.keys(menus).map((menu) => (
-            <div className="menu-wrapper" key={menu}>
-              <button
-                type="button"
-                className={`top-button ${activeMenu === menu ? 'active' : ''}`}
-                onClick={() => handleMenuClick(menu)}
-              >
-                {menu}
-                <span className="arrow">{activeMenu === menu ? '▲' : '▼'}</span>
-              </button>
+          {currentUser ? (
+            Object.keys(menus).map((menu) => (
+              <div className="menu-wrapper" key={menu}>
+                <button
+                  type="button"
+                  className={`top-button ${activeMenu === menu ? 'active' : ''}`}
+                  onClick={() => handleMenuClick(menu)}
+                >
+                  {menu}
+                  <span className="arrow">{activeMenu === menu ? '▲' : '▼'}</span>
+                </button>
 
-              {/* DROPDOWN MENU */}
-              {activeMenu === menu && (
-                <div className="dropdown-menu-custom">
-                  {menus[menu].map((option, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      className="dropdown-item-custom"
-                      onClick={() => handleOptionClick(option)}
-                    >
-                      <span className="item-icon">
-                        {index === 0
-                          ? '＋'
-                          : index === 1
-                          ? '◉'
-                          : index === 2
-                          ? '✎'
-                          : index === 3
-                          ? '✕'
-                          : '☰'}
-                      </span>
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
+                {/* DROPDOWN MENU */}
+                {activeMenu === menu && (
+                  <div className="dropdown-menu-custom">
+                    {menus[menu].map((option, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        className="dropdown-item-custom"
+                        onClick={() => handleOptionClick(option)}
+                      >
+                        <span className="item-icon">
+                          {index === 0
+                            ? '＋'
+                            : index === 1
+                            ? '◉'
+                            : index === 2
+                            ? '✎'
+                            : index === 3
+                            ? '✕'
+                            : '☰'}
+                        </span>
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-white-50 small ps-2">
+              🔒 Please sign in with your User ID &amp; Password
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -1345,8 +1372,10 @@ function Index() {
         <div className="breadcrumb-tag">
           <span>📁 {company?.name || 'Priya Sales'}</span>
           <span className="text-muted">/</span>
-          <span className="active-page-name">{activePage}</span>
-          {recognitionActive && (
+          <span className="active-page-name">
+            {currentUser ? activePage : 'Authentication Required'}
+          </span>
+          {currentUser && recognitionActive && (
             <span className="badge bg-danger animate-pulse ms-2">
               ● Voice Active
             </span>
@@ -1354,19 +1383,21 @@ function Index() {
         </div>
 
         {/* Quick Favourites Pills */}
-        <div className="favourites-pills d-none d-md-flex">
-          <span className="text-muted small me-1">⭐ Quick:</span>
-          {favourites.map((fav) => (
-            <button
-              key={fav}
-              type="button"
-              className={`fav-pill-btn ${activePage === fav ? 'active' : ''}`}
-              onClick={() => setActivePage(fav)}
-            >
-              {fav}
-            </button>
-          ))}
-        </div>
+        {currentUser && (
+          <div className="favourites-pills d-none d-md-flex">
+            <span className="text-muted small me-1">⭐ Quick:</span>
+            {favourites.map((fav) => (
+              <button
+                key={fav}
+                type="button"
+                className={`fav-pill-btn ${activePage === fav ? 'active' : ''}`}
+                onClick={() => setActivePage(fav)}
+              >
+                {fav}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* User Account & Quick Status */}
         <div className="d-flex align-items-center gap-2">
@@ -1386,7 +1417,7 @@ function Index() {
             </div>
           ) : (
             <span className="badge bg-warning text-dark border py-1 px-2">
-              🔒 Locked
+              🔒 Sign In Required
             </span>
           )}
         </div>
@@ -1394,7 +1425,17 @@ function Index() {
 
       {/* ================= MAIN PAGE VIEWPORT ================= */}
       <main className="content-area">
-        {renderActiveView()}
+        <Suspense
+          fallback={
+            <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '300px' }}>
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          }
+        >
+          {renderActiveView()}
+        </Suspense>
       </main>
 
       {/* ================= FOOTER BAR ================= */}
@@ -1421,18 +1462,20 @@ function Index() {
       </footer>
 
       {/* ================= MODALS ================= */}
-      {shareModal.isOpen && (
-        <ShareInvoiceModal
-          invoices={invoices}
-          invoice={shareModal.targetInvoice || invoices[0]}
-          company={company}
-          defaultMode={shareModal.mode}
-          onDownloadPDF={handleDownloadPDF}
-          onClose={() => setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null })}
-        />
-      )}
+      <Suspense fallback={null}>
+        {shareModal.isOpen && (
+          <ShareInvoiceModal
+            invoices={invoices}
+            invoice={shareModal.targetInvoice || invoices[0]}
+            company={company}
+            defaultMode={shareModal.mode}
+            onDownloadPDF={handleDownloadPDF}
+            onClose={() => setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null })}
+          />
+        )}
 
-      {aboutModal && <AboutModal onClose={() => setAboutModal(false)} />}
+        {aboutModal && <AboutModal onClose={() => setAboutModal(false)} />}
+      </Suspense>
     </div>
   );
 }

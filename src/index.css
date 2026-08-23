@@ -3,6 +3,18 @@ body {
     background: #f1f5f9;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     color: #1e293b;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Performance & LCP Optimization */
+.dashboard-container {
+    contain: layout style paint;
+}
+
+.dashboard-hero-banner {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 160px;
 }
 
 /* Main App Container */
