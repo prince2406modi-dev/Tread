@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import AddItemModal from '../AddItem/ItemAddition.jsx';
 import TaxInvoiceModal from '../Invoices/TaxInvoiceModal.jsx';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
+import { validateGSTIN, GST_STATE_CODES, parseGSTPortalText } from '../../services/gstinValidator.js';
+import { validateHSN, COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 function InvoiceEditor({
   customerName,
@@ -14,6 +16,8 @@ function InvoiceEditor({
   setCustomerPhone,
   customerAddress,
   setCustomerAddress,
+  invoiceType = 'local',
+  setInvoiceType,
   items,
   addItem,
   updateItem,
@@ -44,14 +48,54 @@ function InvoiceEditor({
     address: '',
     gstin: '',
   });
+  const [showNewCustPasteBox, setShowNewCustPasteBox] = useState(false);
+  const [newCustPastedText, setNewCustPastedText] = useState('');
 
   const isCustomerRegistered = customers.some(
     (c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
   );
 
+  const newCustGstinAnalysis = useMemo(() => {
+    if (!newCustForm.gstin || !newCustForm.gstin.trim()) return null;
+    return validateGSTIN(newCustForm.gstin);
+  }, [newCustForm.gstin]);
+
+  const handleAutoFillNewCustState = () => {
+    if (!newCustForm.gstin || newCustForm.gstin.length < 2) {
+      alert('Please enter at least the first 2 digits of the GSTIN (State Code).');
+      return;
+    }
+    const stateCode = newCustForm.gstin.slice(0, 2);
+    const stateName = GST_STATE_CODES[stateCode];
+    if (stateName) {
+      setNewCustForm((f) => ({
+        ...f,
+        address: `${stateName}, State Code: ${stateCode}, India`,
+      }));
+    }
+  };
+
+  const handleApplyNewCustPastedDetails = () => {
+    if (!newCustPastedText.trim()) return;
+    const parsed = parseGSTPortalText(newCustPastedText);
+    if (parsed.success) {
+      setNewCustForm((f) => ({
+        ...f,
+        name: parsed.businessName || parsed.legalName || f.name,
+        gstin: parsed.gstin || f.gstin,
+        address: parsed.address || f.address || (parsed.state ? `${parsed.state}, India` : f.address),
+      }));
+      setNewCustPastedText('');
+      setShowNewCustPasteBox(false);
+    } else {
+      alert('Could not identify address details. Please check pasted text.');
+    }
+  };
+
   const handleAddItemFromModal = (newItem) => {
     addItem({
       description: newItem.name,
+      hsn: newItem.hsn || '',
       quantity: newItem.quantity,
       unit: newItem.unit || DEFAULT_UNIT,
       rate: newItem.price,
@@ -62,7 +106,7 @@ function InvoiceEditor({
 
   const handleDescriptionChange = (id, newDesc) => {
     updateItem(id, 'description', newDesc);
-    // If it matches a saved stock item, auto-fill rate, gst, and unit
+    // If it matches a saved stock item, auto-fill rate, gst, unit, and hsn
     const matchedStock = stockItems.find(
       (s) => s.name.toLowerCase() === newDesc.trim().toLowerCase()
     );
@@ -70,6 +114,7 @@ function InvoiceEditor({
       if (matchedStock.rate !== undefined) updateItem(id, 'rate', matchedStock.rate);
       if (matchedStock.gst !== undefined) updateItem(id, 'gstPercent', matchedStock.gst);
       if (matchedStock.unit) updateItem(id, 'unit', matchedStock.unit);
+      if (matchedStock.hsn) updateItem(id, 'hsn', matchedStock.hsn);
     }
   };
 
@@ -214,6 +259,45 @@ function InvoiceEditor({
               📥 Export PDF
             </button>
           )}
+        </div>
+      </div>
+
+      {/* 1-Click Local Invoice vs Central Invoice Switcher */}
+      <div className="card shadow-sm border-0 mb-4 bg-white">
+        <div className="card-body p-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="fw-bold text-dark fs-6">⚡ GST Tax Treatment Mode:</span>
+              <span className={`badge px-3 py-2 ${invoiceType === 'central' ? 'bg-primary' : 'bg-success'}`}>
+                {invoiceType === 'central' ? '🌐 Central Invoice (Inter-State / IGST)' : '📍 Local Invoice (Intra-State / CGST + SGST)'}
+              </span>
+            </div>
+            <div className="text-muted small">
+              {invoiceType === 'central'
+                ? '🌐 Inter-State Sale: 100% IGST applied for buyers located outside your home state.'
+                : '📍 Intra-State Sale: 50% CGST + 50% SGST applied for buyers located within the same state.'}
+            </div>
+          </div>
+          <div className="btn-group shadow-sm" role="group" aria-label="Invoice Type Switcher">
+            <button
+              type="button"
+              className={`btn fw-bold px-3 py-2 ${
+                invoiceType === 'local' ? 'btn-success text-white' : 'btn-outline-secondary bg-white'
+              }`}
+              onClick={() => setInvoiceType && setInvoiceType('local')}
+            >
+              📍 Local Invoice (CGST + SGST)
+            </button>
+            <button
+              type="button"
+              className={`btn fw-bold px-3 py-2 ${
+                invoiceType === 'central' ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'
+              }`}
+              onClick={() => setInvoiceType && setInvoiceType('central')}
+            >
+              🌐 Central Invoice (IGST)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -391,6 +475,7 @@ function InvoiceEditor({
               onClick={() => {
                 addItem({
                   description: '',
+                  hsn: '',
                   quantity: 1,
                   unit: DEFAULT_UNIT,
                   rate: 0,
@@ -417,14 +502,17 @@ function InvoiceEditor({
             <table className="table table-bordered table-hover align-middle mb-0">
               <thead className="table-light">
                 <tr>
-                  <th style={{ width: '34%' }}>Description</th>
-                  <th style={{ width: '9%' }} className="text-end">Qty</th>
-                  <th style={{ width: '11%' }}>Unit</th>
-                  <th style={{ width: '13%' }} className="text-end">Rate (₹)</th>
-                  <th style={{ width: '10%' }} className="text-end">GST %</th>
-                  <th style={{ width: '10%' }} className="text-end">GST (₹)</th>
-                  <th style={{ width: '13%' }} className="text-end">Total (₹)</th>
-                  <th style={{ width: '6%' }} className="text-center">Action</th>
+                  <th style={{ width: '28%' }}>Description</th>
+                  <th style={{ width: '10%' }}>HSN / SAC</th>
+                  <th style={{ width: '8%' }} className="text-end">Qty</th>
+                  <th style={{ width: '9%' }}>Unit</th>
+                  <th style={{ width: '12%' }} className="text-end">Rate (₹)</th>
+                  <th style={{ width: '9%' }} className="text-end">GST %</th>
+                  <th style={{ width: '11%' }} className="text-end">
+                    {invoiceType === 'central' ? 'IGST Tax (₹)' : 'GST Split (₹)'}
+                  </th>
+                  <th style={{ width: '10%' }} className="text-end">Total (₹)</th>
+                  <th style={{ width: '5%' }} className="text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -436,6 +524,8 @@ function InvoiceEditor({
                   const gstAmount = (amount * gstPercent) / 100;
                   const lineTotal = amount + gstAmount;
 
+                  const hsnCheck = item.hsn ? validateHSN(item.hsn) : null;
+
                   return (
                     <tr key={item.id}>
                       <td>
@@ -446,6 +536,26 @@ function InvoiceEditor({
                           placeholder="Item Name / Description"
                           list="stock-items-catalog"
                           autoFocus={!item.description}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="text"
+                          className={`form-control form-control-sm font-monospace text-center ${
+                            hsnCheck ? (hsnCheck.isValid ? 'is-valid' : 'is-invalid') : ''
+                          }`}
+                          placeholder="e.g. 8471"
+                          maxLength={8}
+                          value={item.hsn || ''}
+                          onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
+                          list="hsn-datalist-catalog"
+                          title={
+                            hsnCheck
+                              ? hsnCheck.isValid
+                                ? `✓ Valid ${hsnCheck.type}: ${hsnCheck.description}`
+                                : `⚠️ ${hsnCheck.errorMessage}`
+                              : 'Enter 2, 4, 6, or 8-digit HSN/SAC Code'
+                          }
                         />
                       </td>
                       <td>
@@ -494,8 +604,16 @@ function InvoiceEditor({
                           <option value="28">28%</option>
                         </select>
                       </td>
-                      <td className="text-end text-muted small">
-                        ₹{gstAmount.toFixed(2)}
+                      <td className="text-end small">
+                        {invoiceType === 'central' ? (
+                          <span className="badge bg-primary-subtle text-primary border font-monospace">
+                            ₹{gstAmount.toFixed(2)} (IGST)
+                          </span>
+                        ) : (
+                          <span className="badge bg-success-subtle text-success border font-monospace">
+                            ₹{(gstAmount / 2).toFixed(2)} C + ₹{(gstAmount / 2).toFixed(2)} S
+                          </span>
+                        )}
                       </td>
                       <td className="text-end fw-bold">
                         ₹{lineTotal.toFixed(2)}
@@ -516,7 +634,7 @@ function InvoiceEditor({
 
                 {items.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="text-center py-5 text-muted">
+                    <td colSpan="9" className="text-center py-5 text-muted">
                       <div className="fs-2 mb-2">📦</div>
                       <p className="mb-3 fw-semibold">No items added to this invoice yet.</p>
                       <div className="d-flex justify-content-center gap-2">
@@ -533,6 +651,7 @@ function InvoiceEditor({
                           onClick={() => {
                             addItem({
                               description: '',
+                              hsn: '',
                               quantity: 1,
                               unit: DEFAULT_UNIT,
                               rate: 0,
@@ -554,12 +673,31 @@ function InvoiceEditor({
         {/* Calculation Summary Footer */}
         <div className="card-footer bg-light py-3">
           <div className="row justify-content-end">
-            <div className="col-md-5 col-lg-4">
+            <div className="col-md-6 col-lg-5">
               <div className="d-flex justify-content-between mb-2">
                 <span className="text-muted">Taxable Subtotal:</span>
                 <strong className="text-dark">₹{totals.subtotal.toFixed(2)}</strong>
               </div>
-              <div className="d-flex justify-content-between mb-2">
+
+              {invoiceType === 'central' ? (
+                <div className="d-flex justify-content-between mb-2">
+                  <span className="text-primary fw-semibold">🌐 IGST (Integrated Tax 100%):</span>
+                  <strong className="text-primary">₹{(totals.igst !== undefined ? totals.igst : totals.totalGst).toFixed(2)}</strong>
+                </div>
+              ) : (
+                <>
+                  <div className="d-flex justify-content-between mb-1 small">
+                    <span className="text-muted">🏛️ CGST (Central Tax 50%):</span>
+                    <strong className="text-dark">₹{(totals.cgst !== undefined ? totals.cgst : totals.totalGst / 2).toFixed(2)}</strong>
+                  </div>
+                  <div className="d-flex justify-content-between mb-2 small">
+                    <span className="text-muted">🏛️ SGST (State Tax 50%):</span>
+                    <strong className="text-dark">₹{(totals.sgst !== undefined ? totals.sgst : totals.totalGst / 2).toFixed(2)}</strong>
+                  </div>
+                </>
+              )}
+
+              <div className="d-flex justify-content-between mb-2 pt-2 border-top">
                 <span className="text-muted">Total GST Tax:</span>
                 <strong className="text-success">₹{totals.totalGst.toFixed(2)}</strong>
               </div>
@@ -680,10 +818,28 @@ function InvoiceEditor({
                       />
                     </div>
                     <div className="col-6">
-                      <label className="form-label fw-semibold">GSTIN (Optional)</label>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <label className="form-label fw-semibold mb-0">GSTIN (Optional)</label>
+                        {newCustForm.gstin && (
+                          <a
+                            href={`https://services.gst.gov.in/services/searchtp?gstin=${newCustForm.gstin}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="small text-decoration-none"
+                          >
+                            Verify ↗
+                          </a>
+                        )}
+                      </div>
                       <input
                         type="text"
-                        className="form-control"
+                        className={`form-control font-monospace ${
+                          newCustGstinAnalysis
+                            ? newCustGstinAnalysis.isValid
+                              ? 'is-valid'
+                              : 'is-invalid'
+                            : ''
+                        }`}
                         placeholder="07ABCDE1234F1Z5"
                         value={newCustForm.gstin}
                         onChange={(e) =>
@@ -697,12 +853,84 @@ function InvoiceEditor({
                     </div>
                   </div>
 
+                  {/* Live GSTIN validation badge */}
+                  {newCustGstinAnalysis && (
+                    <div className="mb-3">
+                      {newCustGstinAnalysis.isValid ? (
+                        <div className="alert alert-success py-1 px-2 mb-0 small">
+                          ✓ <strong>Valid GSTIN:</strong> {newCustGstinAnalysis.stateName} ({newCustGstinAnalysis.entityType})
+                        </div>
+                      ) : (
+                        <div className="alert alert-danger py-1 px-2 mb-0 small">
+                          ⚠️ {newCustGstinAnalysis.errorMessage}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Billing Address</label>
+                    <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                      <label className="form-label fw-semibold mb-0">Billing Address</label>
+                      <div className="d-flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline-secondary py-0 px-2 small"
+                          onClick={handleAutoFillNewCustState}
+                          title="Auto-fill registered State and Code from GSTIN"
+                        >
+                          📍 Auto-Fill State
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline-primary py-0 px-2 small fw-semibold"
+                          onClick={() => setShowNewCustPasteBox((prev) => !prev)}
+                          title="Paste full taxpayer address details copied from GST portal"
+                        >
+                          📋 {showNewCustPasteBox ? 'Hide Paste Box' : 'Paste from GST Portal'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Paste from GST Portal Box */}
+                    {showNewCustPasteBox && (
+                      <div className="p-3 bg-light border rounded-3 mb-2 small">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <strong className="text-primary">📋 Paste GST Portal Details / Address:</strong>
+                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>Auto-extracts Name, Address & Pincode</span>
+                        </div>
+                        <textarea
+                          className="form-control form-control-sm mb-2 font-monospace"
+                          rows={3}
+                          placeholder="Copy taxpayer screen or Principal Place of Business address from services.gst.gov.in and paste here..."
+                          value={newCustPastedText}
+                          onChange={(e) => setNewCustPastedText(e.target.value)}
+                        />
+                        <div className="d-flex gap-2 justify-content-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary py-0 px-2"
+                            onClick={() => {
+                              setNewCustPastedText('');
+                              setShowNewCustPasteBox(false);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary py-0 px-3 fw-bold"
+                            onClick={handleApplyNewCustPastedDetails}
+                          >
+                            📥 Extract & Apply Address
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <textarea
                       className="form-control"
                       rows={2}
-                      placeholder="Street, City, State, PIN"
+                      placeholder="Principal Place of Business / Billing Street, City, State, PIN"
                       value={newCustForm.address}
                       onChange={(e) =>
                         setNewCustForm((f) => ({ ...f, address: e.target.value }))
@@ -728,6 +956,15 @@ function InvoiceEditor({
           </div>
         </div>
       )}
+
+      {/* HSN / SAC Suggestions Catalog Datalist */}
+      <datalist id="hsn-datalist-catalog">
+        {COMMON_HSN_SAC_CODES.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.code} - {c.name}
+          </option>
+        ))}
+      </datalist>
 
       {/* Tax Invoice View & Print Modal */}
       {showTaxInvoicePreview && (

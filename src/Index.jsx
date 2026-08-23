@@ -23,51 +23,30 @@ const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
 const ManageFavourites = lazy(() => import('./Components/Favourites/ManageFavourites.jsx'));
 const CustomersPage = lazy(() => import('./Components/Customers/CustomersPage.jsx'));
 const StockManagement = lazy(() => import('./Components/Stock/StockManagement.jsx'));
+const ItemCatalogApi = lazy(() => import('./Components/Administration/ItemCatalogApi.jsx'));
 
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
+import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
+import { fetchUserDataFromCloud } from './services/firebase.js';
 
 function Index() {
   // =========================================================
-  // USER AUTHENTICATION STATE
+  // USER AUTHENTICATION STATE & CROSS-DEVICE CLOUD SYNC
   // =========================================================
-  const getInitialUsers = () => {
-    const adminUser = {
-      username: 'admin',
-      password: 'prince',
-      role: 'Admin',
-      companyName: 'M/S PRIYA SALES',
-      phone: '9871772123',
-      email: 'admin@priyasales.com',
-      subscription: {
-        planId: 'enterprise',
-        planName: 'Enterprise Suite',
-        status: 'Active',
-        transactionId: 'TXN-ADMIN-MASTER',
-        activatedAt: new Date().toISOString(),
-        validUntil: '2099-12-31',
-      },
-    };
-
-    if (typeof window === 'undefined') return [adminUser];
-    try {
-      const saved = window.localStorage.getItem('gst-invoice-app-users');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Replace or set admin password to prince
-          const others = parsed.filter((u) => u.username.toLowerCase() !== 'admin');
-          return [adminUser, ...others];
-        }
-      }
-      return [adminUser];
-    } catch {
-      return [adminUser];
-    }
-  };
-
-  const [users, setUsers] = useState(getInitialUsers);
+  const [users, setUsers] = useState(getLocalUsers);
   // Always require User ID and Password when app opens (no auto-login)
   const [currentUser, setCurrentUser] = useState(null);
+
+  // Sync latest users from Cloud Firestore on application startup
+  useEffect(() => {
+    syncAllUsersFromCloud()
+      .then((cloudUsers) => {
+        if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+          setUsers(cloudUsers);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -319,6 +298,7 @@ function Index() {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [invoiceType, setInvoiceType] = useState('local'); // 'local' (CGST+SGST) | 'central' (IGST)
   const [items, setItems] = useState([]);
 
   const totals = useMemo(() => {
@@ -335,12 +315,22 @@ function Index() {
       return sum + (q * r * g) / 100;
     }, 0);
 
+    const isCentral = invoiceType === 'central';
+    const cgst = isCentral ? 0 : totalGst / 2;
+    const sgst = isCentral ? 0 : totalGst / 2;
+    const igst = isCentral ? totalGst : 0;
+
     return {
       subtotal,
+      cgst,
+      sgst,
+      igst,
       totalGst,
       total: subtotal + totalGst,
+      invoiceType,
+      isInterState: isCentral,
     };
-  }, [items]);
+  }, [items, invoiceType]);
 
   const resetInvoice = (currentInvoices) => {
     setCustomerName('');
@@ -348,6 +338,7 @@ function Index() {
     setInvoiceDate(new Date().toISOString().slice(0, 10));
     setCustomerPhone('');
     setCustomerAddress('');
+    setInvoiceType('local');
     setItems([]);
   };
 
@@ -416,6 +407,8 @@ function Index() {
       invoiceDate,
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim(),
+      invoiceType,
+      isInterState: invoiceType === 'central',
       items,
       totals,
       createdAt: new Date().toISOString(),
@@ -479,6 +472,7 @@ function Index() {
     setInvoiceDate(inv.invoiceDate || new Date().toISOString().slice(0, 10));
     setCustomerPhone(inv.customerPhone || '');
     setCustomerAddress(inv.customerAddress || '');
+    setInvoiceType(inv.invoiceType || (inv.isInterState ? 'central' : 'local'));
     setItems(inv.items || []);
     setActivePage('Create Transaction');
   };
@@ -608,6 +602,7 @@ function Index() {
       'Company Details',
     ],
     Administration: [
+      'Master Item Catalog & API',
       'Users',
       'Roles & Permissions',
       'Backup',
@@ -665,6 +660,7 @@ function Index() {
     { name: 'Purchase Bills', category: 'Transactions', icon: '🛒' },
     { name: 'All Transactions', category: 'Display', icon: '📋' },
     { name: 'Customers', category: 'Transactions', icon: '👥' },
+    { name: 'Master Item Catalog & API', category: 'Administration', icon: '🏷️' },
     { name: 'Reports', category: 'Display', icon: '📈' },
     { name: 'Company Details', category: 'Company', icon: '🏢' },
     { name: 'Users', category: 'Administration', icon: '👤' },
@@ -768,6 +764,16 @@ function Index() {
     }
 
     // Administration Actions
+    if (
+      option === 'Master Item Catalog & API' ||
+      option === 'Master Item Catalog' ||
+      option === 'Add Item (Master Catalog & API)' ||
+      option === 'Item API' ||
+      option === 'Add Item'
+    ) {
+      setActivePage('Master Item Catalog');
+      return;
+    }
     if (option === 'Users') {
       setActivePage('Users');
       return;
@@ -903,17 +909,21 @@ function Index() {
     setInvoices(userInvoices);
 
     // Load customer directory for this user
+    let loadedCust = defaultContacts;
     try {
       const savedCust = window.localStorage.getItem(`gst-invoice-app-customers-${username}`);
-      setCustomers(savedCust ? JSON.parse(savedCust) : defaultContacts);
+      if (savedCust) loadedCust = JSON.parse(savedCust);
+      setCustomers(loadedCust);
     } catch {
       setCustomers(defaultContacts);
     }
 
     // Load stock catalog for this user
+    let loadedStock = defaultStockCatalog;
     try {
       const savedStock = window.localStorage.getItem(`gst-invoice-app-stock-${username}`);
-      setStockItems(savedStock ? JSON.parse(savedStock) : defaultStockCatalog);
+      if (savedStock) loadedStock = JSON.parse(savedStock);
+      setStockItems(loadedStock);
     } catch {
       setStockItems(defaultStockCatalog);
     }
@@ -925,6 +935,27 @@ function Index() {
     } catch {
       setPurchaseBills([]);
     }
+
+    // If logging in on a new device with empty local invoices/customers, sync from Cloud Firestore
+    fetchUserDataFromCloud(username).then((cloudRes) => {
+      if (cloudRes.success && cloudRes.data) {
+        if (cloudRes.data.invoices && cloudRes.data.invoices.length > 0) {
+          setInvoices(cloudRes.data.invoices);
+        }
+        if (cloudRes.data.customers && cloudRes.data.customers.length > 0) {
+          setCustomers(cloudRes.data.customers);
+        }
+        if (cloudRes.data.stockItems && cloudRes.data.stockItems.length > 0) {
+          setStockItems(cloudRes.data.stockItems);
+        }
+        if (cloudRes.data.purchaseBills && cloudRes.data.purchaseBills.length > 0) {
+          setPurchaseBills(cloudRes.data.purchaseBills);
+        }
+        if (cloudRes.data.company && cloudRes.data.company.name) {
+          setCompany(cloudRes.data.company);
+        }
+      }
+    }).catch(() => {});
 
     // Pre-fill invoice number based on last saved invoice
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
@@ -1112,6 +1143,8 @@ function Index() {
             setCustomerPhone={setCustomerPhone}
             customerAddress={customerAddress}
             setCustomerAddress={setCustomerAddress}
+            invoiceType={invoiceType}
+            setInvoiceType={setInvoiceType}
             items={items}
             addItem={addItem}
             updateItem={updateItem}
@@ -1209,6 +1242,18 @@ function Index() {
             onSwitchUser={handleLogin}
             onAddUser={handleRegister}
             onLogout={handleLogout}
+            onBack={() => setActivePage('Dashboard')}
+          />
+        );
+
+      case 'Master Item Catalog':
+      case 'Master Item Catalog & API':
+      case 'Add Item (Master Catalog & API)':
+      case 'Add Item':
+        return (
+          <ItemCatalogApi
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
             onBack={() => setActivePage('Dashboard')}
           />
         );

@@ -5,6 +5,7 @@ import {
   testFirebaseConnection,
 } from '../../services/firebase.js';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
+import { COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 const DEFAULT_SETTINGS = {
   defaultGst: '18',
@@ -231,16 +232,57 @@ function AppSettings({ settings, onSaveSettings, onBack }) {
                         {u.code === 'SET' && 'Combo packs, paired products'}
                         {u.code === 'BAG' && 'Cement, grains, heavy bulk bags'}
                         {u.code === 'DOZ' && 'Dozens (units of 12)'}
-                        {u.code === 'QTL' && 'Quintals (100 kg bulk)'}
-                        {u.code === 'TON' && 'Tonnes / Metric Tons'}
-                        {u.code === 'BTL' && 'Bottles, glass/plastic containers'}
-                        {u.code === 'CAN' && 'Cans, tins, beverages'}
-                        {u.code === 'ROL' && 'Tapes, rolls, films, stickers'}
-                        {u.code === 'SQF' && 'Square feet, tiles, ply boards'}
                         {u.code === 'SQM' && 'Square meters, carpeting'}
                         {u.code === 'THD' && 'Thousands count'}
                         {u.code === 'BDL' && 'Bundles, tied units'}
                         {u.code === 'UNT' && 'Generic units'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Master HSN & SAC GST Codes Directory */}
+        <div className="card shadow-sm border-0 mb-4">
+          <div className="card-header bg-white py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+            <div>
+              <h2 className="h5 mb-0 fw-bold">🏷️ Indian GST HSN (Goods) &amp; SAC (Services) Master Directory</h2>
+              <small className="text-muted">
+                Official Harmonized System of Nomenclature (HSN) &amp; Services Accounting Codes (SAC) with standard GST rates.
+              </small>
+            </div>
+            <span className="badge bg-primary px-3 py-2">
+              {COMMON_HSN_SAC_CODES.length} Master Codes
+            </span>
+          </div>
+          <div className="card-body p-0">
+            <div className="table-responsive" style={{ maxHeight: '280px' }}>
+              <table className="table table-sm table-hover align-middle mb-0">
+                <thead className="table-light sticky-top">
+                  <tr>
+                    <th style={{ width: '15%' }}>Code</th>
+                    <th style={{ width: '15%' }}>Type</th>
+                    <th style={{ width: '55%' }}>Commodity / Service Category</th>
+                    <th style={{ width: '15%' }} className="text-center">GST Slab</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMMON_HSN_SAC_CODES.map((item) => (
+                    <tr key={item.code}>
+                      <td className="fw-bold font-monospace text-primary">{item.code}</td>
+                      <td>
+                        <span className={`badge ${item.type === 'SAC' ? 'bg-info text-white' : 'bg-secondary'}`}>
+                          {item.type}
+                        </span>
+                      </td>
+                      <td className="small">{item.name}</td>
+                      <td className="text-center">
+                        <span className="badge bg-primary-subtle text-primary border">
+                          {item.gst}%
+                        </span>
                       </td>
                     </tr>
                   ))}

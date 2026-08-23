@@ -1,14 +1,21 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
+import { validateHSN, COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 function AddItem({ onAddItem, onClose, stockItems = [] }) {
   const [item, setItem] = useState({
     name: '',
+    hsn: '',
     quantity: 1,
     unit: DEFAULT_UNIT,
     price: '',
     gst: 18,
   });
+
+  const hsnAnalysis = useMemo(() => {
+    if (!item.hsn || !item.hsn.trim()) return null;
+    return validateHSN(item.hsn);
+  }, [item.hsn]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -25,6 +32,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
     if (selected) {
       setItem({
         name: selected.name,
+        hsn: selected.hsn || '',
         quantity: 1,
         unit: selected.unit || DEFAULT_UNIT,
         price: selected.rate,
@@ -43,6 +51,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
 
     const newItem = {
       name: item.name.trim(),
+      hsn: item.hsn?.trim() || '',
       quantity: Math.max(1, Number(item.quantity) || 1),
       unit: item.unit || DEFAULT_UNIT,
       price: Math.max(0, Number(item.price) || 0),
@@ -59,6 +68,7 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
 
     setItem({
       name: '',
+      hsn: '',
       quantity: 1,
       unit: DEFAULT_UNIT,
       price: '',
@@ -112,21 +122,66 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
                 </div>
               )}
 
-              <div className="mb-3">
-                <label className="form-label fw-semibold">
-                  Item Name / Description *
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  className="form-control"
-                  placeholder="e.g. Wireless Mouse, Laptop Adapter..."
-                  value={item.name}
-                  onChange={handleChange}
-                  autoFocus
-                  required
-                />
+              <div className="row g-3 mb-3">
+                <div className="col-md-7 col-12">
+                  <label className="form-label fw-semibold">
+                    Item Name / Description *
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    className="form-control"
+                    placeholder="e.g. Wireless Mouse, Laptop Adapter..."
+                    value={item.name}
+                    onChange={handleChange}
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div className="col-md-5 col-12">
+                  <label className="form-label fw-semibold">
+                    HSN / SAC Code (optional)
+                  </label>
+                  <input
+                    type="text"
+                    name="hsn"
+                    className={`form-control font-monospace ${
+                      hsnAnalysis
+                        ? hsnAnalysis.isValid
+                          ? 'is-valid'
+                          : 'is-invalid'
+                        : ''
+                    }`}
+                    placeholder="e.g. 8471, 9983"
+                    value={item.hsn}
+                    onChange={handleChange}
+                    maxLength={8}
+                    list="hsn-suggestions-list"
+                  />
+                  <datalist id="hsn-suggestions-list">
+                    {COMMON_HSN_SAC_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code} - {c.name} ({c.gst}% GST)
+                      </option>
+                    ))}
+                  </datalist>
+                </div>
               </div>
+
+              {/* Real-time HSN Validity Indicator */}
+              {hsnAnalysis && (
+                <div className="mb-3">
+                  {hsnAnalysis.isValid ? (
+                    <div className="alert alert-success py-1 px-2 mb-0 small">
+                      ✓ <strong>{hsnAnalysis.type} [{hsnAnalysis.length} digits]:</strong> {hsnAnalysis.description}
+                    </div>
+                  ) : (
+                    <div className="alert alert-danger py-1 px-2 mb-0 small">
+                      ⚠️ {hsnAnalysis.errorMessage}
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="row g-3 mb-3">
                 <div className="col-4">

@@ -415,7 +415,7 @@ function Reports({ invoices = [], company = {}, onBack }) {
                 <table className="table table-hover table-bordered mb-0 align-middle">
                   <thead className="table-light">
                     <tr>
-                      <th>Invoice No</th>
+                      <th>Invoice No &amp; Mode</th>
                       <th>Date</th>
                       <th>Customer Name</th>
                       <th>Phone</th>
@@ -426,21 +426,38 @@ function Reports({ invoices = [], company = {}, onBack }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredInvoices.map((inv) => (
-                      <tr key={inv.id || inv.invoiceNumber}>
-                        <td className="fw-bold text-primary">{inv.invoiceNumber}</td>
-                        <td>{inv.invoiceDate}</td>
-                        <td>
-                          <div className="fw-semibold">{inv.customerName}</div>
-                          {inv.customerAddress && <small className="text-muted">{inv.customerAddress}</small>}
-                        </td>
-                        <td>{inv.customerPhone || '—'}</td>
-                        <td className="text-center">{inv.items?.length || 0}</td>
-                        <td className="text-end">₹{(inv.totals?.subtotal || 0).toFixed(2)}</td>
-                        <td className="text-end text-success">₹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
-                        <td className="text-end fw-bold">₹{(inv.totals?.total || 0).toFixed(2)}</td>
-                      </tr>
-                    ))}
+                    {filteredInvoices.map((inv) => {
+                      const isCentral = inv.invoiceType === 'central' || inv.isInterState === true;
+
+                      return (
+                        <tr key={inv.id || inv.invoiceNumber}>
+                          <td>
+                            <div className="d-flex flex-column align-items-start gap-1">
+                              <span className="fw-bold text-primary">{inv.invoiceNumber}</span>
+                              {isCentral ? (
+                                <span className="badge bg-primary-subtle text-primary border" style={{ fontSize: '10px' }}>
+                                  🌐 Central (IGST)
+                                </span>
+                              ) : (
+                                <span className="badge bg-success-subtle text-success border" style={{ fontSize: '10px' }}>
+                                  📍 Local (CGST+SGST)
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>{inv.invoiceDate}</td>
+                          <td>
+                            <div className="fw-semibold">{inv.customerName}</div>
+                            {inv.customerAddress && <small className="text-muted">{inv.customerAddress}</small>}
+                          </td>
+                          <td>{inv.customerPhone || '—'}</td>
+                          <td className="text-center">{inv.items?.length || 0}</td>
+                          <td className="text-end">₹{(inv.totals?.subtotal || 0).toFixed(2)}</td>
+                          <td className="text-end text-success">₹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
+                          <td className="text-end fw-bold">₹{(inv.totals?.total || 0).toFixed(2)}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

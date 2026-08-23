@@ -1,5 +1,6 @@
 import { useState, useMemo, useDeferredValue } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { validateGSTIN, GST_STATE_CODES, parseGSTPortalText } from '../../services/gstinValidator.js';
 
 const EMPTY_FORM = {
   name: '',
@@ -20,9 +21,89 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
   const [confirmDelete, setConfirmDelete] = useState(null);
   const deferredSearch = useDeferredValue(search);
 
+  // Dedicated GSTIN Lookup Tool State
+  const [showGstLookupTool, setShowGstLookupTool] = useState(false);
+  const [gstSearchInput, setGstSearchInput] = useState('');
+  const [gstSearchResult, setGstSearchResult] = useState(null);
+
+  // Paste from GST Portal Box State
+  const [showPasteBox, setShowPasteBox] = useState(false);
+  const [pastedPortalText, setPastedPortalText] = useState('');
+
   function EMPTY_ITEM_OR_FORM() {
     return { ...EMPTY_FORM };
   }
+
+  // Real-time analysis for modal form's GSTIN input
+  const formGstinAnalysis = useMemo(() => {
+    if (!form.gstin || !form.gstin.trim()) return null;
+    return validateGSTIN(form.gstin);
+  }, [form.gstin]);
+
+  // Handle Lookup in dedicated search tool
+  const handlePerformGstLookup = (e) => {
+    if (e) e.preventDefault();
+    if (!gstSearchInput.trim()) {
+      alert('Please enter a 15-digit GSTIN number to verify.');
+      return;
+    }
+    const result = validateGSTIN(gstSearchInput.trim());
+    setGstSearchResult(result);
+  };
+
+  // Quick import from verified GST result
+  const handleAddFromGstResult = (targetType = 'Customer') => {
+    if (!gstSearchResult || !gstSearchResult.gstin) return;
+    setForm({
+      ...EMPTY_FORM,
+      type: targetType,
+      gstin: gstSearchResult.gstin,
+      address: gstSearchResult.stateName ? `${gstSearchResult.stateName}, India` : '',
+      notes: `Verified GSTIN registered in ${gstSearchResult.stateName || 'India'} (${gstSearchResult.entityType || 'Business Entity'})`,
+    });
+    setEditingId(null);
+    setShowForm(true);
+  };
+
+  // Auto-fill State Address from GSTIN
+  const handleAutoFillStateAddress = () => {
+    if (!form.gstin || form.gstin.length < 2) {
+      alert('Please enter at least the first 2 digits of the GSTIN (State Code).');
+      return;
+    }
+    const stateCode = form.gstin.slice(0, 2);
+    const stateName = GST_STATE_CODES[stateCode];
+    if (stateName) {
+      setForm((f) => ({
+        ...f,
+        address: `${stateName}, State Code: ${stateCode}, India`,
+      }));
+    } else {
+      alert(`Unrecognized State Code '${stateCode}'.`);
+    }
+  };
+
+  // Parse and apply copied GST Portal details
+  const handleApplyPastedPortalDetails = () => {
+    if (!pastedPortalText.trim()) {
+      alert('Please paste the details or address copied from the GST Portal.');
+      return;
+    }
+    const parsed = parseGSTPortalText(pastedPortalText);
+    if (parsed.success) {
+      setForm((f) => ({
+        ...f,
+        name: parsed.businessName || parsed.legalName || f.name,
+        gstin: parsed.gstin || f.gstin,
+        address: parsed.address || f.address || (parsed.state ? `${parsed.state}, India` : f.address),
+        notes: parsed.status ? `GST Status: ${parsed.status}` : f.notes,
+      }));
+      setPastedPortalText('');
+      setShowPasteBox(false);
+    } else {
+      alert('Could not automatically identify the address or business details. Please check the text and try again.');
+    }
+  };
 
   // Count by category
   const countSalesCustomers = useMemo(
@@ -160,6 +241,14 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
           )}
           <button
             type="button"
+            className={`btn btn-sm fw-semibold ${showGstLookupTool ? 'btn-info text-white' : 'btn-outline-info'}`}
+            onClick={() => setShowGstLookupTool((prev) => !prev)}
+            title="Search and verify any 15-digit GST number"
+          >
+            🔍 {showGstLookupTool ? 'Hide GSTIN Tool' : 'Search & Verify GSTIN'}
+          </button>
+          <button
+            type="button"
             className="btn btn-outline-success btn-sm fw-semibold"
             onClick={exportPartiesCSV}
             disabled={customers.length === 0}
@@ -182,6 +271,137 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
           </button>
         </div>
       </div>
+
+      {/* Dedicated GSTIN Search & Verification Tool */}
+      {showGstLookupTool && (
+        <div className="card shadow-sm border-info mb-4 bg-light">
+          <div className="card-header bg-info text-white py-2 d-flex justify-content-between align-items-center">
+            <span className="fw-bold">🔍 GSTIN Search, Verification & Taxpayer Lookup</span>
+            <button
+              type="button"
+              className="btn-close btn-close-white btn-sm"
+              onClick={() => setShowGstLookupTool(false)}
+            />
+          </div>
+          <div className="card-body">
+            <p className="small text-muted mb-3">
+              Enter any 15-digit Indian GSTIN number to verify its checksum, jurisdiction state, constitution/entity type, and prevent billing mistakes.
+            </p>
+            <form onSubmit={handlePerformGstLookup} className="row g-2 align-items-center mb-3">
+              <div className="col-sm-8 col-12">
+                <div className="input-group">
+                  <span className="input-group-text font-monospace fw-bold bg-white">GSTIN</span>
+                  <input
+                    type="text"
+                    className="form-control text-uppercase font-monospace"
+                    placeholder="e.g. 09ARGPM9069G1Z9, 07AAAAA0000A1Z5"
+                    maxLength={15}
+                    value={gstSearchInput}
+                    onChange={(e) => {
+                      const val = e.target.value.toUpperCase();
+                      setGstSearchInput(val);
+                      if (val.length === 15) {
+                        setGstSearchResult(validateGSTIN(val));
+                      }
+                    }}
+                    autoFocus
+                  />
+                  {gstSearchInput && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => {
+                        setGstSearchInput('');
+                        setGstSearchResult(null);
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="col-sm-4 col-12 d-flex gap-2">
+                <button type="submit" className="btn btn-info text-white flex-grow-1 fw-semibold">
+                  🔍 Check Validity
+                </button>
+              </div>
+            </form>
+
+            {/* Result View */}
+            {gstSearchResult && (
+              <div
+                className={`p-3 rounded-3 border ${
+                  gstSearchResult.isValid
+                    ? 'bg-success-subtle border-success text-success-emphasis'
+                    : 'bg-warning-subtle border-warning text-dark'
+                }`}
+              >
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2 pb-2 border-bottom">
+                  <div>
+                    <span className="badge me-2" style={{ backgroundColor: gstSearchResult.isValid ? '#198754' : '#fd7e14' }}>
+                      {gstSearchResult.isValid ? '✓ Valid GSTIN Structure & Checksum' : '⚠️ GSTIN Requires Review'}
+                    </span>
+                    <strong className="font-monospace fs-5">{gstSearchResult.gstin}</strong>
+                  </div>
+                  <div className="d-flex gap-2">
+                    <a
+                      href={gstSearchResult.portalUrl || `https://services.gst.gov.in/services/searchtp?gstin=${gstSearchResult.gstin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm btn-outline-dark fw-semibold"
+                    >
+                      🌐 Official GST Portal Lookup ↗
+                    </a>
+                  </div>
+                </div>
+
+                <div className="row g-2 small">
+                  <div className="col-md-3 col-6">
+                    <span className="text-muted d-block">State / Jurisdiction:</span>
+                    <strong>{gstSearchResult.stateName || 'Unknown State'} ({gstSearchResult.stateCode || '—'})</strong>
+                  </div>
+                  <div className="col-md-3 col-6">
+                    <span className="text-muted d-block">Constitution / Entity:</span>
+                    <strong>{gstSearchResult.entityType || '—'}</strong>
+                  </div>
+                  <div className="col-md-3 col-6">
+                    <span className="text-muted d-block">Associated PAN:</span>
+                    <strong className="font-monospace">{gstSearchResult.pan || '—'}</strong>
+                  </div>
+                  <div className="col-md-3 col-6">
+                    <span className="text-muted d-block">Mod-36 Checksum:</span>
+                    <strong>{gstSearchResult.isChecksumValid ? 'Verified Match ✓' : 'Mismatch / Manual Check'}</strong>
+                  </div>
+                </div>
+
+                {gstSearchResult.errorMessage && (
+                  <div className="alert alert-danger py-1 px-2 mt-2 mb-0 small">
+                    {gstSearchResult.errorMessage}
+                  </div>
+                )}
+
+                <div className="mt-3 pt-2 border-top d-flex gap-2 flex-wrap">
+                  <span className="small text-muted align-self-center me-1">Quick Action:</span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-success"
+                    onClick={() => handleAddFromGstResult('Customer')}
+                  >
+                    ＋ Add as Sales Customer
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    onClick={() => handleAddFromGstResult('Vendor')}
+                  >
+                    ＋ Add as Purchase Vendor
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
@@ -342,7 +562,25 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
                         <td>{customer.email || <span className="text-muted">—</span>}</td>
                         <td>
                           {customer.gstin ? (
-                            <code className="small">{customer.gstin}</code>
+                            <div>
+                              <div className="d-flex align-items-center gap-1">
+                                <code className="fw-bold text-dark">{customer.gstin}</code>
+                                <a
+                                  href={`https://services.gst.gov.in/services/searchtp?gstin=${customer.gstin}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-decoration-none text-primary small fw-bold"
+                                  title="Verify on Official GST Portal"
+                                >
+                                  ↗
+                                </a>
+                              </div>
+                              {GST_STATE_CODES[customer.gstin.slice(0, 2)] && (
+                                <span className="badge bg-light text-secondary border font-monospace mt-1" style={{ fontSize: '0.7rem' }}>
+                                  📍 {GST_STATE_CODES[customer.gstin.slice(0, 2)]}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-muted">—</span>
                           )}
@@ -472,25 +710,121 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">GSTIN Number (optional)</label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. 09AAAAA0000A1Z5"
-                      value={form.gstin}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))
-                      }
-                      maxLength={15}
-                    />
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <label className="form-label fw-semibold mb-0">GSTIN Number (optional)</label>
+                      {form.gstin && (
+                        <a
+                          href={`https://services.gst.gov.in/services/searchtp?gstin=${form.gstin}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="small text-decoration-none"
+                        >
+                          Check on GST Portal ↗
+                        </a>
+                      )}
+                    </div>
+                    <div className="input-group">
+                      <span className="input-group-text font-monospace small bg-white">15-char</span>
+                      <input
+                        type="text"
+                        className={`form-control font-monospace ${
+                          formGstinAnalysis
+                            ? formGstinAnalysis.isValid
+                              ? 'is-valid'
+                              : 'is-invalid'
+                            : ''
+                        }`}
+                        placeholder="e.g. 09ARGPM9069G1Z9"
+                        value={form.gstin}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))
+                        }
+                        maxLength={15}
+                      />
+                    </div>
+
+                    {/* Real-time GSTIN validation feedback */}
+                    {formGstinAnalysis && (
+                      <div className="mt-2">
+                        {formGstinAnalysis.isValid ? (
+                          <div className="alert alert-success py-1 px-2 mb-0 small d-flex justify-content-between align-items-center">
+                            <span>
+                              ✓ <strong>Valid GSTIN:</strong> {formGstinAnalysis.stateName} ({formGstinAnalysis.entityType})
+                            </span>
+                            <span className="badge bg-success">Verified</span>
+                          </div>
+                        ) : (
+                          <div className="alert alert-danger py-1 px-2 mb-0 small">
+                            ⚠️ {formGstinAnalysis.errorMessage}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold">Billing / Office Address</label>
+                    <div className="d-flex justify-content-between align-items-center mb-1 flex-wrap gap-1">
+                      <label className="form-label fw-semibold mb-0">Billing / Office Address</label>
+                      <div className="d-flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline-secondary py-0 px-2 small"
+                          onClick={handleAutoFillStateAddress}
+                          title="Auto-fill registered State and Code from GSTIN"
+                        >
+                          📍 Auto-Fill State
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-xs btn-outline-primary py-0 px-2 small fw-semibold"
+                          onClick={() => setShowPasteBox((prev) => !prev)}
+                          title="Paste full taxpayer address details copied from GST portal"
+                        >
+                          📋 {showPasteBox ? 'Hide Paste Box' : 'Paste from GST Portal'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Paste from GST Portal Collapsible Box */}
+                    {showPasteBox && (
+                      <div className="p-3 bg-light border rounded-3 mb-2 small">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <strong className="text-primary">📋 Paste GST Portal Details / Address:</strong>
+                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>Auto-extracts Name, Address & Pincode</span>
+                        </div>
+                        <textarea
+                          className="form-control form-control-sm mb-2 font-monospace"
+                          rows={3}
+                          placeholder="Copy taxpayer screen or Principal Place of Business address from services.gst.gov.in and paste here..."
+                          value={pastedPortalText}
+                          onChange={(e) => setPastedPortalText(e.target.value)}
+                        />
+                        <div className="d-flex gap-2 justify-content-end">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-secondary py-0 px-2"
+                            onClick={() => {
+                              setPastedPortalText('');
+                              setShowPasteBox(false);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary py-0 px-3 fw-bold"
+                            onClick={handleApplyPastedPortalDetails}
+                          >
+                            📥 Extract & Apply Address
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <textarea
                       className="form-control"
                       rows={2}
-                      placeholder="Street, City, State, PIN"
+                      placeholder="Principal Place of Business / Billing Street, City, State, PIN"
                       value={form.address}
                       onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
                     />

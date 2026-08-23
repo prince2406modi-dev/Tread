@@ -1,4 +1,4 @@
-﻿import { jsPDF } from "jspdf";
+import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 
 // Helper function to convert numeric amount into Indian English Words
@@ -224,7 +224,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original Copy') {
 
     // Price and tax calculation
     const baseAmount = qty * rate;
-    const isInterState = invoice.isInterState || false;
+    const isInterState = invoice.invoiceType === 'central' || invoice.isInterState || false;
     const halfGstPct = gstPct / 2;
 
     const totalTax = (baseAmount * gstPct) / 100;

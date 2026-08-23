@@ -36,7 +36,7 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
         const rate = Number(item.rate ?? item.price ?? 0) || 0;
         const gstPct = Number(item.gstPercent ?? item.gst ?? 0) || 0;
         const baseAmount = qty * rate;
-        const isInterState = invoice?.isInterState || false;
+        const isInterState = invoice?.invoiceType === 'central' || invoice?.isInterState || false;
         const halfGstPct = gstPct / 2;
 
         const totalTax = (baseAmount * gstPct) / 100;

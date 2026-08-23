@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import Logo from '../../assets/Images/Logo.png';
+import { cloudAuthenticateUser, cloudRegisterUser } from '../../services/authApi.js';
 
 const PLANS = [
   {
@@ -64,6 +65,7 @@ function Login({ users = [], onLogin, onRegister }) {
 
   // Form states
   const [username, setUsername] = useState('');
+  const [loginMobile, setLoginMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -78,6 +80,7 @@ function Login({ users = [], onLogin, onRegister }) {
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvv, setCardCvv] = useState('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [paymentSuccessData, setPaymentSuccessData] = useState(null);
 
   const [error, setError] = useState('');
@@ -90,38 +93,64 @@ function Login({ users = [], onLogin, onRegister }) {
     [selectedPlan]
   );
 
-  // Handle Login Submission
-  const handleLoginSubmit = (e) => {
+  // Handle Login Submission via Cross-Device Cloud Auth API (ID + Mobile + Password)
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     const trimmedUser = username.trim();
+    const trimmedMobile = loginMobile.trim().replace(/\D/g, '');
     const trimmedPass = password.trim();
 
-    if (!trimmedUser || !trimmedPass) {
-      setError('Please enter both User ID and Password.');
+    if (!trimmedUser) {
+      setError('Please enter your User ID or Username.');
       return;
     }
 
-    const account = users.find(
-      (u) => u.username.toLowerCase() === trimmedUser.toLowerCase()
-    );
-
-    if (!account || account.password !== trimmedPass) {
-      setError('Invalid User ID or Password. If you do not have an account, please sign up and choose a plan.');
+    if (!trimmedMobile || trimmedMobile.length < 10) {
+      setError('Please enter your registered 10-digit Mobile Number.');
       return;
     }
 
-    onLogin(account.username);
+    if (!trimmedPass) {
+      setError('Please enter your Password.');
+      return;
+    }
+
+    setIsAuthenticating(true);
     setError('');
+
+    try {
+      const authResult = await cloudAuthenticateUser(trimmedUser, trimmedMobile, trimmedPass);
+      if (authResult.success) {
+        onLogin(authResult.user.username);
+      } else {
+        setError(authResult.message);
+      }
+    } catch (err) {
+      setError(`Authentication error: ${err.message}`);
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
   // Step 1: Validate Registration Details & proceed to Plan & Payment
   const handleStep1Next = (e) => {
     e.preventDefault();
     const trimmedUser = username.trim();
+    const cleanPhone = phone.trim().replace(/\D/g, '');
     const trimmedPass = password.trim();
 
-    if (!trimmedUser || !trimmedPass) {
-      setError('Please fill in User ID and Password.');
+    if (!trimmedUser) {
+      setError('Please fill in User ID / Username.');
+      return;
+    }
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      setError('Please enter a valid 10-digit mobile number for account login & recovery.');
+      return;
+    }
+
+    if (!trimmedPass) {
+      setError('Please enter a password.');
       return;
     }
 
@@ -193,8 +222,10 @@ function Login({ users = [], onLogin, onRegister }) {
       setPaymentSuccessData(registrationData);
       setStep(3);
 
-      // Register new user with active paid subscription
-      onRegister(registrationData);
+      // Register new user with active paid subscription across cloud & local
+      cloudRegisterUser(registrationData).then(() => {
+        onRegister(registrationData);
+      });
     }, 1800);
   };
 
@@ -228,7 +259,7 @@ function Login({ users = [], onLogin, onRegister }) {
             <div className="text-center mb-4">
               <h2 className="h5 fw-bold text-dark mb-1">🔐 Sign In to Your Account</h2>
               <p className="text-muted small mb-0">
-                Enter your registered User ID and Password to access your dashboard.
+                Log in from any device or network (IP independent) with your User ID, Mobile No. & Password.
               </p>
             </div>
 
@@ -236,23 +267,39 @@ function Login({ users = [], onLogin, onRegister }) {
 
             <form onSubmit={handleLoginSubmit} autoComplete="off">
               <div className="mb-3">
-                <label className="form-label fw-semibold small">User ID / Username *</label>
+                <label className="form-label fw-semibold small">1. User ID / Username / Email *</label>
                 <input
                   type="text"
-                  className="form-control"
+                  className="form-control font-monospace"
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value);
                     clearError();
                   }}
-                  placeholder="Enter your User ID"
+                  placeholder="e.g. admin or your username"
                   autoFocus
                   required
                 />
               </div>
 
+              <div className="mb-3">
+                <label className="form-label fw-semibold small">2. Registered Mobile Number (10 Digits) *</label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  className="form-control font-monospace"
+                  value={loginMobile}
+                  onChange={(e) => {
+                    setLoginMobile(e.target.value.replace(/\D/g, ''));
+                    clearError();
+                  }}
+                  placeholder="Enter 10-digit registered mobile number"
+                  required
+                />
+              </div>
+
               <div className="mb-4">
-                <label className="form-label fw-semibold small">Password *</label>
+                <label className="form-label fw-semibold small">3. Password *</label>
                 <input
                   type="password"
                   className="form-control"
@@ -267,8 +314,12 @@ function Login({ users = [], onLogin, onRegister }) {
               </div>
 
               <div className="d-grid gap-2 mb-3">
-                <button type="submit" className="btn btn-primary py-2 fw-bold shadow-sm">
-                  🔓 Sign In to Dashboard
+                <button
+                  type="submit"
+                  className="btn btn-primary py-2 fw-bold shadow-sm"
+                  disabled={isAuthenticating}
+                >
+                  {isAuthenticating ? '⏳ Verifying credentials across devices...' : '🔓 Sign In to Dashboard'}
                 </button>
               </div>
             </form>
@@ -285,7 +336,7 @@ function Login({ users = [], onLogin, onRegister }) {
                     clearError();
                   }}
                 >
-                  💳 Sign Up & Subscribe
+                  Create Account &amp; Subscribe
                 </button>
               </div>
             </div>
@@ -293,28 +344,55 @@ function Login({ users = [], onLogin, onRegister }) {
         )}
 
         {/* =========================================================
-            MODE 2: SIGN UP (PAID SUBSCRIPTION FLOW)
+            MODE 2: SIGN UP & PAID REGISTRATION
             ========================================================= */}
         {mode === 'signup' && (
           <div>
-            {/* Step Indicators */}
-            <div className="d-flex justify-content-between align-items-center mb-4 px-2">
-              <div className={`text-center ${step >= 1 ? 'text-primary fw-bold' : 'text-muted'}`}>
-                <div className={`rounded-circle d-inline-flex justify-content-center align-items-center mb-1 ${step >= 1 ? 'bg-primary text-white' : 'bg-light text-muted'}`} style={{ width: '28px', height: '28px', fontSize: '13px' }}>
+            {/* Step Progress Tracker */}
+            <div className="d-flex justify-content-between align-items-center mb-4 position-relative">
+              <div className="text-center" style={{ zIndex: 2, flex: 1 }}>
+                <div
+                  className={`rounded-circle mx-auto d-flex align-items-center justify-content-center fw-bold ${
+                    step >= 1 ? 'bg-primary text-white' : 'bg-light text-muted border'
+                  }`}
+                  style={{ width: '36px', height: '36px' }}
+                >
                   1
                 </div>
-                <div style={{ fontSize: '11.5px' }}>Account Details</div>
+                <div style={{ fontSize: '11.5px' }} className="fw-semibold mt-1">
+                  Details
+                </div>
               </div>
-              <div className="flex-grow-1 border-top mx-2" />
-              <div className={`text-center ${step >= 2 ? 'text-primary fw-bold' : 'text-muted'}`}>
-                <div className={`rounded-circle d-inline-flex justify-content-center align-items-center mb-1 ${step >= 2 ? 'bg-primary text-white' : 'bg-light text-muted'}`} style={{ width: '28px', height: '28px', fontSize: '13px' }}>
+              <div
+                className="position-absolute top-0 start-50 translate-middle-x"
+                style={{
+                  height: '2px',
+                  width: '60%',
+                  backgroundColor: '#dee2e6',
+                  zIndex: 1,
+                  marginTop: '18px',
+                }}
+              />
+              <div className="text-center" style={{ zIndex: 2, flex: 1 }}>
+                <div
+                  className={`rounded-circle mx-auto d-flex align-items-center justify-content-center fw-bold ${
+                    step >= 2 ? 'bg-primary text-white' : 'bg-light text-muted border'
+                  }`}
+                  style={{ width: '36px', height: '36px' }}
+                >
                   2
                 </div>
-                <div style={{ fontSize: '11.5px' }}>Plan & Payment</div>
+                <div style={{ fontSize: '11.5px' }} className="mt-1">
+                  Plan & Pay
+                </div>
               </div>
-              <div className="flex-grow-1 border-top mx-2" />
-              <div className={`text-center ${step === 3 ? 'text-success fw-bold' : 'text-muted'}`}>
-                <div className={`rounded-circle d-inline-flex justify-content-center align-items-center mb-1 ${step === 3 ? 'bg-success text-white' : 'bg-light text-muted'}`} style={{ width: '28px', height: '28px', fontSize: '13px' }}>
+              <div className="text-center" style={{ zIndex: 2, flex: 1 }}>
+                <div
+                  className={`rounded-circle mx-auto d-flex align-items-center justify-content-center fw-bold ${
+                    step >= 3 ? 'bg-success text-white' : 'bg-light text-muted border'
+                  }`}
+                  style={{ width: '36px', height: '36px' }}
+                >
                   ✓
                 </div>
                 <div style={{ fontSize: '11.5px' }}>Activation</div>
@@ -329,7 +407,7 @@ function Login({ users = [], onLogin, onRegister }) {
                 <div className="text-center mb-3">
                   <h2 className="h5 fw-bold text-dark mb-1">📝 Step 1: Create Account Details</h2>
                   <p className="text-muted small mb-0">
-                    Enter your business and security information to get started.
+                    Enter your business and security credentials to get started.
                   </p>
                 </div>
 
@@ -360,13 +438,18 @@ function Login({ users = [], onLogin, onRegister }) {
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Mobile Number</label>
+                    <label className="form-label fw-semibold small">Mobile Number (10 Digits) *</label>
                     <input
                       type="tel"
-                      className="form-control"
+                      maxLength={10}
+                      className="form-control font-monospace"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="e.g. 9871772123"
+                      onChange={(e) => {
+                        setPhone(e.target.value.replace(/\D/g, ''));
+                        clearError();
+                      }}
+                      placeholder="Enter 10-digit mobile number"
+                      required
                     />
                   </div>
                   <div className="col-md-6">
@@ -376,7 +459,7 @@ function Login({ users = [], onLogin, onRegister }) {
                       className="form-control"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="e.g. info@priyasales.com"
+                      placeholder="e.g. name@company.com"
                     />
                   </div>
                   <div className="col-md-6">
@@ -532,7 +615,7 @@ function Login({ users = [], onLogin, onRegister }) {
                         <input
                           type="text"
                           className="form-control"
-                          placeholder="e.g. 9871772123@upi or merchant@okaxis"
+                          placeholder="e.g. yourbusiness@upi or merchant@okaxis"
                           value={upiId}
                           onChange={(e) => setUpiId(e.target.value)}
                         />

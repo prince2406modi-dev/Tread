@@ -4,6 +4,10 @@ import PurchaseBillEntry from './PurchaseBillEntry.jsx';
 import PurchaseImportFile from './PurchaseImportFile.jsx';
 import PurchaseBillsList from './PurchaseBillsList.jsx';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
+import {
+  validateHSN,
+  searchHSNCatalog,
+} from '../../services/hsnValidator.js';
 
 const EMPTY_STOCK_ITEM = {
   name: '',
@@ -23,7 +27,7 @@ function StockManagement({
   onSaveVendor,
   onBack,
 }) {
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'manual-bill' | 'import-file' | 'purchase-history'
+  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'manual-bill' | 'import-file' | 'purchase-history' | 'hsn-lookup'
   const [items, setItems] = useState(stockItems);
   const [search, setSearch] = useState('');
   const [filterLowStock, setFilterLowStock] = useState(false);
@@ -31,6 +35,20 @@ function StockManagement({
   const [editingStockId, setEditingStockId] = useState(null);
   const [stockForm, setStockForm] = useState(EMPTY_STOCK_ITEM);
   const deferredSearch = useDeferredValue(search);
+
+  // HSN Lookup Tool State
+  const [hsnLookupQuery, setHsnLookupQuery] = useState('');
+  const [hsnCustomInput, setHsnCustomInput] = useState('');
+  const [hsnCustomResult, setHsnCustomResult] = useState(null);
+
+  const stockFormHsnAnalysis = useMemo(() => {
+    if (!stockForm.hsn || !stockForm.hsn.trim()) return null;
+    return validateHSN(stockForm.hsn);
+  }, [stockForm.hsn]);
+
+  const searchedHsnList = useMemo(() => {
+    return searchHSNCatalog(hsnLookupQuery);
+  }, [hsnLookupQuery]);
 
   const updateStock = (newItems) => {
     setItems(newItems);
@@ -437,6 +455,15 @@ function StockManagement({
             📋 Purchase Bills History ({(purchaseBills || []).length})
           </button>
         </li>
+        <li className="nav-item">
+          <button
+            type="button"
+            className={`nav-link fw-bold ${activeTab === 'hsn-lookup' ? 'active text-white' : ''}`}
+            onClick={() => setActiveTab('hsn-lookup')}
+          >
+            🔍 HSN / SAC Directory & Validator
+          </button>
+        </li>
       </ul>
 
       {/* TAB 1: CURRENT STOCK INVENTORY */}
@@ -647,6 +674,208 @@ function StockManagement({
         />
       )}
 
+      {/* TAB 5: HSN / SAC CODE DIRECTORY & VALIDITY CHECKER */}
+      {activeTab === 'hsn-lookup' && (
+        <div className="row g-4">
+          <div className="col-lg-5 col-12">
+            {/* Live HSN Check Tool Card */}
+            <div className="card shadow-sm border-0 mb-4">
+              <div className="card-header bg-primary text-white py-3">
+                <h2 className="h5 mb-0 fw-bold">🔍 Live HSN / SAC Code Validity Analyzer</h2>
+                <small className="text-white-50">Validate code length, chapter classification, and GST rules.</small>
+              </div>
+              <div className="card-body">
+                <div className="mb-3">
+                  <label className="form-label fw-semibold">Enter HSN / SAC Code to Check:</label>
+                  <div className="input-group">
+                    <input
+                      type="text"
+                      className="form-control font-monospace fs-5 text-uppercase"
+                      placeholder="e.g. 8471, 9983, 6109"
+                      maxLength={8}
+                      value={hsnCustomInput}
+                      onChange={(e) => {
+                        const val = e.target.value.trim();
+                        setHsnCustomInput(val);
+                        if (val) {
+                          setHsnCustomResult(validateHSN(val));
+                        } else {
+                          setHsnCustomResult(null);
+                        }
+                      }}
+                    />
+                    {hsnCustomInput && (
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary"
+                        onClick={() => {
+                          setHsnCustomInput('');
+                          setHsnCustomResult(null);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <small className="text-muted">Accepts 2, 4, 6, or 8-digit numeric codes.</small>
+                </div>
+
+                {hsnCustomResult && (
+                  <div
+                    className={`p-3 rounded-3 border ${
+                      hsnCustomResult.isValid
+                        ? 'bg-success-subtle border-success text-dark'
+                        : 'bg-danger-subtle border-danger text-dark'
+                    }`}
+                  >
+                    <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                      <span className={`badge ${hsnCustomResult.isValid ? 'bg-success' : 'bg-danger'}`}>
+                        {hsnCustomResult.isValid ? '✓ Valid Structure' : '❌ Invalid Code'}
+                      </span>
+                      <strong className="font-monospace fs-5">{hsnCustomResult.code}</strong>
+                    </div>
+
+                    {hsnCustomResult.isValid ? (
+                      <div className="small">
+                        <div className="mb-1">
+                          <span className="text-muted">Classification: </span>
+                          <strong>{hsnCustomResult.type} ({hsnCustomResult.length} Digits)</strong>
+                        </div>
+                        <div className="mb-1">
+                          <span className="text-muted">Description / Chapter: </span>
+                          <strong>{hsnCustomResult.description}</strong>
+                        </div>
+                        {hsnCustomResult.suggestedGst && (
+                          <div className="mb-1">
+                            <span className="text-muted">Standard GST Slab: </span>
+                            <span className="badge bg-primary">{hsnCustomResult.suggestedGst}% GST</span>
+                          </div>
+                        )}
+                        <div className="p-2 bg-white rounded border mt-2">
+                          <span className="text-muted d-block">💡 GST Turnover Rule:</span>
+                          <span>{hsnCustomResult.recommendation}</span>
+                        </div>
+
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-primary w-100 fw-bold"
+                            onClick={() => {
+                              setStockForm({
+                                ...EMPTY_STOCK_ITEM,
+                                name: hsnCustomResult.description,
+                                hsn: hsnCustomResult.code,
+                                gst: hsnCustomResult.suggestedGst || 18,
+                              });
+                              setEditingStockId(null);
+                              setShowAddModal(true);
+                            }}
+                          >
+                            ＋ Create Stock Product from this HSN
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-danger small fw-semibold">
+                        {hsnCustomResult.errorMessage}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-lg-7 col-12">
+            {/* Common HSN / SAC Master Catalog */}
+            <div className="card shadow-sm border-0">
+              <div className="card-header bg-white py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
+                <div>
+                  <h2 className="h5 mb-0 fw-bold">📚 Common Trade HSN &amp; SAC Master Catalog</h2>
+                  <small className="text-muted">Instant lookup across commodities, electronics, textiles &amp; services.</small>
+                </div>
+                <span className="badge bg-primary px-3 py-2">
+                  {searchedHsnList.length} Items Available
+                </span>
+              </div>
+              <div className="p-3 border-bottom bg-light">
+                <div className="input-group input-group-sm">
+                  <span className="input-group-text bg-white">🔍</span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Search by commodity name, keyword (computer, fabric, mobile, legal), or HSN..."
+                    value={hsnLookupQuery}
+                    onChange={(e) => setHsnLookupQuery(e.target.value)}
+                  />
+                  {hsnLookupQuery && (
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => setHsnLookupQuery('')}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="card-body p-0">
+                <div className="table-responsive" style={{ maxHeight: '420px' }}>
+                  <table className="table table-sm table-hover align-middle mb-0">
+                    <thead className="table-light sticky-top">
+                      <tr>
+                        <th style={{ width: '15%' }}>Code</th>
+                        <th style={{ width: '12%' }}>Type</th>
+                        <th style={{ width: '50%' }}>Description / Commodity</th>
+                        <th style={{ width: '13%' }} className="text-center">GST</th>
+                        <th style={{ width: '10%' }} className="text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {searchedHsnList.map((item) => (
+                        <tr key={item.code}>
+                          <td className="fw-bold font-monospace text-primary">{item.code}</td>
+                          <td>
+                            <span className={`badge ${item.type === 'SAC' ? 'bg-info text-white' : 'bg-secondary'}`}>
+                              {item.type}
+                            </span>
+                          </td>
+                          <td className="small">{item.name}</td>
+                          <td className="text-center">
+                            <span className="badge bg-primary-subtle text-primary border">
+                              {item.gst}%
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            <button
+                              type="button"
+                              className="btn btn-xs btn-outline-primary py-0 px-2 small"
+                              title="Use in new stock item"
+                              onClick={() => {
+                                setStockForm({
+                                  ...EMPTY_STOCK_ITEM,
+                                  name: item.name,
+                                  hsn: item.code,
+                                  gst: item.gst,
+                                });
+                                setEditingStockId(null);
+                                setShowAddModal(true);
+                              }}
+                            >
+                              ＋ Use
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: SINGLE PRODUCT ADD / EDIT */}
       {showAddModal && (
         <div
@@ -689,8 +918,15 @@ function StockManagement({
                       <label className="form-label fw-semibold">HSN / SAC Code</label>
                       <input
                         type="text"
-                        className="form-control"
+                        className={`form-control font-monospace ${
+                          stockFormHsnAnalysis
+                            ? stockFormHsnAnalysis.isValid
+                              ? 'is-valid'
+                              : 'is-invalid'
+                            : ''
+                        }`}
                         placeholder="e.g. 8471"
+                        maxLength={8}
                         value={stockForm.hsn}
                         onChange={(e) =>
                           setStockForm((f) => ({ ...f, hsn: e.target.value }))
@@ -714,6 +950,21 @@ function StockManagement({
                       </select>
                     </div>
                   </div>
+
+                  {/* Real-time Modal HSN Validation Pill */}
+                  {stockFormHsnAnalysis && (
+                    <div className="mb-3">
+                      {stockFormHsnAnalysis.isValid ? (
+                        <div className="alert alert-success py-1 px-2 mb-0 small">
+                          ✓ <strong>{stockFormHsnAnalysis.type}:</strong> {stockFormHsnAnalysis.description}
+                        </div>
+                      ) : (
+                        <div className="alert alert-danger py-1 px-2 mb-0 small">
+                          ⚠️ {stockFormHsnAnalysis.errorMessage}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="row g-3 mb-3">
                     <div className="col-6">

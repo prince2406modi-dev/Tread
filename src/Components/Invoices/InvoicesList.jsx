@@ -12,12 +12,26 @@ function InvoicesList({
   onNavigate
 }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'local' | 'central'
   const [sortBy, setSortBy] = useState('date-desc');
   const [selectedInvoiceForPreview, setSelectedInvoiceForPreview] = useState(null);
   const deferredSearchTerm = useDeferredValue(searchTerm);
 
+  const localCount = useMemo(() => {
+    return invoices.filter((inv) => inv.invoiceType === 'local' || (!inv.invoiceType && !inv.isInterState)).length;
+  }, [invoices]);
+
+  const centralCount = useMemo(() => {
+    return invoices.filter((inv) => inv.invoiceType === 'central' || inv.isInterState === true).length;
+  }, [invoices]);
+
   const filteredInvoices = useMemo(() => {
     let result = invoices.filter((inv) => {
+      // Filter by invoice type (Local vs Central)
+      const isCentral = inv.invoiceType === 'central' || inv.isInterState === true;
+      if (typeFilter === 'local' && isCentral) return false;
+      if (typeFilter === 'central' && !isCentral) return false;
+
       if (!deferredSearchTerm) return true;
       const term = deferredSearchTerm.toLowerCase();
       const numMatch = inv.invoiceNumber?.toLowerCase().includes(term);
@@ -43,7 +57,7 @@ function InvoicesList({
     });
 
     return result;
-  }, [invoices, deferredSearchTerm, sortBy]);
+  }, [invoices, typeFilter, deferredSearchTerm, sortBy]);
 
   return (
     <div className="py-3">
@@ -82,8 +96,41 @@ function InvoicesList({
       {/* Filter and Search Bar */}
       <div className="card shadow-sm border-0 mb-4">
         <div className="card-body">
+          {/* 1-Click Local vs Central Switcher Tabs */}
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-3 border-bottom">
+            <div className="d-flex align-items-center gap-2">
+              <span className="fw-semibold small text-muted">Filter By GST Mode:</span>
+              <div className="btn-group btn-group-sm shadow-sm" role="group" aria-label="Invoice Type Filter">
+                <button
+                  type="button"
+                  className={`btn fw-bold px-3 ${typeFilter === 'all' ? 'btn-dark' : 'btn-outline-secondary bg-white'}`}
+                  onClick={() => setTypeFilter('all')}
+                >
+                  📋 All Invoices ({invoices.length})
+                </button>
+                <button
+                  type="button"
+                  className={`btn fw-bold px-3 ${typeFilter === 'local' ? 'btn-success text-white' : 'btn-outline-secondary bg-white'}`}
+                  onClick={() => setTypeFilter('local')}
+                >
+                  📍 Local Invoices ({localCount})
+                </button>
+                <button
+                  type="button"
+                  className={`btn fw-bold px-3 ${typeFilter === 'central' ? 'btn-primary text-white' : 'btn-outline-secondary bg-white'}`}
+                  onClick={() => setTypeFilter('central')}
+                >
+                  🌐 Central Invoices ({centralCount})
+                </button>
+              </div>
+            </div>
+            <div className="text-muted small">
+              Showing <strong>{filteredInvoices.length}</strong> of {invoices.length} records
+            </div>
+          </div>
+
           <div className="row g-3 align-items-center">
-            <div className="col-md-6">
+            <div className="col-md-8">
               <div className="input-group">
                 <span className="input-group-text bg-white">🔍</span>
                 <input
@@ -105,7 +152,7 @@ function InvoicesList({
               </div>
             </div>
 
-            <div className="col-md-3">
+            <div className="col-md-4">
               <select
                 className="form-select"
                 value={sortBy}
@@ -116,10 +163,6 @@ function InvoicesList({
                 <option value="amount-desc">Sort by: Amount (High to Low)</option>
                 <option value="amount-asc">Sort by: Amount (Low to High)</option>
               </select>
-            </div>
-
-            <div className="col-md-3 text-md-end text-muted small">
-              Showing <strong>{filteredInvoices.length}</strong> of {invoices.length} records
             </div>
           </div>
         </div>
@@ -147,7 +190,7 @@ function InvoicesList({
                 <>
                   <div className="fs-2 mb-2">🔍</div>
                   <h2 className="h5">No Matching Results</h2>
-                  <p>No invoices matched your search query "{searchTerm}".</p>
+                  <p>No invoices matched your filter criteria.</p>
                 </>
               )}
             </div>
@@ -156,7 +199,7 @@ function InvoicesList({
               <table className="table table-hover align-middle mb-0">
                 <thead className="table-light">
                   <tr>
-                    <th>Invoice No.</th>
+                    <th>Invoice No. & Mode</th>
                     <th>Customer Name</th>
                     <th>Date</th>
                     <th className="text-center">Items</th>
@@ -172,13 +215,25 @@ function InvoicesList({
                     const subtotal = invoice.totals?.subtotal || 0;
                     const gst = invoice.totals?.totalGst || 0;
                     const total = invoice.totals?.total || 0;
+                    const isCentral = invoice.invoiceType === 'central' || invoice.isInterState === true;
 
                     return (
                       <tr key={invoice.id}>
                         <td>
-                          <span className="badge bg-light text-primary border fw-bold fs-6">
-                            {invoice.invoiceNumber}
-                          </span>
+                          <div className="d-flex flex-column align-items-start gap-1">
+                            <span className="badge bg-light text-primary border fw-bold fs-6">
+                              {invoice.invoiceNumber}
+                            </span>
+                            {isCentral ? (
+                              <span className="badge bg-primary-subtle text-primary border" style={{ fontSize: '10px' }}>
+                                🌐 Central (IGST)
+                              </span>
+                            ) : (
+                              <span className="badge bg-success-subtle text-success border" style={{ fontSize: '10px' }}>
+                                📍 Local (CGST+SGST)
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td>
                           <div className="fw-semibold">{invoice.customerName || 'Walk-in Customer'}</div>

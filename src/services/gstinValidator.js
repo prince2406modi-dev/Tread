@@ -1,3 +1,5 @@
+// Indian GSTIN (Goods and Services Tax Identification Number) Validator & Parser
+
 export const GST_STATE_CODES = {
   '01': 'Jammu and Kashmir',
   '02': 'Himachal Pradesh',
@@ -48,4 +50,223 @@ export const PAN_ENTITY_TYPES = {
   'A': 'Association of Persons (AOP)',
   'T': 'Trust / NGO',
   'B': 'Body of Individuals (BOI)',
-  'G�âtv�fW&��V�BvV�7�r��t�s�t'F�f�6���W&�F�6�W'6��r��t�s�t��6�WF��&�G���V�6��r��Ӱ��6��7B4�%2�s#3CScs��$4DTdt��������%5EUeu���s���򢠢�6�7V�FW2F�RW�V7FVBWF�6�V6�7V�6�&7FW"W6��r7F�F&B��B3b�V���v�&�F�����W��'BgV�7F���6�7V�FTu5D��6�V6�7V҆f�'7CD6�'2����b�f�'7CD6�'2��f�'7CD6�'2��V�wF���B�&WGW&��V�ð�6��7BWW"�f�'7CD6�'2�F�WW$66R�����WB7V�����f�"��WB�����C�������6��7B6�"�WW%��Ӱ�6��7Bf��4�%2��FW��b�6�"����b�f������&WGW&��V�ð����vV�v�Bf7F�#�f�"WfV���FW���"�B����"f�"�FB��FW���2�R��␢6��7Bf7F�"���R"������#��6��7B&�GV7B�f��f7F�#��6��7BV�F�V�B��F��f���"�&�GV7B�3b���6��7B&V���FW"�&�GV7BR3c��7V���V�F�V�B�&V���FW#��Р�6��7B6�V6�6�FR��3b��7V�R3b��R3c��&WGW&�4�%5�6�V6�6�FUӰ�Р�򢠢�fƖFFW2�B'6W2u5D��7G&��r��&WGW&�2FWF��VB�Ǘ6�2�7FFR��f��V�F�G�G�R��BW'&�"&V6���b��fƖB���W��'BgV�7F���fƖFFTu5D��w7F���WB����b�w7F���WB��G�V�bw7F���WB��w7G&��rr���&WGW&����5fƖC�f�6R��w7F��rr��W'&�$�W76vS�tu5D���2V�G��r��Ӱ�Р�6��7Bw7F���w7F���WB�G&�҂��F�WW$66R������b�w7F����V�wF���R���&WGW&����5fƖC�f�6R��w7F����W'&�$�W76vS�u5D���W7B&RW�7FǒR6�&7FW'2�7W'&V�FǒG�w7F����V�wF��6�'2����Ӱ�Р���&VvW�f�&�C�"F�v�G2�R�WGFW'2�BF�v�G2��WGFW"�F�v�B��WGFW"�u�r�F�v�B��WGFW �6��7Bu5E�$TtU����ӕ׳'մե׳Wճӕ׳Gմե׳ճӔե׳ե�Ӕե׳�B��b�u5E�$TtU��FW7B�w7F�⒒��&WGW&����5fƖC�f�6R��w7F����W'&�$�W76vS�t��fƖBu5D��f�&�B7G'V7GW&R�W�V7FVC�"7FFRF�v�G2��6�'2�V�F�G�6�"���6�V6�7VҒ�r��Ӱ�Р�6��7B7FFT6�FR�w7F���6Ɩ6R��"���6��7B7FFT��R�u5E�5DDU�4�DU5�7FFT6�FUӰ��b�7FFT��R���&WGW&����5fƖC�f�6R��w7F����7FFT6�FR��W'&�$�W76vS���fƖB7FFR6�FRrG�7FFT6�FW�r�7FFR6�FR�W7B&R&WGvVV��B3����Ӱ�Р�6��7B��w7F���6Ɩ6R�"�"���6��7BV�F�G�6�"��5Ӱ�6��7BV�F�G�G�R���T�D�E��E�U5���F�G�6�%���t�F�W"�Vv�V�F�G�s��6��7BV�F�G��V�&W"�w7F��%Ӱ�6��7B6�V6�F�v�B�w7F��EӰ��6��7BW�V7FVD6�V6�7V��6�7V�FTu5D��6�V6�7V҆w7F���6Ɩ6R��B����6��7B�46�V6�7V�fƖB�W�V7FVD6�V6�7V����6�V6�F�v�C����&WGW&����5fƖC��46�V6�7V�fƖB��w7F����7FFT6�FR��7FFT��R�����V�F�G�G�R��V�F�G��V�&W"��6�V6�F�v�B��W�V7FVD6�V6�7V����46�V6�7V�fƖB���'F�W&â�GG3���6W'f�6W2�w7B�v�b���6W'f�6W2�6V&6�G�w7F���G�w7F������W76vS��46�V6�7V�fƖ@��)�2fƖBu5D��&Vv�7FW&VB��G�7FFT��W��G�V�F�G�G�WҖ���X���[HZ\�X]��M]�\�X�\�\�	���X��Y�]I��]H[�Y�X���[H\�	��^X�Y�X���[_I˘�NB
+  'G': 'Government Agency',
+  'J': 'Artificial Juridical Person',
+  'L': 'Local Authority / Municipal',
+};
+
+const CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+/**
+ * Calculates the expected 15th checksum character using standard Mod 36 Luhn algorithm.
+ */
+export function calculateGSTINChecksum(first14Chars) {
+  if (!first14Chars || first14Chars.length !== 14) return null;
+  const upper = first14Chars.toUpperCase();
+  let sum = 0;
+
+  for (let i = 0; i < 14; i++) {
+    const char = upper[i];
+    const val = CHARS.indexOf(char);
+    if (val === -1) return null;
+
+    // Weight factor: 1 for even index (0, 2, 4...), 2 for odd index (1, 3, 5...)
+    const factor = i % 2 === 0 ? 1 : 2;
+    const product = val * factor;
+    const quotient = Math.floor(product / 36);
+    const remainder = product % 36;
+    sum += quotient + remainder;
+  }
+
+  const checkCode = (36 - (sum % 36)) % 36;
+  return CHARS[checkCode];
+}
+
+/**
+ * Validates and parses a GSTIN string.
+ * Returns detailed analysis, state info, entity type, and error reason if invalid.
+ */
+export function validateGSTIN(gstinInput) {
+  if (!gstinInput || typeof gstinInput !== 'string') {
+    return {
+      isValid: false,
+      gstin: '',
+      errorMessage: 'GSTIN is empty.',
+    };
+  }
+
+  const gstin = gstinInput.trim().toUpperCase();
+
+  if (gstin.length !== 15) {
+    return {
+      isValid: false,
+      gstin,
+      errorMessage: `GSTIN must be exactly 15 characters (currently ${gstin.length} chars).`,
+    };
+  }
+
+  // Regex format: 2 digits + 5 letters + 4 digits + 1 letter + 1 digit/letter + 'Z' + 1 digit/letter
+  const GST_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+  if (!GST_REGEX.test(gstin)) {
+    return {
+      isValid: false,
+      gstin,
+      errorMessage: 'Invalid GSTIN format structure (Expected: 2 state digits + 10 PAN chars + 1 entity char + Z + 1 checksum).',
+    };
+  }
+
+  const stateCode = gstin.slice(0, 2);
+  const stateName = GST_STATE_CODES[stateCode];
+  if (!stateName) {
+    return {
+      isValid: false,
+      gstin,
+      stateCode,
+      errorMessage: `Invalid State Code '${stateCode}'. State code must be between 01 and 38.`,
+    };
+  }
+
+  const pan = gstin.slice(2, 12);
+  const entityChar = pan[3];
+  const entityType = PAN_ENTITY_TYPES[entityChar] || 'Other Legal Entity';
+  const entityNumber = gstin[12];
+  const checkDigit = gstin[14];
+
+  const expectedChecksum = calculateGSTINChecksum(gstin.slice(0, 14));
+  const isChecksumValid = expectedChecksum === checkDigit;
+
+  return {
+    isValid: isChecksumValid,
+    gstin,
+    stateCode,
+    stateName,
+    pan,
+    entityType,
+    entityNumber,
+    checkDigit,
+    expectedChecksum,
+    isChecksumValid,
+    portalUrl: `https://services.gst.gov.in/services/searchtp?gstin=${gstin}`,
+    message: isChecksumValid
+      ? `✓ Valid GSTIN registered in ${stateName} (${entityType})`
+      : `⚠️ Format matches ${stateName}, but check-digit '${checkDigit}' differs from standard algorithm '${expectedChecksum}'. Verify on GST Portal if newly allotted.`,
+  };
+}
+
+/**
+ * Parses raw text copied directly from the official GST Portal (services.gst.gov.in),
+ * e-Way bills, tax invoices, or GST certificates.
+ * Extracts Legal Name, Trade Name, Principal Place of Business Address, Pincode, and GSTIN.
+ */
+export function parseGSTPortalText(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    return { success: false, error: 'No text provided to parse.' };
+  }
+
+  const text = rawText.trim();
+  let gstin = '';
+  let legalName = '';
+  let tradeName = '';
+  let address = '';
+  let pincode = '';
+  let state = '';
+  let status = '';
+
+  // 1. Extract GSTIN via Regex
+  const gstinMatch = text.match(/[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}/i);
+  if (gstinMatch) {
+    gstin = gstinMatch[0].toUpperCase();
+    const stateCode = gstin.slice(0, 2);
+    if (GST_STATE_CODES[stateCode]) {
+      state = GST_STATE_CODES[stateCode];
+    }
+  }
+
+  // 2. Extract 6-digit Indian Pincode
+  const pinMatch = text.match(/\b([1-9][0-9]{5})\b/);
+  if (pinMatch) {
+    pincode = pinMatch[1];
+  }
+
+  // 3. Extract Principal Place of Business Address
+  // Common patterns in GST portal copied text:
+  // "Principal Place of Business" followed by address
+  // "Address" or "Address of Principal Place of Business"
+  const addressPatterns = [
+    /Principal\s+Place\s+of\s+Business(?:\s+Address)?\s*[:\-\n]+\s*([^]*?)(?=(?:Additional|State\s+Jurisdiction|Center\s+Jurisdiction|Nature|Date|Taxpayer|Whether|Last|$))/i,
+    /Address\s*[:\-\n]+\s*([^]*?)(?=(?:State\s+Jurisdiction|Center\s+Jurisdiction|Nature|Date|Taxpayer|$))/i,
+    /Registered\s+Office\s+Address\s*[:\-\n]+\s*([^]*?)(?=(?:State|Date|Taxpayer|$))/i,
+  ];
+
+  for (const pattern of addressPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1] && match[1].trim().length > 5) {
+      address = match[1]
+        .replace(/\s+/g, ' ')
+        .replace(/^\s*[:\-.]+\s*/, '')
+        .trim();
+      break;
+    }
+  }
+
+  // 4. Extract Legal Name
+  const legalNamePatterns = [
+    /Legal\s+Name\s+of\s+Business\s*[:\-\n]+\s*([^\n\r]+)/i,
+    /Legal\s+Name\s*[:\-\n]+\s*([^\n\r]+)/i,
+  ];
+  for (const pattern of legalNamePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      legalName = match[1].trim();
+      break;
+    }
+  }
+
+  // 5. Extract Trade Name
+  const tradeNamePatterns = [
+    /Trade\s+Name\s*[:\-\n]+\s*([^\n\r]+)/i,
+  ];
+  for (const pattern of tradeNamePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      tradeName = match[1].trim();
+      break;
+    }
+  }
+
+  // 6. Extract Status (Active / Inactive)
+  const statusMatch = text.match(/GSTIN\s*\/?\s*UIN\s+Status\s*[:\-\n]+\s*([^\n\r]+)/i);
+  if (statusMatch && statusMatch[1]) {
+    status = statusMatch[1].trim();
+  }
+
+  // Fallback: If address was not found by header label but the text looks like a pasted address block
+  if (!address && text.length > 10) {
+    // If user simply pasted the address itself
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const candidateLines = lines.filter(
+      (l) =>
+        !l.match(/^(GSTIN|Legal Name|Trade Name|Status|Search Taxpayer)/i) &&
+        !l.match(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/i)
+    );
+    if (candidateLines.length > 0) {
+      address = candidateLines.join(', ');
+    }
+  }
+
+  const preferredName = tradeName && tradeName !== 'NA' && tradeName !== legalName
+    ? tradeName
+    : legalName;
+
+  return {
+    success: Boolean(address || gstin || preferredName),
+    gstin,
+    legalName,
+    tradeName,
+    businessName: preferredName,
+    address,
+    pincode,
+    state,
+    status,
+  };
+}
