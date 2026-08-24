@@ -537,8 +537,8 @@ function StockManagement({
                   </div>
                 </div>
               ) : (
-                <div className="table-responsive">
-                  <table className="table table-hover table-bordered mb-0 align-middle">
+                <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  <table className="table table-hover table-bordered mb-0 align-middle" style={{ minWidth: '760px' }}>
                     <thead className="table-light">
                       <tr>
                         <th>Item Description</th>

@@ -1,6 +1,8 @@
 import { useState, useMemo, useDeferredValue } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import * as XLSX from 'xlsx';
 import { validateGSTIN, GST_STATE_CODES, parseGSTPortalText } from '../../services/gstinValidator.js';
+import CustomerExcelImport from './CustomerExcelImport.jsx';
 
 const EMPTY_FORM = {
   name: '',
@@ -14,6 +16,7 @@ const EMPTY_FORM = {
 
 function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBack }) {
   const [showForm, setShowForm] = useState(false);
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(EMPTY_ITEM_OR_FORM());
   const [search, setSearch] = useState('');
@@ -197,6 +200,34 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
     setConfirmDelete(null);
   };
 
+  const exportPartiesExcel = () => {
+    const data = customers.map((c) => ({
+      'Customer / Party Name': c.name || '',
+      'Party Type': c.type || 'Customer',
+      'Mobile Number': c.phone || '',
+      'Email Address': c.email || '',
+      'GSTIN Number': c.gstin || '',
+      'Billing Address': c.address || '',
+      'Notes / Remarks': c.notes || '',
+      'Created Date': c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    worksheet['!cols'] = [
+      { wch: 30 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 18 },
+      { wch: 38 },
+      { wch: 24 },
+      { wch: 14 },
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Customers_Directory');
+    XLSX.writeFile(workbook, `Customers_Directory_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const exportPartiesCSV = () => {
     const rows = [['Party Name', 'Party Type', 'Phone', 'Email', 'GSTIN', 'Billing Address', 'Created Date']];
     customers.forEach((c) => {
@@ -228,7 +259,7 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
       {/* Header & Main Actions */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 fw-bold mb-1">👥 Customers & Vendors Directory</h1>
+          <h1 className="h3 fw-bold mb-1">👥 Customers &amp; Vendors Directory</h1>
           <p className="text-muted mb-0">
             Save buyer and supplier accounts for fast invoice billing (Sales) and inventory stocking (Purchase).
           </p>
@@ -241,36 +272,79 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
           )}
           <button
             type="button"
+            className={`btn btn-sm fw-bold ${showExcelImport ? 'btn-success' : 'btn-outline-success shadow-xs'}`}
+            onClick={() => setShowExcelImport((prev) => !prev)}
+            title="Import customer and vendor directory from Excel spreadsheet (.xlsx, .xls, .csv)"
+          >
+            📊 {showExcelImport ? 'Hide Excel Importer' : '📥 Import from Excel'}
+          </button>
+          <button
+            type="button"
             className={`btn btn-sm fw-semibold ${showGstLookupTool ? 'btn-info text-white' : 'btn-outline-info'}`}
             onClick={() => setShowGstLookupTool((prev) => !prev)}
             title="Search and verify any 15-digit GST number"
           >
             🔍 {showGstLookupTool ? 'Hide GSTIN Tool' : 'Search & Verify GSTIN'}
           </button>
-          <button
-            type="button"
-            className="btn btn-outline-success btn-sm fw-semibold"
-            onClick={exportPartiesCSV}
-            disabled={customers.length === 0}
-          >
-            📤 Export Directory CSV
-          </button>
+          <div className="dropdown">
+            <button
+              type="button"
+              className="btn btn-outline-secondary btn-sm fw-semibold dropdown-toggle"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+              disabled={customers.length === 0}
+            >
+              📤 Export Directory
+            </button>
+            <ul className="dropdown-menu shadow-sm">
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={exportPartiesExcel}
+                >
+                  <span>📊</span> Export to Excel (.XLSX)
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item d-flex align-items-center gap-2"
+                  onClick={exportPartiesCSV}
+                >
+                  <span>📄</span> Export to CSV (.CSV)
+                </button>
+              </li>
+            </ul>
+          </div>
           <button
             type="button"
             className="btn btn-outline-primary btn-sm fw-semibold"
             onClick={() => openCreate('Vendor')}
           >
-            ＋ Add Vendor (Purchase)
+            ＋ Add Vendor
           </button>
           <button
             type="button"
             className="btn btn-primary btn-sm fw-bold shadow-sm"
             onClick={() => openCreate('Customer')}
           >
-            ＋ Add Customer (Sales)
+            ＋ Add Customer
           </button>
         </div>
       </div>
+
+      {/* Excel Importer Section */}
+      {showExcelImport && (
+        <CustomerExcelImport
+          existingCustomers={customers}
+          onConfirmImport={(updated) => {
+            onSave(updated);
+            setShowExcelImport(false);
+          }}
+          onCancel={() => setShowExcelImport(false)}
+        />
+      )}
 
       {/* Dedicated GSTIN Search & Verification Tool */}
       {showGstLookupTool && (
@@ -519,8 +593,8 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
               </div>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
+            <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <table className="table table-hover align-middle mb-0" style={{ minWidth: '760px' }}>
                 <thead className="table-light">
                   <tr>
                     <th>Party / Business Name</th>

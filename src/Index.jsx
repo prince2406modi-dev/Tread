@@ -24,10 +24,15 @@ const ManageFavourites = lazy(() => import('./Components/Favourites/ManageFavour
 const CustomersPage = lazy(() => import('./Components/Customers/CustomersPage.jsx'));
 const StockManagement = lazy(() => import('./Components/Stock/StockManagement.jsx'));
 const ItemCatalogApi = lazy(() => import('./Components/Administration/ItemCatalogApi.jsx'));
+const DeviceAccessControl = lazy(() => import('./Components/Administration/DeviceAccessControl.jsx'));
 
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
-import { fetchUserDataFromCloud } from './services/firebase.js';
+import {
+  syncUserDataToCloud,
+  fetchUserDataFromCloud,
+  subscribeUserDataFromCloud,
+} from './services/firebase.js';
 
 function Index() {
   // =========================================================
@@ -443,6 +448,7 @@ function Index() {
   // =========================================================
   const [activeMenu, setActiveMenu] = useState(null);
   const [activePage, setActivePage] = useState('Dashboard');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [shareModal, setShareModal] = useState({ isOpen: false, mode: 'pdf', targetInvoice: null });
   const [aboutModal, setAboutModal] = useState(false);
 
@@ -604,6 +610,7 @@ function Index() {
     Administration: [
       'Master Item Catalog & API',
       'Users',
+      'Multi-Device & Remote Access',
       'Roles & Permissions',
       'Backup',
       'Restore',
@@ -902,62 +909,257 @@ function Index() {
     setActivePage(option);
   };
 
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'error'
+  const [lastSyncTime, setLastSyncTime] = useState(null);
+  const isInitialMount = useRef(true);
+
+  // Real-time Cloud Snapshot Listener (Receives live updates from other devices)
+  useEffect(() => {
+    if (!currentUser?.username) return;
+    const targetUser = currentUser.username.toLowerCase();
+
+    const unsubscribe = subscribeUserDataFromCloud(targetUser, (cloudData) => {
+      if (!cloudData) return;
+
+      if (Array.isArray(cloudData.invoices)) {
+        setInvoices(cloudData.invoices);
+        try {
+          window.localStorage.setItem(invoiceStorageKey(targetUser), JSON.stringify(cloudData.invoices));
+        } catch (err) {
+          console.warn('LocalStorage invoice cache error:', err);
+        }
+      }
+      if (Array.isArray(cloudData.customers) && cloudData.customers.length > 0) {
+        setCustomers(cloudData.customers);
+        try {
+          window.localStorage.setItem(customersStorageKey(targetUser), JSON.stringify(cloudData.customers));
+        } catch (err) {
+          console.warn('LocalStorage customers cache error:', err);
+        }
+      }
+      if (Array.isArray(cloudData.stockItems) && cloudData.stockItems.length > 0) {
+        setStockItems(cloudData.stockItems);
+        try {
+          window.localStorage.setItem(stockStorageKey(targetUser), JSON.stringify(cloudData.stockItems));
+        } catch (err) {
+          console.warn('LocalStorage stock cache error:', err);
+        }
+      }
+      if (Array.isArray(cloudData.purchaseBills)) {
+        setPurchaseBills(cloudData.purchaseBills);
+        try {
+          window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(cloudData.purchaseBills));
+        } catch (err) {
+          console.warn('LocalStorage purchases cache error:', err);
+        }
+      }
+      if (cloudData.company && cloudData.company.name) {
+        setCompany(cloudData.company);
+        try {
+          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(cloudData.company));
+        } catch (err) {
+          console.warn('LocalStorage company cache error:', err);
+        }
+      }
+      if (cloudData.settings && Object.keys(cloudData.settings).length > 0) {
+        setSettings(cloudData.settings);
+        try {
+          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(cloudData.settings));
+        } catch (err) {
+          console.warn('LocalStorage settings cache error:', err);
+        }
+      }
+      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
+      setCloudSyncStatus('synced');
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') unsubscribe();
+    };
+  }, [currentUser]);
+
+  // Debounced Auto-Push to Cloud Firestore on ANY change (so other devices stay 100% in sync)
+  useEffect(() => {
+    if (!currentUser?.username) return;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setCloudSyncStatus('syncing');
+      try {
+        const targetUser = currentUser.username.toLowerCase();
+        await syncUserDataToCloud(targetUser, {
+          invoices,
+          customers,
+          stockItems,
+          purchaseBills,
+          company,
+          settings,
+        });
+        setCloudSyncStatus('synced');
+        setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
+      } catch (err) {
+        console.warn('Auto cloud sync notice:', err);
+        setCloudSyncStatus('error');
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [invoices, customers, stockItems, purchaseBills, company, settings, currentUser]);
+
+  // Manual 1-click 2-Way Sync
+  const handleForceCloudSync = async () => {
+    if (!currentUser?.username) return;
+    setCloudSyncStatus('syncing');
+    const targetUser = currentUser.username.toLowerCase();
+
+    try {
+      const cloudRes = await fetchUserDataFromCloud(targetUser);
+      if (cloudRes.success && cloudRes.data) {
+        const cloudInvoices = cloudRes.data.invoices || [];
+        const cloudCustomers = cloudRes.data.customers || [];
+        const cloudStock = cloudRes.data.stockItems || [];
+        const cloudPurchases = cloudRes.data.purchaseBills || [];
+
+        const combinedInvoicesMap = new Map();
+        cloudInvoices.forEach((inv) => combinedInvoicesMap.set(inv.id || inv.invoiceNumber, inv));
+        invoices.forEach((inv) => combinedInvoicesMap.set(inv.id || inv.invoiceNumber, inv));
+        const mergedInvoices = Array.from(combinedInvoicesMap.values());
+
+        setInvoices(mergedInvoices);
+        if (cloudCustomers.length > 0) setCustomers(cloudCustomers);
+        if (cloudStock.length > 0) setStockItems(cloudStock);
+        if (cloudPurchases.length > 0) setPurchaseBills(cloudPurchases);
+        if (cloudRes.data.company?.name) setCompany(cloudRes.data.company);
+        if (cloudRes.data.settings) setSettings(cloudRes.data.settings);
+
+        await syncUserDataToCloud(targetUser, {
+          invoices: mergedInvoices,
+          customers: cloudCustomers.length > 0 ? cloudCustomers : customers,
+          stockItems: cloudStock.length > 0 ? cloudStock : stockItems,
+          purchaseBills: cloudPurchases.length > 0 ? cloudPurchases : purchaseBills,
+          company: cloudRes.data.company?.name ? cloudRes.data.company : company,
+          settings: cloudRes.data.settings || settings,
+        });
+      } else {
+        await syncUserDataToCloud(targetUser, {
+          invoices,
+          customers,
+          stockItems,
+          purchaseBills,
+          company,
+          settings,
+        });
+      }
+      setCloudSyncStatus('synced');
+      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
+      alert('✓ Real-time 2-way Cloud Sync complete! Data is now identical across all devices.');
+    } catch (err) {
+      console.error(err);
+      setCloudSyncStatus('error');
+      alert('Cloud sync failed: ' + err.message);
+    }
+  };
+
   // Auth Handlers
-  const handleLogin = (username) => {
+  const handleLogin = async (rawUsername) => {
+    const username = (rawUsername || 'admin').toLowerCase().trim();
     const userInvoices = loadInvoices(username);
     setCurrentUser({ username });
-    setInvoices(userInvoices);
 
-    // Load customer directory for this user
     let loadedCust = defaultContacts;
     try {
       const savedCust = window.localStorage.getItem(`gst-invoice-app-customers-${username}`);
       if (savedCust) loadedCust = JSON.parse(savedCust);
-      setCustomers(loadedCust);
     } catch {
-      setCustomers(defaultContacts);
+      loadedCust = defaultContacts;
     }
+    setCustomers(loadedCust);
 
-    // Load stock catalog for this user
     let loadedStock = defaultStockCatalog;
     try {
       const savedStock = window.localStorage.getItem(`gst-invoice-app-stock-${username}`);
       if (savedStock) loadedStock = JSON.parse(savedStock);
-      setStockItems(loadedStock);
     } catch {
-      setStockItems(defaultStockCatalog);
+      loadedStock = defaultStockCatalog;
     }
+    setStockItems(loadedStock);
 
-    // Load purchase bills for this user
+    let loadedPurchases = [];
     try {
       const savedPurchases = window.localStorage.getItem(`gst-invoice-app-purchases-${username}`);
-      setPurchaseBills(savedPurchases ? JSON.parse(savedPurchases) : []);
+      if (savedPurchases) loadedPurchases = JSON.parse(savedPurchases);
     } catch {
-      setPurchaseBills([]);
+      loadedPurchases = [];
+    }
+    setPurchaseBills(loadedPurchases);
+    setInvoices(userInvoices);
+
+    // Pull directly from Cloud Firestore to make sure this device has the latest global state
+    setCloudSyncStatus('syncing');
+    try {
+      const cloudRes = await fetchUserDataFromCloud(username);
+      if (cloudRes.success && cloudRes.data) {
+        const d = cloudRes.data;
+        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
+          setInvoices(d.invoices);
+          window.localStorage.setItem(invoiceStorageKey(username), JSON.stringify(d.invoices));
+        } else if (userInvoices.length > 0) {
+          // Local has data that was created on this machine; immediately upload it so cloud gets it!
+          await syncUserDataToCloud(username, {
+            invoices: userInvoices,
+            customers: loadedCust,
+            stockItems: loadedStock,
+            purchaseBills: loadedPurchases,
+            company,
+            settings,
+          });
+        }
+
+        if (Array.isArray(d.customers) && d.customers.length > 0) {
+          setCustomers(d.customers);
+          window.localStorage.setItem(customersStorageKey(username), JSON.stringify(d.customers));
+        }
+
+        if (Array.isArray(d.stockItems) && d.stockItems.length > 0) {
+          setStockItems(d.stockItems);
+          window.localStorage.setItem(stockStorageKey(username), JSON.stringify(d.stockItems));
+        }
+
+        if (Array.isArray(d.purchaseBills) && d.purchaseBills.length > 0) {
+          setPurchaseBills(d.purchaseBills);
+          window.localStorage.setItem(`gst-invoice-app-purchases-${username}`, JSON.stringify(d.purchaseBills));
+        }
+
+        if (d.company && d.company.name) {
+          setCompany(d.company);
+          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(d.company));
+        }
+
+        if (d.settings && Object.keys(d.settings).length > 0) {
+          setSettings(d.settings);
+          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(d.settings));
+        }
+      } else if (userInvoices.length > 0 || loadedStock.length > 0) {
+        // Cloud was empty; push this device's full library to Cloud Firestore immediately
+        await syncUserDataToCloud(username, {
+          invoices: userInvoices,
+          customers: loadedCust,
+          stockItems: loadedStock,
+          purchaseBills: loadedPurchases,
+          company,
+          settings,
+        });
+      }
+      setCloudSyncStatus('synced');
+      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
+    } catch (err) {
+      console.warn('Initial cloud pull error:', err);
+      setCloudSyncStatus('error');
     }
 
-    // If logging in on a new device with empty local invoices/customers, sync from Cloud Firestore
-    fetchUserDataFromCloud(username).then((cloudRes) => {
-      if (cloudRes.success && cloudRes.data) {
-        if (cloudRes.data.invoices && cloudRes.data.invoices.length > 0) {
-          setInvoices(cloudRes.data.invoices);
-        }
-        if (cloudRes.data.customers && cloudRes.data.customers.length > 0) {
-          setCustomers(cloudRes.data.customers);
-        }
-        if (cloudRes.data.stockItems && cloudRes.data.stockItems.length > 0) {
-          setStockItems(cloudRes.data.stockItems);
-        }
-        if (cloudRes.data.purchaseBills && cloudRes.data.purchaseBills.length > 0) {
-          setPurchaseBills(cloudRes.data.purchaseBills);
-        }
-        if (cloudRes.data.company && cloudRes.data.company.name) {
-          setCompany(cloudRes.data.company);
-        }
-      }
-    }).catch(() => {});
-
-    // Pre-fill invoice number based on last saved invoice
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
     setActivePage('Dashboard');
   };
@@ -1246,6 +1448,16 @@ function Index() {
           />
         );
 
+      case 'Multi-Device & Remote Access':
+      case 'Device Access Control':
+      case 'Remote Access':
+        return (
+          <DeviceAccessControl
+            currentUser={currentUser}
+            onBack={() => setActivePage('Dashboard')}
+          />
+        );
+
       case 'Master Item Catalog':
       case 'Master Item Catalog & API':
       case 'Add Item (Master Catalog & API)':
@@ -1350,17 +1562,32 @@ function Index() {
     <div className="menu-container" ref={menuRef}>
       {/* ================= TOP NAVIGATION BAR ================= */}
       <div id="box">
-        <div
-          className="brand-nav-title"
-          onClick={() => {
-            setActivePage('Home');
-            setActiveMenu(null);
-          }}
-          title="Tread Home - View Brand Logo & Overview"
-          style={{ cursor: 'pointer' }}
-        >
-          <img src={Logo} alt="Tread Logo" className="brand-nav-logo" />
-          <span>Tread</span>
+        <div className="d-flex align-items-center">
+          {/* Mobile Hamburger Menu Toggle Button */}
+          {currentUser && (
+            <button
+              type="button"
+              className="mobile-menu-toggle me-2"
+              onClick={() => setMobileDrawerOpen((prev) => !prev)}
+              aria-label="Toggle Navigation Menu"
+              title="Open Navigation Menu"
+            >
+              {mobileDrawerOpen ? '✕' : '☰'}
+            </button>
+          )}
+
+          <div
+            className="brand-nav-title mb-0"
+            onClick={() => {
+              setActivePage('Home');
+              setActiveMenu(null);
+            }}
+            title="Tread Home - View Brand Logo & Overview"
+            style={{ cursor: 'pointer' }}
+          >
+            <img src={Logo} alt="Tread Logo" className="brand-nav-logo" />
+            <span>Tread</span>
+          </div>
         </div>
 
         <div className="menus-horizontal">
@@ -1412,6 +1639,91 @@ function Index() {
         </div>
       </div>
 
+      {/* ================= MOBILE SLIDE-OUT NAVIGATION DRAWER ================= */}
+      {mobileDrawerOpen && (
+        <>
+          <div
+            className="mobile-drawer-backdrop"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+          <aside className="mobile-nav-drawer" aria-label="Mobile Navigation Menu">
+            <div className="mobile-drawer-header">
+              <div className="d-flex align-items-center gap-2">
+                <img src={Logo} alt="Tread Logo" style={{ height: '26px' }} />
+                <span className="fw-bold fs-6">Tread Navigation</span>
+              </div>
+              <button
+                type="button"
+                className="btn-close btn-close-white btn-sm"
+                onClick={() => setMobileDrawerOpen(false)}
+                aria-label="Close menu"
+              />
+            </div>
+
+            {currentUser ? (
+              <div className="p-3 bg-light border-bottom">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <span className="badge bg-primary fs-7">👤 {currentUser.username}</span>
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-sm py-0 px-2 fw-semibold"
+                    style={{ fontSize: '11px' }}
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      handleLogout();
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+                <div className="d-flex align-items-center justify-content-between">
+                  <small className="text-muted text-truncate fw-semibold" style={{ maxWidth: '160px' }}>
+                    🏢 {company?.name || 'Priya Sales'}
+                  </small>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-white border py-0 px-2 shadow-xs"
+                    style={{ fontSize: '10.5px' }}
+                    onClick={handleForceCloudSync}
+                    title="2-Way Cloud Sync"
+                  >
+                    {cloudSyncStatus === 'syncing' ? '⏳ Syncing' : '☁️ Synced 🔄'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mobile-drawer-body">
+              {currentUser ? (
+                Object.entries(menus).map(([group, itemsList]) => (
+                  <div key={group}>
+                    <div className="mobile-drawer-group-title">{group}</div>
+                    {itemsList.map((item) => (
+                      <button
+                        key={item}
+                        type="button"
+                        className={`mobile-drawer-item ${activePage === item ? 'active' : ''}`}
+                        onClick={() => {
+                          handleOptionClick(item);
+                          setMobileDrawerOpen(false);
+                        }}
+                      >
+                        <span className="text-primary">•</span>
+                        <span>{item}</span>
+                      </button>
+                    ))}
+                  </div>
+                ))
+              ) : (
+                <div className="p-3 text-muted small">
+                  Please sign in to access full tools.
+                </div>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
+
       {/* ================= SECONDARY SUB-NAV / STATUS BAR ================= */}
       <div className="sub-navbar">
         <div className="breadcrumb-tag">
@@ -1427,7 +1739,7 @@ function Index() {
           )}
         </div>
 
-        {/* Quick Favourites Pills */}
+        {/* Quick Favourites Pills (Desktop/Tablet) */}
         {currentUser && (
           <div className="favourites-pills d-none d-md-flex">
             <span className="text-muted small me-1">⭐ Quick:</span>
@@ -1447,13 +1759,31 @@ function Index() {
         {/* User Account & Quick Status */}
         <div className="d-flex align-items-center gap-2">
           {currentUser ? (
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge bg-light text-dark border">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              {/* Live Cloud Status Indicator */}
+              <button
+                type="button"
+                className="btn btn-sm btn-light border py-0 px-2 d-flex align-items-center gap-1 shadow-xs"
+                style={{ fontSize: '11.5px' }}
+                onClick={handleForceCloudSync}
+                title={`Cloud Firestore 2-Way Multi-Device Sync (Last: ${lastSyncTime || 'now'}). Click to force sync.`}
+              >
+                {cloudSyncStatus === 'syncing' ? (
+                  <span className="text-primary">⏳ Syncing...</span>
+                ) : cloudSyncStatus === 'error' ? (
+                  <span className="text-danger">⚠️ Sync Error</span>
+                ) : (
+                  <span className="text-success">☁️ Cloud Synced</span>
+                )}
+                <span className="text-muted small">🔄</span>
+              </button>
+
+              <span className="badge bg-light text-dark border d-none d-sm-inline-block">
                 👤 {currentUser.username}
               </span>
               <button
                 type="button"
-                className="btn btn-outline-danger btn-sm py-0 px-2"
+                className="btn btn-outline-danger btn-sm py-0 px-2 d-none d-sm-inline-block"
                 style={{ fontSize: '11.5px' }}
                 onClick={handleLogout}
               >
@@ -1494,7 +1824,7 @@ function Index() {
             className="btn btn-link p-0 text-muted text-decoration-none"
             onClick={() => setActivePage('Help Center')}
           >
-            User Guide (Alt+N: New, Alt+D: Dashboard)
+            User Guide
           </button>
           <button
             type="button"
@@ -1505,6 +1835,64 @@ function Index() {
           </button>
         </div>
       </footer>
+
+      {/* ================= BOTTOM MOBILE APP BAR (1-Thumb Navigation) ================= */}
+      {currentUser && (
+        <nav className="mobile-bottom-bar" aria-label="Mobile Bottom Navigation">
+          <button
+            type="button"
+            className={`mobile-bottom-btn ${activePage === 'Dashboard' ? 'active' : ''}`}
+            onClick={() => {
+              setActivePage('Dashboard');
+              setMobileDrawerOpen(false);
+            }}
+          >
+            <span className="btn-icon">📊</span>
+            <span>Dashboard</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-btn ${activePage === 'Create Transaction' ? 'active' : ''}`}
+            onClick={() => {
+              setActivePage('Create Transaction');
+              setMobileDrawerOpen(false);
+            }}
+          >
+            <span className="btn-icon">＋</span>
+            <span>New Inv</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-btn ${activePage === 'All Transactions' || activePage === 'View Transactions' ? 'active' : ''}`}
+            onClick={() => {
+              setActivePage('All Transactions');
+              setMobileDrawerOpen(false);
+            }}
+          >
+            <span className="btn-icon">📋</span>
+            <span>Invoices</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-btn ${activePage === 'Customers' || activePage === 'Parties' ? 'active' : ''}`}
+            onClick={() => {
+              setActivePage('Customers');
+              setMobileDrawerOpen(false);
+            }}
+          >
+            <span className="btn-icon">👥</span>
+            <span>Parties</span>
+          </button>
+          <button
+            type="button"
+            className={`mobile-bottom-btn ${mobileDrawerOpen ? 'active' : ''}`}
+            onClick={() => setMobileDrawerOpen((prev) => !prev)}
+          >
+            <span className="btn-icon">☰</span>
+            <span>Menu</span>
+          </button>
+        </nav>
+      )}
 
       {/* ================= MODALS ================= */}
       <Suspense fallback={null}>

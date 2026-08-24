@@ -5,6 +5,7 @@ import {
   syncAllUsersFromCloud,
   cloudDeleteUser,
 } from '../../services/authApi.js';
+import DeviceAccessControl from './DeviceAccessControl.jsx';
 
 function UserManagement({
   users = [],
@@ -14,7 +15,7 @@ function UserManagement({
   onLogout,
   onBack,
 }) {
-  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'add-user' | 'auth-api'
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'add-user' | 'device-access' | 'auth-api'
   const [userList, setUserList] = useState(users);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
@@ -339,10 +340,19 @@ axios.post('${apiEndpoint}', {
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link fw-bold ${activeTab === 'device-access' ? 'active' : ''}`}
+            onClick={() => setActiveTab('device-access')}
+          >
+            📱 Multi-Device &amp; Remote Access
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link fw-bold ${activeTab === 'auth-api' ? 'active' : ''}`}
             onClick={() => setActiveTab('auth-api')}
           >
-            🔌 User Login REST API &amp; Code Snippets
+            🔌 User Login REST API
           </button>
         </li>
       </ul>
@@ -576,7 +586,12 @@ axios.post('${apiEndpoint}', {
         </div>
       )}
 
-      {/* TAB 3: AUTH REST API & TESTER */}
+      {/* TAB 3: DEVICE ACCESS & REMOTE PASSCODE CONTROL */}
+      {activeTab === 'device-access' && (
+        <DeviceAccessControl currentUser={currentUser} />
+      )}
+
+      {/* TAB 4: AUTH REST API & TESTER */}
       {activeTab === 'auth-api' && (
         <div className="row g-4">
           <div className="col-lg-6 col-12">

@@ -498,8 +498,8 @@ function InvoiceEditor({
         </div>
 
         <div className="card-body p-0">
-          <div className="table-responsive">
-            <table className="table table-bordered table-hover align-middle mb-0">
+          <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <table className="table table-bordered table-hover align-middle mb-0" style={{ minWidth: '780px' }}>
               <thead className="table-light">
                 <tr>
                   <th style={{ width: '28%' }}>Description</th>

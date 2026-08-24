@@ -250,21 +250,259 @@ body {
     gap: 10px;
 }
 
-/* Responsive */
-@media (max-width: 992px) {
-    #box {
-        overflow-x: auto;
-        justify-content: flex-start;
-        padding: 0 0.5rem;
+/* =========================================================
+   MOBILE NAVIGATION DRAWER & BOTTOM APP BAR
+   ========================================================= */
+
+/* Mobile Hamburger Button */
+.mobile-menu-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    color: #ffffff;
+    font-size: 1.4rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.mobile-menu-toggle:hover,
+.mobile-menu-toggle:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+/* Mobile Drawer Backdrop */
+.mobile-drawer-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 1200;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Mobile Slide-out Navigation Drawer */
+.mobile-nav-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 84%;
+    max-width: 330px;
+    background: #ffffff;
+    z-index: 1250;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+    animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@keyframes slideInLeft {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(0);
+    }
+}
+
+.mobile-drawer-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #2563eb;
+}
+
+.mobile-drawer-body {
+    flex-grow: 1;
+    padding: 0.75rem 0;
+    overflow-y: auto;
+}
+
+.mobile-drawer-group-title {
+    padding: 8px 1.25rem;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    background: #f8fafc;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+    margin-top: 4px;
+}
+
+.mobile-drawer-item {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 12px 1.25rem;
+    text-align: left;
+    font-size: 14px;
+    font-weight: 500;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    border-left: 3px solid transparent;
+    min-height: 44px;
+}
+
+.mobile-drawer-item:active,
+.mobile-drawer-item:hover {
+    background: #eff6ff;
+    color: #2563eb;
+    border-left-color: #2563eb;
+}
+
+.mobile-drawer-item.active {
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 700;
+    border-left-color: #2563eb;
+}
+
+/* Bottom Mobile App Bar for 1-Thumb Operation */
+.mobile-bottom-bar {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid #e2e8f0;
+    z-index: 1040;
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+    justify-content: space-around;
+    align-items: center;
+}
+
+.mobile-bottom-btn {
+    border: none;
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    min-width: 58px;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-bottom-btn:active {
+    transform: scale(0.94);
+    background: #f1f5f9;
+}
+
+.mobile-bottom-btn.active {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.mobile-bottom-btn .btn-icon {
+    font-size: 19px;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+/* =========================================================
+   MOBILE RESPONSIVE BREAKPOINTS (< 768px & < 576px)
+   ========================================================= */
+@media (max-width: 768px) {
+    /* Show mobile menu toggle & hide desktop horizontal menus */
+    .mobile-menu-toggle {
+        display: flex;
     }
 
-    .top-button {
-        padding: 12px 10px;
-        font-size: 12px;
+    .menus-horizontal {
+        display: none !important;
     }
 
+    .mobile-bottom-bar {
+        display: flex;
+    }
+
+    /* Content Area with Bottom Padding to clear Bottom App Bar */
     .content-area {
-        padding: 1rem 0.5rem;
+        padding: 0.85rem 0.65rem 76px !important;
+    }
+
+    /* Sub navbar wrap cleanly on phones */
+    .sub-navbar {
+        padding: 6px 0.75rem;
+        gap: 6px;
+    }
+
+    .favourites-pills {
+        display: none !important;
+    }
+
+    /* Prevent auto-zoom on iPhone / Android input focus */
+    input, select, textarea, .form-control, .form-select {
+        font-size: 16px !important;
+    }
+
+    /* Touch target min-height */
+    .btn {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Better Table Touch Scrolling */
+    .table-responsive {
+        -webkit-overflow-scrolling: touch;
+        border-radius: 6px;
+    }
+
+    /* Footer adjustments */
+    .app-footer {
+        padding: 8px 1rem 76px;
+        font-size: 11px;
+        flex-direction: column;
+        text-align: center;
+        gap: 6px;
+    }
+
+    /* Modal adjustments for small screens */
+    .modal-dialog {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+}
+
+@media (max-width: 576px) {
+    .brand-nav-title {
+        font-size: 1.1rem;
+        margin-right: 0.5rem;
+    }
+
+    .card-body {
+        padding: 1rem !important;
     }
 }
 

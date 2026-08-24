@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 
 const DEFAULT_COMPANY = {
   name: 'Priya Sales',
   gstin: '07AAAAA0000A1Z5',
   pan: 'AAAAA0000A',
+  fssai: '12724055000459',
   email: 'contact@priyasales.com',
   phone: '+91 98765 43210',
   address: 'Sector 53, Vill-Gijhor, Noida',
@@ -13,6 +14,8 @@ const DEFAULT_COMPANY = {
   bankName: 'State Bank of India',
   accountNumber: '123456789012',
   ifsc: 'SBIN0001234',
+  branch: 'Noida Main Branch',
+  logo: '',
   terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.\n3. Subject to Noida jurisdiction.',
 };
 
@@ -23,11 +26,88 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
   }));
 
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setSavedSuccess(false);
+  };
+
+  // Helper to optimize and resize uploaded logo to clean base64 data URL
+  const processLogoFile = (file) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file (PNG, JPG, JPEG, WEBP, SVG).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 400; // max dimension for optimal PDF & Cloud Firestore performance
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const dataUrl = canvas.toDataURL('image/png', 0.95);
+        setFormData((prev) => ({ ...prev, logo: dataUrl }));
+        setSavedSuccess(false);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processLogoFile(file);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processLogoFile(file);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragOver(false);
+  };
+
+  const handleRemoveLogo = () => {
+    setFormData((prev) => ({ ...prev, logo: '' }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = (e) => {
@@ -41,11 +121,11 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
 
   return (
     <div className="py-3">
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <div>
-          <h1 className="h3 fw-bold mb-1">Company Profile & GST Configuration</h1>
+          <h1 className="h3 fw-bold mb-1">Company Profile &amp; GST Configuration</h1>
           <p className="text-muted mb-0">
-            Configure your enterprise details. These details automatically populate on all PDF invoices and printouts.
+            Configure your enterprise details, logo branding, and bank information for all PDF invoices and printouts.
           </p>
         </div>
         {onBack && (
@@ -56,13 +136,120 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
       </div>
 
       {savedSuccess && (
-        <div className="alert alert-success alert-dismissible fade show" role="alert">
-          ✓ Company profile saved successfully! PDF templates and invoice headers updated.
+        <div className="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+          ✓ Company profile and logo branding saved successfully! PDF templates and invoice headers updated.
         </div>
       )}
 
       <form onSubmit={handleSubmit}>
         <div className="row g-4">
+          {/* Section: Company Logo Import & Branding */}
+          <div className="col-12">
+            <div className="card shadow-sm border-0 border-top border-4 border-primary">
+              <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fs-5">🖼️</span>
+                  <h2 className="h5 mb-0 fw-bold">Company Logo &amp; Brand Emblem</h2>
+                </div>
+                {formData.logo && (
+                  <button
+                    type="button"
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={handleRemoveLogo}
+                  >
+                    🗑️ Remove Logo
+                  </button>
+                )}
+              </div>
+              <div className="card-body">
+                <div className="row align-items-center g-4">
+                  {/* Left: Drag-and-drop Import Zone */}
+                  <div className="col-md-7">
+                    <div
+                      className={`p-4 border rounded-3 text-center transition-all ${
+                        dragOver ? 'border-primary bg-primary-subtle' : 'border-dashed bg-light'
+                      }`}
+                      style={{
+                        borderStyle: 'dashed',
+                        borderWidth: '2px',
+                        cursor: 'pointer',
+                        borderColor: dragOver ? '#0d6efd' : '#cbd5e1',
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                    >
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        className="d-none"
+                      />
+                      <div className="mb-2 fs-2">📁</div>
+                      <h6 className="fw-bold mb-1">
+                        Click to Import Logo or Drag &amp; Drop Image Here
+                      </h6>
+                      <p className="text-muted small mb-2">
+                        Supported Formats: PNG, JPG, JPEG, WEBP, SVG (Auto-scaled for crystal-clear PDF output)
+                      </p>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary px-3 shadow-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        📤 Choose Logo File
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: Live Invoice Header Preview */}
+                  <div className="col-md-5">
+                    <div className="p-3 bg-white border rounded shadow-xs text-center">
+                      <div className="text-muted small fw-bold text-uppercase mb-2">
+                        Header Preview in PDF Invoices
+                      </div>
+                      <div className="d-flex justify-content-center align-items-center p-3 bg-light rounded" style={{ minHeight: '90px' }}>
+                        {formData.logo ? (
+                          <div className="d-flex flex-column align-items-center">
+                            <img
+                              src={formData.logo}
+                              alt="Company Logo Preview"
+                              className="img-fluid rounded border p-1 bg-white shadow-xs"
+                              style={{ maxHeight: '75px', maxWidth: '140px', objectFit: 'contain' }}
+                            />
+                            <span className="badge bg-success mt-2">✓ Custom Logo Active</span>
+                          </div>
+                        ) : (
+                          <div className="border border-primary rounded p-2 text-center bg-white shadow-xs" style={{ width: '100px' }}>
+                            <div className="fw-bolder text-primary" style={{ fontSize: '20px', lineHeight: '1' }}>
+                              {formData.name ? formData.name.slice(0, 2).toUpperCase() : 'PS'}
+                            </div>
+                            <div className="fw-bold text-danger" style={{ fontSize: '7.5px', letterSpacing: '0.5px' }}>
+                              {formData.name || 'PRIYA SALES'}
+                            </div>
+                            <small className="text-muted d-block" style={{ fontSize: '8px' }}>
+                              (Default Monogram)
+                            </small>
+                          </div>
+                        )}
+                      </div>
+                      <small className="text-muted d-block mt-2" style={{ fontSize: '11px' }}>
+                        {formData.logo
+                          ? 'This custom logo will be automatically rendered on all tax invoices.'
+                          : 'No logo imported yet. A smart initials monogram is used by default.'}
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Business Info */}
           <div className="col-lg-6">
             <div className="card shadow-sm border-0 h-100">
@@ -91,7 +278,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                       className="form-control text-uppercase"
                       value={formData.gstin}
                       onChange={handleChange}
-                      placeholder="e.g. 07AAAAA0000A1Z5"
+                      placeholder="e.g. 09ARGPM9069G1Z9"
                     />
                   </div>
                   <div className="col-md-6">
@@ -102,7 +289,32 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                       className="form-control text-uppercase"
                       value={formData.pan}
                       onChange={handleChange}
-                      placeholder="e.g. AAAAA0000A"
+                      placeholder="e.g. ARGPM9069G"
+                    />
+                  </div>
+                </div>
+
+                <div className="row g-3 mb-3">
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">FSSAI License No.</label>
+                    <input
+                      type="text"
+                      name="fssai"
+                      className="form-control"
+                      value={formData.fssai || ''}
+                      onChange={handleChange}
+                      placeholder="e.g. 12724055000459"
+                    />
+                  </div>
+                  <div className="col-md-6">
+                    <label className="form-label fw-semibold">Business State &amp; Code</label>
+                    <input
+                      type="text"
+                      name="state"
+                      className="form-control"
+                      value={formData.state}
+                      onChange={handleChange}
+                      placeholder="e.g. Uttar Pradesh (09)"
                     />
                   </div>
                 </div>
@@ -129,18 +341,6 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                     />
                   </div>
                 </div>
-
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Business State & Code</label>
-                  <input
-                    type="text"
-                    name="state"
-                    className="form-control"
-                    value={formData.state}
-                    onChange={handleChange}
-                    placeholder="e.g. Uttar Pradesh (09)"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -149,7 +349,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
           <div className="col-lg-6">
             <div className="card shadow-sm border-0 h-100">
               <div className="card-header bg-white py-3">
-                <h2 className="h5 mb-0 fw-bold">📍 Address & Bank Details</h2>
+                <h2 className="h5 mb-0 fw-bold">📍 Address &amp; Bank Details</h2>
               </div>
               <div className="card-body">
                 <div className="mb-3">
@@ -165,7 +365,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
 
                 <div className="row g-3 mb-3">
                   <div className="col-md-8">
-                    <label className="form-label fw-semibold">City & State</label>
+                    <label className="form-label fw-semibold">City &amp; State</label>
                     <input
                       type="text"
                       name="cityState"
@@ -211,15 +411,28 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                   </div>
                 </div>
 
-                <div className="mb-3">
-                  <label className="form-label fw-semibold">Bank Account Number</label>
-                  <input
-                    type="text"
-                    name="accountNumber"
-                    className="form-control"
-                    value={formData.accountNumber}
-                    onChange={handleChange}
-                  />
+                <div className="row g-3 mb-3">
+                  <div className="col-md-7">
+                    <label className="form-label fw-semibold">Bank Account Number</label>
+                    <input
+                      type="text"
+                      name="accountNumber"
+                      className="form-control"
+                      value={formData.accountNumber}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className="col-md-5">
+                    <label className="form-label fw-semibold">Branch Name</label>
+                    <input
+                      type="text"
+                      name="branch"
+                      className="form-control"
+                      value={formData.branch || ''}
+                      onChange={handleChange}
+                      placeholder="e.g. Noida Main Branch"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -229,7 +442,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
           <div className="col-12">
             <div className="card shadow-sm border-0">
               <div className="card-header bg-white py-3">
-                <h2 className="h5 mb-0 fw-bold">📄 Default Invoice Terms & Conditions</h2>
+                <h2 className="h5 mb-0 fw-bold">📄 Default Invoice Terms &amp; Conditions</h2>
               </div>
               <div className="card-body">
                 <textarea
@@ -248,8 +461,8 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
         </div>
 
         <div className="mt-4 d-flex justify-content-end gap-2">
-          <button type="submit" className="btn btn-primary btn-lg px-4">
-            💾 Save Company Profile
+          <button type="submit" className="btn btn-primary btn-lg px-4 shadow-sm fw-bold">
+            💾 Save Company Profile &amp; Logo
           </button>
         </div>
       </form>

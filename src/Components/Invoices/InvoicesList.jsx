@@ -195,8 +195,8 @@ function InvoicesList({
               )}
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
+            <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <table className="table table-hover align-middle mb-0" style={{ minWidth: '740px' }}>
                 <thead className="table-light">
                   <tr>
                     <th>Invoice No. & Mode</th>

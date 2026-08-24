@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const STORAGE_KEY = 'gst-invoice-app-firebase-config';
@@ -114,11 +114,12 @@ export async function syncUserDataToCloud(username, payload) {
       return { success: false, message: 'Firebase is not configured.' };
     }
 
-    const userDocRef = doc(db, 'users_data', username || 'default_user');
+    const targetUser = (username || 'admin').toLowerCase().trim();
+    const userDocRef = doc(db, 'users_data', targetUser);
     await setDoc(
       userDocRef,
       {
-        username,
+        username: targetUser,
         updatedAt: new Date().toISOString(),
         invoices: payload.invoices || [],
         customers: payload.customers || [],
@@ -132,7 +133,7 @@ export async function syncUserDataToCloud(username, payload) {
 
     return {
       success: true,
-      message: `✓ Cloud sync complete! Backed up to Firebase for user: ${username}`,
+      message: `✓ Cloud sync complete! Backed up to Firebase for user: ${targetUser}`,
     };
   } catch (error) {
     return {
@@ -150,13 +151,14 @@ export async function fetchUserDataFromCloud(username) {
       return { success: false, message: 'Firebase is not configured.' };
     }
 
-    const userDocRef = doc(db, 'users_data', username || 'default_user');
+    const targetUser = (username || 'admin').toLowerCase().trim();
+    const userDocRef = doc(db, 'users_data', targetUser);
     const snapshot = await getDoc(userDocRef);
 
     if (!snapshot.exists()) {
       return {
         success: false,
-        message: `No cloud backup found for user "${username}".`,
+        message: `No cloud backup found for user "${targetUser}".`,
       };
     }
 
@@ -170,5 +172,38 @@ export async function fetchUserDataFromCloud(username) {
       success: false,
       message: `Failed to fetch cloud data: ${error.message}`,
     };
+  }
+}
+
+/**
+ * Real-time Snapshot Listener for 2-Way Instant Cross-Device Sync
+ */
+export function subscribeUserDataFromCloud(username, onUpdate) {
+  try {
+    const db = getFirestoreDb();
+    if (!db) return () => {};
+
+    const targetUser = (username || 'admin').toLowerCase().trim();
+    const userDocRef = doc(db, 'users_data', targetUser);
+
+    const unsubscribe = onSnapshot(
+      userDocRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (typeof onUpdate === 'function') {
+            onUpdate(data);
+          }
+        }
+      },
+      (error) => {
+        console.warn('Realtime cloud sync listener notice:', error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Realtime cloud subscribe error:', err);
+    return () => {};
   }
 }
