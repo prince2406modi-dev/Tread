@@ -14,11 +14,23 @@ const EMPTY_FORM = {
   notes: '',
 };
 
-function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBack }) {
-  const [showForm, setShowForm] = useState(false);
+function createEmptyForm() {
+  return { ...EMPTY_FORM };
+}
+
+function CustomersPage({
+  customers = [],
+  onSave,
+  onDelete,
+  onLoadToInvoice,
+  onBack,
+  initialShowAdd = false,
+  initialMode = 'list',
+}) {
+  const [showForm, setShowForm] = useState(initialShowAdd);
   const [showExcelImport, setShowExcelImport] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [form, setForm] = useState(EMPTY_ITEM_OR_FORM());
+  const [form, setForm] = useState(createEmptyForm);
   const [search, setSearch] = useState('');
   const [activeTypeTab, setActiveTypeTab] = useState('all'); // 'all' | 'Customer' | 'Vendor'
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -256,12 +268,40 @@ function CustomersPage({ customers = [], onSave, onDelete, onLoadToInvoice, onBa
 
   return (
     <div className="py-3">
+      {/* Modify Account Banner */}
+      {initialMode === 'modify' && (
+        <div className="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 rounded-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fs-5">👥</span>
+            <div>
+              <strong className="d-block">Modify Party / Account Mode</strong>
+              <small className="text-muted">Search or locate any Customer / Vendor below and click <strong>&quot;✏️ Edit&quot;</strong> to update their name, GSTIN, phone, or address.</small>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-dark"
+            onClick={() => {
+              setForm(EMPTY_ITEM_OR_FORM());
+              setEditingId(null);
+              setShowForm(true);
+            }}
+          >
+            ＋ Add New Party
+          </button>
+        </div>
+      )}
+
       {/* Header & Main Actions */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 fw-bold mb-1">👥 Customers &amp; Vendors Directory</h1>
+          <h1 className="h3 fw-bold mb-1">
+            {initialMode === 'modify' ? '👥 Modify Accounts & Parties' : '👥 Customers & Vendors Directory'}
+          </h1>
           <p className="text-muted mb-0">
-            Save buyer and supplier accounts for fast invoice billing (Sales) and inventory stocking (Purchase).
+            {initialMode === 'modify'
+              ? 'Update existing buyer and supplier master ledger details.'
+              : 'Save buyer and supplier accounts for fast invoice billing (Sales) and inventory stocking (Purchase).'}
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap">

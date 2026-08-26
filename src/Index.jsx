@@ -25,14 +25,20 @@ const CustomersPage = lazy(() => import('./Components/Customers/CustomersPage.js
 const StockManagement = lazy(() => import('./Components/Stock/StockManagement.jsx'));
 const ItemCatalogApi = lazy(() => import('./Components/Administration/ItemCatalogApi.jsx'));
 const DeviceAccessControl = lazy(() => import('./Components/Administration/DeviceAccessControl.jsx'));
+const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
+const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
 
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
 import {
   syncUserDataToCloud,
   fetchUserDataFromCloud,
-  subscribeUserDataFromCloud,
 } from './services/firebase.js';
+
+import { Capacitor } from '@capacitor/core';
+import { App as CapApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 function Index() {
   // =========================================================
@@ -451,14 +457,105 @@ function Index() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [shareModal, setShareModal] = useState({ isOpen: false, mode: 'pdf', targetInvoice: null });
   const [aboutModal, setAboutModal] = useState(false);
+  const [cloudSyncModalOpen, setCloudSyncModalOpen] = useState(false);
+  const [exitConfirmModal, setExitConfirmModal] = useState({ isOpen: false, type: 'logout' });
+  const [expandedMobileGroups, setExpandedMobileGroups] = useState({
+    Sales: true,
+    Purchase: true,
+    Account: true,
+    Items: true,
+    Display: false,
+    Company: false,
+    Administration: false,
+    'Print/Email/SMS': false,
+    'House-Keeping': false,
+    Help: false,
+  });
+
+  const toggleMobileGroup = (group) => {
+    setExpandedMobileGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
+    }));
+  };
+
+  const getCategoryIcon = (group) => {
+    switch (group) {
+      case 'Sales':
+        return '💰';
+      case 'Purchase':
+        return '🛒';
+      case 'Account':
+        return '👥';
+      case 'Items':
+        return '📦';
+      case 'Display':
+        return '📊';
+      case 'Administration':
+        return '⚙️';
+      case 'Company':
+        return '🏢';
+      case 'Print/Email/SMS':
+        return '✉️';
+      case 'House-Keeping':
+        return '🧹';
+      case 'Favourites':
+        return '⭐';
+      case 'Help':
+        return '❓';
+      default:
+        return '📁';
+    }
+  };
+
+  // =========================================================
+  // CAPACITOR NATIVE ANDROID INTEGRATION
+  // =========================================================
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      try {
+        StatusBar.setStyle({ style: Style.Dark });
+        StatusBar.setBackgroundColor({ color: '#0f172a' });
+        SplashScreen.hide();
+      } catch (err) {
+        console.warn('Capacitor native UI notice:', err);
+      }
+
+      const backListener = CapApp.addListener('backButton', () => {
+        if (mobileDrawerOpen) {
+          setMobileDrawerOpen(false);
+        } else if (exitConfirmModal.isOpen) {
+          setExitConfirmModal({ isOpen: false, type: 'logout' });
+        } else if (cloudSyncModalOpen) {
+          setCloudSyncModalOpen(false);
+        } else if (shareModal.isOpen) {
+          setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null });
+        } else if (aboutModal) {
+          setAboutModal(false);
+        } else if (activePage !== 'Dashboard' && activePage !== 'Home') {
+          setActivePage('Dashboard');
+        } else if (currentUser) {
+          setExitConfirmModal({ isOpen: true, type: 'exit' });
+        } else {
+          CapApp.exitApp();
+        }
+      });
+
+      return () => {
+        backListener.then((handle) => handle.remove()).catch(() => {});
+      };
+    }
+  }, [mobileDrawerOpen, exitConfirmModal.isOpen, cloudSyncModalOpen, shareModal.isOpen, aboutModal, activePage, currentUser]);
 
   const [favourites, setFavourites] = useState(() => {
     if (typeof window === 'undefined') return [];
     try {
       const saved = window.localStorage.getItem('gst-invoice-app-favourites');
-      return saved ? JSON.parse(saved) : ['Dashboard', 'Create Transaction', 'All Transactions', 'Reports', 'Company Details'];
+      return saved
+        ? JSON.parse(saved)
+        : ['Dashboard', 'Add Sales', 'List Sales', 'Add Purchase', 'List Account', 'List Items', 'Reports'];
     } catch {
-      return ['Dashboard', 'Create Transaction', 'All Transactions', 'Reports', 'Company Details'];
+      return ['Dashboard', 'Add Sales', 'List Sales', 'Add Purchase', 'List Account', 'List Items', 'Reports'];
     }
   });
 
@@ -600,37 +697,46 @@ function Index() {
   const menuRef = useRef(null);
 
   const menus = {
-    Company: [
-      'Create Company',
-      'Open Company',
-      'Edit Company',
-      'Delete Company',
-      'Company Details',
+    Sales: [
+      'Add Sales',
+      'Modify Sales',
+      'List Sales',
     ],
-    Administration: [
-      'Master Item Catalog & API',
-      'Users',
-      'Multi-Device & Remote Access',
-      'Roles & Permissions',
-      'Backup',
-      'Restore',
-      'Settings',
+    Purchase: [
+      'Add Purchase',
+      'Modify Purchase',
+      'List Purchase',
     ],
-    Transactions: [
-      'Create Transaction',
-      'View Transactions',
-      'Edit Transaction',
-      'Delete Transaction',
-      'Search Transaction',
-      'Customers',
-      'Stock Inventory',
-      'Purchase Bills',
+    Account: [
+      'Add Account',
+      'Modify Account',
+      'List Account',
+    ],
+    Items: [
+      'Add Item',
+      'Modify Item',
+      'List Items',
     ],
     Display: [
       'Dashboard',
       'All Transactions',
       'Company Details',
       'Reports',
+    ],
+    Company: [
+      'Company Details',
+      'Create Company',
+      'Edit Company',
+      'Open Company',
+    ],
+    Administration: [
+      'Users',
+      'Device Access Control',
+      'Roles & Permissions',
+      'Master Item Catalog & API',
+      'Settings',
+      'Backup',
+      'Restore',
     ],
     'Print/Email/SMS': [
       'Print Invoice',
@@ -662,11 +768,18 @@ function Index() {
 
   const allAvailableShortcuts = [
     { name: 'Dashboard', category: 'Display', icon: '📊' },
-    { name: 'Create Transaction', category: 'Transactions', icon: '📝' },
-    { name: 'Stock Inventory', category: 'Transactions', icon: '📦' },
-    { name: 'Purchase Bills', category: 'Transactions', icon: '🛒' },
-    { name: 'All Transactions', category: 'Display', icon: '📋' },
-    { name: 'Customers', category: 'Transactions', icon: '👥' },
+    { name: 'Add Sales', category: 'Sales', icon: '📝' },
+    { name: 'Modify Sales', category: 'Sales', icon: '✏️' },
+    { name: 'List Sales', category: 'Sales', icon: '📋' },
+    { name: 'Add Purchase', category: 'Purchase', icon: '🛒' },
+    { name: 'Modify Purchase', category: 'Purchase', icon: '✎' },
+    { name: 'List Purchase', category: 'Purchase', icon: '📦' },
+    { name: 'Add Account', category: 'Account', icon: '👤' },
+    { name: 'Modify Account', category: 'Account', icon: '👥' },
+    { name: 'List Account', category: 'Account', icon: '📇' },
+    { name: 'Add Item', category: 'Items', icon: '🏷️' },
+    { name: 'Modify Item', category: 'Items', icon: '🔧' },
+    { name: 'List Items', category: 'Items', icon: '📦' },
     { name: 'Master Item Catalog & API', category: 'Administration', icon: '🏷️' },
     { name: 'Reports', category: 'Display', icon: '📈' },
     { name: 'Company Details', category: 'Company', icon: '🏢' },
@@ -909,107 +1022,17 @@ function Index() {
     setActivePage(option);
   };
 
-  const [cloudSyncStatus, setCloudSyncStatus] = useState('synced'); // 'synced' | 'syncing' | 'error'
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const isInitialMount = useRef(true);
+  // =========================================================
+  // ON-DEMAND MANUAL CLOUD SYNC CONTROLS
+  // (Sync only operates when explicitly triggered by the user)
+  // =========================================================
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const [lastSyncTime, setLastSyncTime] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem('gst-invoice-app-last-cloud-sync') || null;
+  });
 
-  // Real-time Cloud Snapshot Listener (Receives live updates from other devices)
-  useEffect(() => {
-    if (!currentUser?.username) return;
-    const targetUser = currentUser.username.toLowerCase();
-
-    const unsubscribe = subscribeUserDataFromCloud(targetUser, (cloudData) => {
-      if (!cloudData) return;
-
-      if (Array.isArray(cloudData.invoices)) {
-        setInvoices(cloudData.invoices);
-        try {
-          window.localStorage.setItem(invoiceStorageKey(targetUser), JSON.stringify(cloudData.invoices));
-        } catch (err) {
-          console.warn('LocalStorage invoice cache error:', err);
-        }
-      }
-      if (Array.isArray(cloudData.customers) && cloudData.customers.length > 0) {
-        setCustomers(cloudData.customers);
-        try {
-          window.localStorage.setItem(customersStorageKey(targetUser), JSON.stringify(cloudData.customers));
-        } catch (err) {
-          console.warn('LocalStorage customers cache error:', err);
-        }
-      }
-      if (Array.isArray(cloudData.stockItems) && cloudData.stockItems.length > 0) {
-        setStockItems(cloudData.stockItems);
-        try {
-          window.localStorage.setItem(stockStorageKey(targetUser), JSON.stringify(cloudData.stockItems));
-        } catch (err) {
-          console.warn('LocalStorage stock cache error:', err);
-        }
-      }
-      if (Array.isArray(cloudData.purchaseBills)) {
-        setPurchaseBills(cloudData.purchaseBills);
-        try {
-          window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(cloudData.purchaseBills));
-        } catch (err) {
-          console.warn('LocalStorage purchases cache error:', err);
-        }
-      }
-      if (cloudData.company && cloudData.company.name) {
-        setCompany(cloudData.company);
-        try {
-          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(cloudData.company));
-        } catch (err) {
-          console.warn('LocalStorage company cache error:', err);
-        }
-      }
-      if (cloudData.settings && Object.keys(cloudData.settings).length > 0) {
-        setSettings(cloudData.settings);
-        try {
-          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(cloudData.settings));
-        } catch (err) {
-          console.warn('LocalStorage settings cache error:', err);
-        }
-      }
-      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-      setCloudSyncStatus('synced');
-    });
-
-    return () => {
-      if (typeof unsubscribe === 'function') unsubscribe();
-    };
-  }, [currentUser]);
-
-  // Debounced Auto-Push to Cloud Firestore on ANY change (so other devices stay 100% in sync)
-  useEffect(() => {
-    if (!currentUser?.username) return;
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setCloudSyncStatus('syncing');
-      try {
-        const targetUser = currentUser.username.toLowerCase();
-        await syncUserDataToCloud(targetUser, {
-          invoices,
-          customers,
-          stockItems,
-          purchaseBills,
-          company,
-          settings,
-        });
-        setCloudSyncStatus('synced');
-        setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-      } catch (err) {
-        console.warn('Auto cloud sync notice:', err);
-        setCloudSyncStatus('error');
-      }
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [invoices, customers, stockItems, purchaseBills, company, settings, currentUser]);
-
-  // Manual 1-click 2-Way Sync
+  // 1. Full 2-Way Smart Merge Sync
   const handleForceCloudSync = async () => {
     if (!currentUser?.username) return;
     setCloudSyncStatus('syncing');
@@ -1053,13 +1076,89 @@ function Index() {
           settings,
         });
       }
+      const syncTimestamp = new Date().toLocaleTimeString('en-IN');
       setCloudSyncStatus('synced');
-      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-      alert('✓ Real-time 2-way Cloud Sync complete! Data is now identical across all devices.');
+      setLastSyncTime(syncTimestamp);
+      window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
+      return { success: true };
     } catch (err) {
       console.error(err);
       setCloudSyncStatus('error');
-      alert('Cloud sync failed: ' + err.message);
+      throw err;
+    }
+  };
+
+  // 2. Push / Upload Local Workspace to Cloud
+  const handlePushToCloud = async () => {
+    if (!currentUser?.username) return;
+    setCloudSyncStatus('syncing');
+    const targetUser = currentUser.username.toLowerCase();
+
+    try {
+      await syncUserDataToCloud(targetUser, {
+        invoices,
+        customers,
+        stockItems,
+        purchaseBills,
+        company,
+        settings,
+      });
+      const syncTimestamp = new Date().toLocaleTimeString('en-IN');
+      setCloudSyncStatus('synced');
+      setLastSyncTime(syncTimestamp);
+      window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
+      return { success: true };
+    } catch (err) {
+      console.error(err);
+      setCloudSyncStatus('error');
+      throw err;
+    }
+  };
+
+  // 3. Pull / Download Cloud Workspace to Local
+  const handlePullFromCloud = async () => {
+    if (!currentUser?.username) return;
+    setCloudSyncStatus('syncing');
+    const targetUser = currentUser.username.toLowerCase();
+
+    try {
+      const cloudRes = await fetchUserDataFromCloud(targetUser);
+      if (cloudRes.success && cloudRes.data) {
+        const d = cloudRes.data;
+        if (Array.isArray(d.invoices)) {
+          setInvoices(d.invoices);
+          window.localStorage.setItem(invoiceStorageKey(targetUser), JSON.stringify(d.invoices));
+        }
+        if (Array.isArray(d.customers)) {
+          setCustomers(d.customers);
+          window.localStorage.setItem(customersStorageKey(targetUser), JSON.stringify(d.customers));
+        }
+        if (Array.isArray(d.stockItems)) {
+          setStockItems(d.stockItems);
+          window.localStorage.setItem(stockStorageKey(targetUser), JSON.stringify(d.stockItems));
+        }
+        if (Array.isArray(d.purchaseBills)) {
+          setPurchaseBills(d.purchaseBills);
+          window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(d.purchaseBills));
+        }
+        if (d.company && d.company.name) {
+          setCompany(d.company);
+          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(d.company));
+        }
+        if (d.settings && Object.keys(d.settings).length > 0) {
+          setSettings(d.settings);
+          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(d.settings));
+        }
+      }
+      const syncTimestamp = new Date().toLocaleTimeString('en-IN');
+      setCloudSyncStatus('synced');
+      setLastSyncTime(syncTimestamp);
+      window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
+      return { success: true };
+    } catch (err) {
+      console.error(err);
+      setCloudSyncStatus('error');
+      throw err;
     }
   };
 
@@ -1096,69 +1195,7 @@ function Index() {
     }
     setPurchaseBills(loadedPurchases);
     setInvoices(userInvoices);
-
-    // Pull directly from Cloud Firestore to make sure this device has the latest global state
-    setCloudSyncStatus('syncing');
-    try {
-      const cloudRes = await fetchUserDataFromCloud(username);
-      if (cloudRes.success && cloudRes.data) {
-        const d = cloudRes.data;
-        if (Array.isArray(d.invoices) && d.invoices.length > 0) {
-          setInvoices(d.invoices);
-          window.localStorage.setItem(invoiceStorageKey(username), JSON.stringify(d.invoices));
-        } else if (userInvoices.length > 0) {
-          // Local has data that was created on this machine; immediately upload it so cloud gets it!
-          await syncUserDataToCloud(username, {
-            invoices: userInvoices,
-            customers: loadedCust,
-            stockItems: loadedStock,
-            purchaseBills: loadedPurchases,
-            company,
-            settings,
-          });
-        }
-
-        if (Array.isArray(d.customers) && d.customers.length > 0) {
-          setCustomers(d.customers);
-          window.localStorage.setItem(customersStorageKey(username), JSON.stringify(d.customers));
-        }
-
-        if (Array.isArray(d.stockItems) && d.stockItems.length > 0) {
-          setStockItems(d.stockItems);
-          window.localStorage.setItem(stockStorageKey(username), JSON.stringify(d.stockItems));
-        }
-
-        if (Array.isArray(d.purchaseBills) && d.purchaseBills.length > 0) {
-          setPurchaseBills(d.purchaseBills);
-          window.localStorage.setItem(`gst-invoice-app-purchases-${username}`, JSON.stringify(d.purchaseBills));
-        }
-
-        if (d.company && d.company.name) {
-          setCompany(d.company);
-          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(d.company));
-        }
-
-        if (d.settings && Object.keys(d.settings).length > 0) {
-          setSettings(d.settings);
-          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(d.settings));
-        }
-      } else if (userInvoices.length > 0 || loadedStock.length > 0) {
-        // Cloud was empty; push this device's full library to Cloud Firestore immediately
-        await syncUserDataToCloud(username, {
-          invoices: userInvoices,
-          customers: loadedCust,
-          stockItems: loadedStock,
-          purchaseBills: loadedPurchases,
-          company,
-          settings,
-        });
-      }
-      setCloudSyncStatus('synced');
-      setLastSyncTime(new Date().toLocaleTimeString('en-IN'));
-    } catch (err) {
-      console.warn('Initial cloud pull error:', err);
-      setCloudSyncStatus('error');
-    }
+    setCloudSyncStatus('idle');
 
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
     setActivePage('Dashboard');
@@ -1184,15 +1221,45 @@ function Index() {
     setActivePage('Dashboard');
   };
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out from Tread?')) {
-      resetInvoice([]);
-      setCurrentUser(null);
-      setInvoices([]);
-      setPurchaseBills([]);
-      window.sessionStorage.removeItem('gst-invoice-app-current-user');
-      window.localStorage.removeItem('gst-invoice-app-current-user');
-      setActivePage('Dashboard');
+  const executeLogout = () => {
+    resetInvoice([]);
+    setCurrentUser(null);
+    setInvoices([]);
+    setPurchaseBills([]);
+    window.sessionStorage.removeItem('gst-invoice-app-current-user');
+    window.localStorage.removeItem('gst-invoice-app-current-user');
+    setExitConfirmModal({ isOpen: false, type: 'logout' });
+    setActivePage('Dashboard');
+  };
+
+  const initiateLogout = () => {
+    setExitConfirmModal({ isOpen: true, type: 'logout' });
+  };
+
+  const handleSyncAndProceedExitOrLogout = async () => {
+    await handleForceCloudSync();
+    if (exitConfirmModal.type === 'exit') {
+      setExitConfirmModal({ isOpen: false, type: 'exit' });
+      if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+        CapApp.exitApp();
+      } else {
+        executeLogout();
+      }
+    } else {
+      executeLogout();
+    }
+  };
+
+  const handleProceedWithoutSync = () => {
+    if (exitConfirmModal.type === 'exit') {
+      setExitConfirmModal({ isOpen: false, type: 'exit' });
+      if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+        CapApp.exitApp();
+      } else {
+        executeLogout();
+      }
+    } else {
+      executeLogout();
     }
   };
 
@@ -1322,15 +1389,20 @@ function Index() {
             company={company}
             currentUser={currentUser}
             onNavigate={setActivePage}
-            onLoadInvoice={loadInvoiceToEditor}
+            onLoadInvoice={(inv) => {
+              loadInvoiceToEditor(inv);
+              setActivePage('Add Sales');
+            }}
             onDownloadPDF={handleDownloadPDF}
             onStartVoice={() => {
-              setActivePage('Create Transaction');
+              setActivePage('Add Sales');
               setRecognitionActive(true);
             }}
           />
         );
 
+      /* ================= 1. SALES SECTION (Add, Modify, List) ================= */
+      case 'Add Sales':
       case 'Create Transaction':
       case 'Create Invoice':
         return (
@@ -1359,53 +1431,27 @@ function Index() {
             voiceSupported={voiceSupported}
             voiceTranscript={voiceTranscript}
             downloadPDF={handleDownloadPDF}
-            onViewAllInvoices={() => setActivePage('All Transactions')}
+            onViewAllInvoices={() => setActivePage('List Sales')}
             customers={customers}
             company={company}
             onSaveCustomer={handleSaveSingleCustomer}
-            onNavigateToCustomers={() => setActivePage('Customers')}
+            onNavigateToCustomers={() => setActivePage('List Account')}
             stockItems={stockItems}
-            onNavigateToStock={() => setActivePage('Stock Inventory')}
+            onNavigateToStock={() => setActivePage('List Items')}
           />
         );
 
-      case 'Stock Inventory':
-      case 'Stock':
-      case 'Inventory':
-      case 'Purchase Bills':
-      case 'Purchase':
-        return (
-          <StockManagement
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Customers':
-      case 'Vendors':
-      case 'Parties':
-        return (
-          <CustomersPage
-            customers={customers}
-            onSave={handleSaveCustomers}
-            onDelete={handleDeleteCustomer}
-            onLoadToInvoice={handleLoadCustomerToInvoice}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'All Transactions':
-      case 'View Transactions':
+      case 'Modify Sales':
+      case 'Edit Transaction':
         return (
           <InvoicesList
+            key={activePage}
             invoices={invoices}
             company={company}
-            onLoadInvoice={loadInvoiceToEditor}
+            onLoadInvoice={(inv) => {
+              loadInvoiceToEditor(inv);
+              setActivePage('Add Sales');
+            }}
             onDeleteInvoice={deleteInvoice}
             onClearAllInvoices={clearAllInvoices}
             onDownloadPDF={handleDownloadPDF}
@@ -1413,6 +1459,198 @@ function Index() {
               setShareModal({ isOpen: true, mode: 'email', targetInvoice: inv })
             }
             onNavigate={setActivePage}
+            mode="modify"
+          />
+        );
+
+      case 'List Sales':
+      case 'All Transactions':
+      case 'View Transactions':
+      case 'Search Transaction':
+        return (
+          <InvoicesList
+            key={activePage}
+            invoices={invoices}
+            company={company}
+            onLoadInvoice={(inv) => {
+              loadInvoiceToEditor(inv);
+              setActivePage('Add Sales');
+            }}
+            onDeleteInvoice={deleteInvoice}
+            onClearAllInvoices={clearAllInvoices}
+            onDownloadPDF={handleDownloadPDF}
+            onShareInvoice={(inv) =>
+              setShareModal({ isOpen: true, mode: 'email', targetInvoice: inv })
+            }
+            onNavigate={setActivePage}
+            mode="list"
+          />
+        );
+
+      /* ================= 2. PURCHASE SECTION (Add, Modify, List) ================= */
+      case 'Add Purchase':
+      case 'Purchase Bills':
+      case 'Purchase Bill Entry':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="manual-bill"
+            initialShowAdd={false}
+            mode="add"
+          />
+        );
+
+      case 'Modify Purchase':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="purchase-history"
+            initialShowAdd={false}
+            mode="modify"
+          />
+        );
+
+      case 'List Purchase':
+      case 'Purchase':
+      case 'Purchase History':
+      case 'Purchase Register':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="purchase-history"
+            initialShowAdd={false}
+            mode="list"
+          />
+        );
+
+      /* ================= 3. ACCOUNT SECTION (Add, Modify, List) ================= */
+      case 'Add Account':
+      case 'Add Customer':
+      case 'Add Vendor':
+      case 'Add Party':
+        return (
+          <CustomersPage
+            key={activePage}
+            customers={customers}
+            onSave={handleSaveCustomers}
+            onDelete={handleDeleteCustomer}
+            onLoadToInvoice={handleLoadCustomerToInvoice}
+            onBack={() => setActivePage('Dashboard')}
+            initialShowAdd={true}
+            initialMode="add"
+          />
+        );
+
+      case 'Modify Account':
+      case 'Edit Party':
+      case 'Edit Customer':
+        return (
+          <CustomersPage
+            key={activePage}
+            customers={customers}
+            onSave={handleSaveCustomers}
+            onDelete={handleDeleteCustomer}
+            onLoadToInvoice={handleLoadCustomerToInvoice}
+            onBack={() => setActivePage('Dashboard')}
+            initialShowAdd={false}
+            initialMode="modify"
+          />
+        );
+
+      case 'List Account':
+      case 'Customers':
+      case 'Vendors':
+      case 'Parties':
+      case 'Account List':
+        return (
+          <CustomersPage
+            key={activePage}
+            customers={customers}
+            onSave={handleSaveCustomers}
+            onDelete={handleDeleteCustomer}
+            onLoadToInvoice={handleLoadCustomerToInvoice}
+            onBack={() => setActivePage('Dashboard')}
+            initialShowAdd={false}
+            initialMode="list"
+          />
+        );
+
+      /* ================= 4. ITEMS SECTION (Add, Modify, List) ================= */
+      case 'Add Item':
+      case 'Add Stock Item':
+      case 'Add Product':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="inventory"
+            initialShowAdd={true}
+            mode="add"
+          />
+        );
+
+      case 'Modify Item':
+      case 'Modify Stock Item':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="inventory"
+            initialShowAdd={false}
+            mode="modify"
+          />
+        );
+
+      case 'List Items':
+      case 'Stock Inventory':
+      case 'Stock':
+      case 'Inventory':
+        return (
+          <StockManagement
+            key={activePage}
+            stockItems={stockItems}
+            onSaveStock={handleSaveStock}
+            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+            purchaseBills={purchaseBills}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveVendor={handleSaveSingleCustomer}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="inventory"
+            initialShowAdd={false}
+            mode="list"
           />
         );
 
@@ -1443,7 +1681,7 @@ function Index() {
             currentUser={currentUser}
             onSwitchUser={handleLogin}
             onAddUser={handleRegister}
-            onLogout={handleLogout}
+            onLogout={initiateLogout}
             onBack={() => setActivePage('Dashboard')}
           />
         );
@@ -1461,7 +1699,6 @@ function Index() {
       case 'Master Item Catalog':
       case 'Master Item Catalog & API':
       case 'Add Item (Master Catalog & API)':
-      case 'Add Item':
         return (
           <ItemCatalogApi
             stockItems={stockItems}
@@ -1639,18 +1876,18 @@ function Index() {
         </div>
       </div>
 
-      {/* ================= MOBILE SLIDE-OUT NAVIGATION DRAWER ================= */}
+      {/* ================= MOBILE SLIDE-DOWN ACCORDION MENU ================= */}
       {mobileDrawerOpen && (
         <>
           <div
-            className="mobile-drawer-backdrop"
+            className="mobile-slide-down-backdrop"
             onClick={() => setMobileDrawerOpen(false)}
           />
-          <aside className="mobile-nav-drawer" aria-label="Mobile Navigation Menu">
-            <div className="mobile-drawer-header">
+          <nav className="mobile-slide-down-menu" aria-label="Mobile Navigation Menu">
+            <div className="mobile-slide-down-header">
               <div className="d-flex align-items-center gap-2">
-                <img src={Logo} alt="Tread Logo" style={{ height: '26px' }} />
-                <span className="fw-bold fs-6">Tread Navigation</span>
+                <img src={Logo} alt="Tread Logo" style={{ height: '24px' }} />
+                <span className="fw-bold fs-6">Navigation Menu</span>
               </div>
               <button
                 type="button"
@@ -1670,7 +1907,7 @@ function Index() {
                     style={{ fontSize: '11px' }}
                     onClick={() => {
                       setMobileDrawerOpen(false);
-                      handleLogout();
+                      initiateLogout();
                     }}
                   >
                     Logout
@@ -1684,43 +1921,66 @@ function Index() {
                     type="button"
                     className="btn btn-sm btn-white border py-0 px-2 shadow-xs"
                     style={{ fontSize: '10.5px' }}
-                    onClick={handleForceCloudSync}
-                    title="2-Way Cloud Sync"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      setCloudSyncModalOpen(true);
+                    }}
+                    title="On-Demand Cloud Sync Controls"
                   >
-                    {cloudSyncStatus === 'syncing' ? '⏳ Syncing' : '☁️ Synced 🔄'}
+                    {cloudSyncStatus === 'syncing' ? '⏳ Syncing' : '☁️ Cloud Sync 🔄'}
                   </button>
                 </div>
               </div>
             ) : null}
 
-            <div className="mobile-drawer-body">
+            <div className="mobile-slide-down-body">
               {currentUser ? (
-                Object.entries(menus).map(([group, itemsList]) => (
-                  <div key={group}>
-                    <div className="mobile-drawer-group-title">{group}</div>
-                    {itemsList.map((item) => (
+                Object.entries(menus).map(([group, itemsList]) => {
+                  const isOpen = !!expandedMobileGroups[group];
+                  return (
+                    <div key={group} className={`mobile-accordion-card ${isOpen ? 'open' : ''}`}>
                       <button
-                        key={item}
                         type="button"
-                        className={`mobile-drawer-item ${activePage === item ? 'active' : ''}`}
-                        onClick={() => {
-                          handleOptionClick(item);
-                          setMobileDrawerOpen(false);
-                        }}
+                        className="mobile-accordion-toggle"
+                        onClick={() => toggleMobileGroup(group)}
                       >
-                        <span className="text-primary">•</span>
-                        <span>{item}</span>
+                        <span className="d-flex align-items-center gap-2">
+                          <span>{getCategoryIcon(group)}</span>
+                          <span>{group}</span>
+                        </span>
+                        <span className="mobile-accordion-chevron">{isOpen ? '▲' : '▼'}</span>
                       </button>
-                    ))}
-                  </div>
-                ))
+
+                      {isOpen && (
+                        <div className="mobile-accordion-content">
+                          {itemsList.map((item, idx) => (
+                            <button
+                              key={item}
+                              type="button"
+                              className={`mobile-nav-link ${activePage === item ? 'active' : ''}`}
+                              onClick={() => {
+                                handleOptionClick(item);
+                                setMobileDrawerOpen(false);
+                              }}
+                            >
+                              <span className="text-primary small">
+                                {idx === 0 ? '＋' : idx === 1 ? '◉' : idx === 2 ? '✎' : idx === 3 ? '✕' : '•'}
+                              </span>
+                              <span>{item}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               ) : (
-                <div className="p-3 text-muted small">
+                <div className="p-3 text-muted small text-center">
                   Please sign in to access full tools.
                 </div>
               )}
             </div>
-          </aside>
+          </nav>
         </>
       )}
 
@@ -1760,22 +2020,24 @@ function Index() {
         <div className="d-flex align-items-center gap-2">
           {currentUser ? (
             <div className="d-flex align-items-center gap-2 flex-wrap">
-              {/* Live Cloud Status Indicator */}
+              {/* On-Demand Cloud Sync Button */}
               <button
                 type="button"
                 className="btn btn-sm btn-light border py-0 px-2 d-flex align-items-center gap-1 shadow-xs"
                 style={{ fontSize: '11.5px' }}
-                onClick={handleForceCloudSync}
-                title={`Cloud Firestore 2-Way Multi-Device Sync (Last: ${lastSyncTime || 'now'}). Click to force sync.`}
+                onClick={() => setCloudSyncModalOpen(true)}
+                title={`On-Demand Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`}
               >
                 {cloudSyncStatus === 'syncing' ? (
-                  <span className="text-primary">⏳ Syncing...</span>
+                  <span className="text-primary fw-semibold">⏳ Syncing...</span>
                 ) : cloudSyncStatus === 'error' ? (
-                  <span className="text-danger">⚠️ Sync Error</span>
+                  <span className="text-danger fw-semibold">⚠️ Sync Error</span>
                 ) : (
-                  <span className="text-success">☁️ Cloud Synced</span>
+                  <span className="text-dark fw-medium">
+                    ☁️ Cloud Sync {lastSyncTime ? `(${lastSyncTime})` : ''}
+                  </span>
                 )}
-                <span className="text-muted small">🔄</span>
+                <span className="text-primary small">🔄</span>
               </button>
 
               <span className="badge bg-light text-dark border d-none d-sm-inline-block">
@@ -1785,7 +2047,7 @@ function Index() {
                 type="button"
                 className="btn btn-outline-danger btn-sm py-0 px-2 d-none d-sm-inline-block"
                 style={{ fontSize: '11.5px' }}
-                onClick={handleLogout}
+                onClick={initiateLogout}
               >
                 🔒 Logout
               </button>
@@ -1802,10 +2064,11 @@ function Index() {
       <main className="content-area">
         <Suspense
           fallback={
-            <div className="d-flex justify-content-center align-items-center py-5" style={{ minHeight: '300px' }}>
+            <div className="text-center py-5">
               <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
+                <span className="visually-hidden">Loading Module...</span>
               </div>
+              <div className="text-muted small mt-2">Loading feature module...</div>
             </div>
           }
         >
@@ -1813,32 +2076,14 @@ function Index() {
         </Suspense>
       </main>
 
-      {/* ================= FOOTER BAR ================= */}
-      <footer className="app-footer">
-        <div>
-          <strong>Tread GST ERP</strong> © 2026 | GSTIN: {company?.gstin || 'Unset'}
-        </div>
-        <div className="d-flex gap-3">
-          <button
-            type="button"
-            className="btn btn-link p-0 text-muted text-decoration-none"
-            onClick={() => setActivePage('Help Center')}
-          >
-            User Guide
-          </button>
-          <button
-            type="button"
-            className="btn btn-link p-0 text-muted text-decoration-none"
-            onClick={() => setAboutModal(true)}
-          >
-            About
-          </button>
-        </div>
+      {/* ================= FOOTER / COPYRIGHT ================= */}
+      <footer className="app-footer text-center py-2 text-muted small border-top bg-white">
+        © 2026 Priya Sales | Tread GST Invoicing & Accounting Software
       </footer>
 
-      {/* ================= BOTTOM MOBILE APP BAR (1-Thumb Navigation) ================= */}
+      {/* ================= FIXED MOBILE BOTTOM APP BAR (1-Thumb Navigation) ================= */}
       {currentUser && (
-        <nav className="mobile-bottom-bar" aria-label="Mobile Bottom Navigation">
+        <nav className="mobile-bottom-bar d-md-none" aria-label="Mobile Bottom Navigation">
           <button
             type="button"
             className={`mobile-bottom-btn ${activePage === 'Dashboard' ? 'active' : ''}`}
@@ -1852,31 +2097,31 @@ function Index() {
           </button>
           <button
             type="button"
-            className={`mobile-bottom-btn ${activePage === 'Create Transaction' ? 'active' : ''}`}
+            className={`mobile-bottom-btn ${activePage === 'Add Sales' || activePage === 'Create Transaction' || activePage === 'Create Invoice' ? 'active' : ''}`}
             onClick={() => {
-              setActivePage('Create Transaction');
+              setActivePage('Add Sales');
               setMobileDrawerOpen(false);
             }}
           >
             <span className="btn-icon">＋</span>
-            <span>New Inv</span>
+            <span>New Sale</span>
           </button>
           <button
             type="button"
-            className={`mobile-bottom-btn ${activePage === 'All Transactions' || activePage === 'View Transactions' ? 'active' : ''}`}
+            className={`mobile-bottom-btn ${activePage === 'List Sales' || activePage === 'All Transactions' || activePage === 'View Transactions' ? 'active' : ''}`}
             onClick={() => {
-              setActivePage('All Transactions');
+              setActivePage('List Sales');
               setMobileDrawerOpen(false);
             }}
           >
             <span className="btn-icon">📋</span>
-            <span>Invoices</span>
+            <span>Sales</span>
           </button>
           <button
             type="button"
-            className={`mobile-bottom-btn ${activePage === 'Customers' || activePage === 'Parties' ? 'active' : ''}`}
+            className={`mobile-bottom-btn ${activePage === 'List Account' || activePage === 'Customers' || activePage === 'Parties' ? 'active' : ''}`}
             onClick={() => {
-              setActivePage('Customers');
+              setActivePage('List Account');
               setMobileDrawerOpen(false);
             }}
           >
@@ -1908,9 +2153,46 @@ function Index() {
         )}
 
         {aboutModal && <AboutModal onClose={() => setAboutModal(false)} />}
+
+        {cloudSyncModalOpen && (
+          <CloudSyncModal
+            isOpen={cloudSyncModalOpen}
+            onClose={() => setCloudSyncModalOpen(false)}
+            currentUser={currentUser}
+            cloudSyncStatus={cloudSyncStatus}
+            lastSyncTime={lastSyncTime}
+            onForceSync={handleForceCloudSync}
+            onPushToCloud={handlePushToCloud}
+            onPullFromCloud={handlePullFromCloud}
+            stats={{
+              invoiceCount: invoices.length,
+              customerCount: customers.length,
+              stockCount: stockItems.length,
+              purchaseCount: purchaseBills.length,
+            }}
+          />
+        )}
+
+        {exitConfirmModal.isOpen && (
+          <ExitConfirmModal
+            isOpen={exitConfirmModal.isOpen}
+            type={exitConfirmModal.type}
+            currentUser={currentUser}
+            lastSyncTime={lastSyncTime}
+            stats={{
+              invoiceCount: invoices.length,
+              customerCount: customers.length,
+              stockCount: stockItems.length,
+              purchaseCount: purchaseBills.length,
+            }}
+            onSyncAndProceed={handleSyncAndProceedExitOrLogout}
+            onProceedWithoutSync={handleProceedWithoutSync}
+            onClose={() => setExitConfirmModal({ isOpen: false, type: 'logout' })}
+          />
+        )}
       </Suspense>
     </div>
   );
 }
 
-export default Index;
+export default Index;

@@ -9,7 +9,8 @@ function InvoicesList({
   onClearAllInvoices,
   onDownloadPDF,
   onShareInvoice,
-  onNavigate
+  onNavigate,
+  mode = 'list',
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // 'all' | 'local' | 'central'
@@ -61,12 +62,36 @@ function InvoicesList({
 
   return (
     <div className="py-3">
+      {/* Modify Sales Banner */}
+      {mode === 'modify' && (
+        <div className="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 rounded-3">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fs-5">✏️</span>
+            <div>
+              <strong className="d-block">Modify Sales Invoice Mode</strong>
+              <small className="text-muted">Click <strong>&quot;✏️ Edit / Load&quot;</strong> on any invoice below to load and modify its details in the editor.</small>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm btn-outline-dark"
+            onClick={() => onNavigate('Add Sales')}
+          >
+            ＋ Add New Sales Instead
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 fw-bold mb-1">Saved Transactions & Invoices</h1>
+          <h1 className="h3 fw-bold mb-1">
+            {mode === 'modify' ? 'Modify Sales Transactions' : 'Sales Register & Invoices'}
+          </h1>
           <p className="text-muted mb-0">
-            View, search, edit, export, or print your saved GST billing records.
+            {mode === 'modify'
+              ? 'Select any existing sales invoice to update items, quantities, pricing, or customer details.'
+              : 'View, search, edit, export, or print your saved GST billing records.'}
           </p>
         </div>
         <div className="d-flex gap-2 flex-wrap">

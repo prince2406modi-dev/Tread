@@ -26,12 +26,15 @@ function StockManagement({
   onSavePurchaseBills,
   onSaveVendor,
   onBack,
+  initialTab = 'inventory',
+  initialShowAdd = false,
+  mode = 'list',
 }) {
-  const [activeTab, setActiveTab] = useState('inventory'); // 'inventory' | 'manual-bill' | 'import-file' | 'purchase-history' | 'hsn-lookup'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'inventory' | 'manual-bill' | 'import-file' | 'purchase-history' | 'hsn-lookup'
   const [items, setItems] = useState(stockItems);
   const [search, setSearch] = useState('');
   const [filterLowStock, setFilterLowStock] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(initialShowAdd);
   const [editingStockId, setEditingStockId] = useState(null);
   const [stockForm, setStockForm] = useState(EMPTY_STOCK_ITEM);
   const deferredSearch = useDeferredValue(search);
@@ -469,6 +472,29 @@ function StockManagement({
       {/* TAB 1: CURRENT STOCK INVENTORY */}
       {activeTab === 'inventory' && (
         <>
+          {mode === 'modify' && (
+            <div className="alert alert-warning border-0 shadow-sm d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 rounded-3">
+              <div className="d-flex align-items-center gap-2">
+                <span className="fs-5">🔧</span>
+                <div>
+                  <strong className="d-block">Modify Stock Item Mode</strong>
+                  <small className="text-muted">Search or locate any item in the table below and click <strong>&quot;✏️ Edit&quot;</strong> to modify its name, HSN, price, or GST rate.</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-dark"
+                onClick={() => {
+                  setStockForm(EMPTY_STOCK_ITEM);
+                  setEditingStockId(null);
+                  setShowAddModal(true);
+                }}
+              >
+                ＋ Add New Item
+              </button>
+            </div>
+          )}
+
           <div className="card shadow-sm border-0 mb-4">
             <div className="card-body p-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
               <div className="input-group" style={{ maxWidth: '450px' }}>
