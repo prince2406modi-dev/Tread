@@ -626,7 +626,7 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
                   <textarea
                     className="form-control font-monospace small flex-grow-1 mb-2"
                     rows="6"
-                    placeholder="<TABLE>... or Name&#9;Group Name&#9;GST No.&#10;AAKSH&#9;Sundry Debtors&#9;09ARGPM9069G1Z9"
+                    placeholder="<TABLE>... or Name&#9;Group Name&#9;GST No.&#10;ABC Enterprises&#9;Sundry Debtors&#9;27ABCDE1234F1Z5"
                     value={pastedText}
                     onChange={(e) => setPastedText(e.target.value)}
                   />

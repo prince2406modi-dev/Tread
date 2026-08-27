@@ -232,6 +232,18 @@ function Dashboard({
 
               <button
                 type="button"
+                className="btn btn-outline-success text-start p-3 d-flex align-items-center gap-3"
+                onClick={() => onNavigate('GST File Importer (All Types)')}
+              >
+                <span className="fs-4">🏛️</span>
+                <div>
+                  <div className="fw-bold">GST Portal &amp; Returns Hub</div>
+                  <small className="text-muted">Import all GST files (GSTR-1, 2B, 3B, JSON/Excel)</small>
+                </div>
+              </button>
+
+              <button
+                type="button"
                 className="btn btn-outline-secondary text-start p-3 d-flex align-items-center gap-3"
                 onClick={() => onNavigate('Reports')}
               >

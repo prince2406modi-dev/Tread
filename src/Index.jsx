@@ -27,6 +27,7 @@ const ItemCatalogApi = lazy(() => import('./Components/Administration/ItemCatalo
 const DeviceAccessControl = lazy(() => import('./Components/Administration/DeviceAccessControl.jsx'));
 const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
 const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
+const GstHub = lazy(() => import('./Components/GST/GstHub.jsx'));
 
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
@@ -100,20 +101,47 @@ function Index() {
     if (typeof window === 'undefined') return {};
     try {
       const saved = window.localStorage.getItem('gst-invoice-app-company');
-      return saved ? JSON.parse(saved) : {
-        name: 'Priya Sales',
-        gstin: '07AAAAA0000A1Z5',
-        pan: 'AAAAA0000A',
-        email: 'contact@priyasales.com',
-        phone: '+91 98765 43210',
-        address: 'Sector 53, Vill-Gijhor, Noida',
-        cityState: 'Gautambuddha Nagar, Uttar Pradesh',
-        pincode: '201301',
-        state: 'Uttar Pradesh (09)',
-        bankName: 'State Bank of India',
-        accountNumber: '123456789012',
-        ifsc: 'SBIN0001234',
-        terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.\n3. Subject to Noida jurisdiction.',
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.name === 'Priya Sales' && parsed?.gstin === '07AAAAA0000A1Z5') {
+          return {
+            name: '',
+            gstin: '',
+            pan: '',
+            fssai: '',
+            email: '',
+            phone: '',
+            address: '',
+            cityState: '',
+            pincode: '',
+            state: '',
+            bankName: '',
+            accountNumber: '',
+            ifsc: '',
+            branch: '',
+            logo: '',
+            terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.',
+          };
+        }
+        return parsed;
+      }
+      return {
+        name: '',
+        gstin: '',
+        pan: '',
+        fssai: '',
+        email: '',
+        phone: '',
+        address: '',
+        cityState: '',
+        pincode: '',
+        state: '',
+        bankName: '',
+        accountNumber: '',
+        ifsc: '',
+        branch: '',
+        logo: '',
+        terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.',
       };
     } catch {
       return {};
@@ -177,40 +205,15 @@ function Index() {
   // =========================================================
   const customersStorageKey = (username) => `gst-invoice-app-customers-${username || 'default'}`;
 
-  const defaultContacts = useMemo(() => [
-    {
-      id: 'cust-1',
-      name: 'Sharma Electronics & Traders',
-      type: 'Customer',
-      phone: '+91 98765 12345',
-      email: 'sharma.traders@email.com',
-      gstin: '07ABCDE1234F1Z5',
-      address: 'Shop 14, Main Market, Delhi',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'cust-2',
-      name: 'Apex Hardware & Supplies Corp',
-      type: 'Vendor',
-      phone: '+91 98123 45678',
-      email: 'sales@apexsupplies.com',
-      gstin: '09AABCA9876C1Z2',
-      address: 'Plot 45, Industrial Area, Noida',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'cust-3',
-      name: 'Pooja Enterprises',
-      type: 'Both',
-      phone: '+91 99887 76655',
-      email: 'contact@poojaent.in',
-      gstin: '06AAACR5544B1Z8',
-      address: 'Sector 18, Gurugram, Haryana',
-      createdAt: new Date().toISOString(),
-    },
-  ], []);
-
-  const [customers, setCustomers] = useState(defaultContacts);
+  const [customers, setCustomers] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = window.localStorage.getItem(customersStorageKey(currentUser?.username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -260,15 +263,15 @@ function Index() {
   // =========================================================
   const stockStorageKey = (username) => `gst-invoice-app-stock-${username || 'default'}`;
 
-  const defaultStockCatalog = useMemo(() => [
-    { id: 'stock-1', name: 'LED Light Bulb 9W', hsn: '8539', stock: 50, rate: 120, gst: 18, unit: 'PCS' },
-    { id: 'stock-2', name: 'USB-C Fast Charger 65W', hsn: '8504', stock: 30, rate: 450, gst: 18, unit: 'PCS' },
-    { id: 'stock-3', name: 'Wireless Optical Mouse', hsn: '8471', stock: 25, rate: 350, gst: 18, unit: 'NOS' },
-    { id: 'stock-4', name: 'A4 Copier Paper 75GSM', hsn: '4802', stock: 100, rate: 280, gst: 12, unit: 'BOX' },
-    { id: 'stock-5', name: 'HDMI High Speed Cable 2M', hsn: '8544', stock: 40, rate: 199, gst: 18, unit: 'PCS' },
-  ], []);
-
-  const [stockItems, setStockItems] = useState(defaultStockCatalog);
+  const [stockItems, setStockItems] = useState(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const saved = window.localStorage.getItem(stockStorageKey(currentUser?.username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -449,6 +452,10 @@ function Index() {
     alert(`✓ Invoice ${calculatedInvoiceNumber} saved successfully!`);
   };
 
+  const handleSaveInvoices = (updatedInvoicesList) => {
+    setInvoices(updatedInvoicesList);
+  };
+
   // =========================================================
   // ACTIVE SCREEN & NAVIGATION STATE
   // =========================================================
@@ -460,35 +467,44 @@ function Index() {
   const [cloudSyncModalOpen, setCloudSyncModalOpen] = useState(false);
   const [exitConfirmModal, setExitConfirmModal] = useState({ isOpen: false, type: 'logout' });
   const [expandedMobileGroups, setExpandedMobileGroups] = useState({
-    Sales: true,
-    Purchase: true,
-    Account: true,
-    Items: true,
+    Transactions: true,
+    Administration: true,
+    GST: false,
     Display: false,
     Company: false,
-    Administration: false,
     'Print/Email/SMS': false,
     'House-Keeping': false,
     Help: false,
   });
 
-  const toggleMobileGroup = (group) => {
-    setExpandedMobileGroups((prev) => ({
+  const [openSubSections, setOpenSubSections] = useState({});
+
+  const toggleSubSection = (key) => {
+    setOpenSubSections((prev) => ({
       ...prev,
-      [group]: !prev[group],
+      [key]: !prev[key],
     }));
+  };
+
+  const getSubSectionIcon = (sub) => {
+    if (sub.includes('Sales')) return '💰';
+    if (sub.includes('Purchase')) return '🛒';
+    if (sub.includes('Account')) return '👤';
+    if (sub.includes('Item')) return '📦';
+    if (sub.includes('System') || sub.includes('Security')) return '⚙️';
+    return '📁';
   };
 
   const getCategoryIcon = (group) => {
     switch (group) {
-      case 'Sales':
-        return '💰';
-      case 'Purchase':
-        return '🛒';
+      case 'Transactions':
+        return '💳';
       case 'Account':
         return '👥';
       case 'Items':
         return '📦';
+      case 'GST':
+        return '🏛️';
       case 'Display':
         return '📊';
       case 'Administration':
@@ -506,6 +522,28 @@ function Index() {
       default:
         return '📁';
     }
+  };
+
+  const getItemIcon = (item) => {
+    if (item.includes('Import') || item.includes('Download')) return '📥';
+    if (item.includes('GSTR-1') || item.includes('Export')) return '📤';
+    if (item.includes('Reconcile') || item.includes('GSTR-2B') || item.includes('2B')) return '⚖️';
+    if (item.includes('GSTR-3B') || item.includes('3B')) return '📊';
+    if (item.includes('Add') || item.includes('Create')) return '＋';
+    if (item.includes('Modify') || item.includes('Edit')) return '✏️';
+    if (item.includes('List') || item.includes('View') || item.includes('All')) return '📋';
+    if (item.includes('Delete') || item.includes('Remove')) return '✕';
+    if (item.includes('Search') || item.includes('Lookup') || item.includes('GSTIN') || item.includes('HSN')) return '🔍';
+    if (item.includes('PDF') || item.includes('Print')) return '📄';
+    if (item.includes('Email')) return '✉️';
+    if (item.includes('SMS')) return '📱';
+    if (item.includes('Backup') || item.includes('Restore')) return '💾';
+    if (item.includes('User')) return '👤';
+    if (item.includes('Setting') || item.includes('Device')) return '⚙️';
+    if (item.includes('Report')) return '📈';
+    if (item.includes('Company')) return '🏢';
+    if (item.includes('Help') || item.includes('Guide')) return '❓';
+    return '•';
   };
 
   // =========================================================
@@ -697,46 +735,57 @@ function Index() {
   const menuRef = useRef(null);
 
   const menus = {
-    Sales: [
-      'Add Sales',
-      'Modify Sales',
-      'List Sales',
-    ],
-    Purchase: [
-      'Add Purchase',
-      'Modify Purchase',
-      'List Purchase',
-    ],
-    Account: [
-      'Add Account',
-      'Modify Account',
-      'List Account',
-    ],
-    Items: [
-      'Add Item',
-      'Modify Item',
-      'List Items',
-    ],
-    Display: [
-      'Dashboard',
-      'All Transactions',
-      'Company Details',
-      'Reports',
-    ],
     Company: [
       'Company Details',
       'Create Company',
       'Edit Company',
       'Open Company',
     ],
-    Administration: [
-      'Users',
-      'Device Access Control',
-      'Roles & Permissions',
-      'Master Item Catalog & API',
-      'Settings',
-      'Backup',
-      'Restore',
+    Transactions: {
+      Sales: [
+        'Add Sales',
+        'Modify Sales',
+        'List Sales',
+      ],
+      Purchase: [
+        'Add Purchase',
+        'Modify Purchase',
+        'List Purchase',
+      ],
+    },
+    Administration: {
+      Accounts: [
+        'Add Account',
+        'Modify Account',
+        'List Account',
+      ],
+      Items: [
+        'Add Item',
+        'Modify Item',
+        'List Items',
+      ],
+      'System & Security': [
+        'Master Item Catalog & API',
+        'Users',
+        'Device Access Control',
+        'Roles & Permissions',
+        'Settings',
+        'Backup',
+        'Restore',
+      ],
+    },
+    GST: [
+      'GST File Importer (All Types)',
+      'GSTR-1 (Sales Outward)',
+      'GSTR-2B (ITC Reconcile)',
+      'GSTR-3B Return Summary',
+      'GSTIN & HSN Directory',
+    ],
+    Display: [
+      'Dashboard',
+      'All Transactions',
+      'Company Details',
+      'Reports',
     ],
     'Print/Email/SMS': [
       'Print Invoice',
@@ -768,18 +817,23 @@ function Index() {
 
   const allAvailableShortcuts = [
     { name: 'Dashboard', category: 'Display', icon: '📊' },
-    { name: 'Add Sales', category: 'Sales', icon: '📝' },
-    { name: 'Modify Sales', category: 'Sales', icon: '✏️' },
-    { name: 'List Sales', category: 'Sales', icon: '📋' },
-    { name: 'Add Purchase', category: 'Purchase', icon: '🛒' },
-    { name: 'Modify Purchase', category: 'Purchase', icon: '✎' },
-    { name: 'List Purchase', category: 'Purchase', icon: '📦' },
-    { name: 'Add Account', category: 'Account', icon: '👤' },
-    { name: 'Modify Account', category: 'Account', icon: '👥' },
-    { name: 'List Account', category: 'Account', icon: '📇' },
-    { name: 'Add Item', category: 'Items', icon: '🏷️' },
-    { name: 'Modify Item', category: 'Items', icon: '🔧' },
-    { name: 'List Items', category: 'Items', icon: '📦' },
+    { name: 'Add Sales', category: 'Transactions', icon: '📝' },
+    { name: 'Modify Sales', category: 'Transactions', icon: '✏️' },
+    { name: 'List Sales', category: 'Transactions', icon: '📋' },
+    { name: 'Add Purchase', category: 'Transactions', icon: '🛒' },
+    { name: 'Modify Purchase', category: 'Transactions', icon: '✎' },
+    { name: 'List Purchase', category: 'Transactions', icon: '📦' },
+    { name: 'Add Account', category: 'Administration', icon: '👤' },
+    { name: 'Modify Account', category: 'Administration', icon: '✏️' },
+    { name: 'List Account', category: 'Administration', icon: '📋' },
+    { name: 'Add Item', category: 'Administration', icon: '📦' },
+    { name: 'Modify Item', category: 'Administration', icon: '🔧' },
+    { name: 'List Items', category: 'Administration', icon: '📑' },
+    { name: 'GST File Importer (All Types)', category: 'GST', icon: '📥' },
+    { name: 'GSTR-1 (Sales Outward)', category: 'GST', icon: '📤' },
+    { name: 'GSTR-2B (ITC Reconcile)', category: 'GST', icon: '⚖️' },
+    { name: 'GSTR-3B Return Summary', category: 'GST', icon: '📊' },
+    { name: 'GSTIN & HSN Directory', category: 'GST', icon: '🔍' },
     { name: 'Master Item Catalog & API', category: 'Administration', icon: '🏷️' },
     { name: 'Reports', category: 'Display', icon: '📈' },
     { name: 'Company Details', category: 'Company', icon: '🏢' },
@@ -1168,21 +1222,21 @@ function Index() {
     const userInvoices = loadInvoices(username);
     setCurrentUser({ username });
 
-    let loadedCust = defaultContacts;
+    let loadedCust = [];
     try {
       const savedCust = window.localStorage.getItem(`gst-invoice-app-customers-${username}`);
       if (savedCust) loadedCust = JSON.parse(savedCust);
     } catch {
-      loadedCust = defaultContacts;
+      loadedCust = [];
     }
     setCustomers(loadedCust);
 
-    let loadedStock = defaultStockCatalog;
+    let loadedStock = [];
     try {
       const savedStock = window.localStorage.getItem(`gst-invoice-app-stock-${username}`);
       if (savedStock) loadedStock = JSON.parse(savedStock);
     } catch {
-      loadedStock = defaultStockCatalog;
+      loadedStock = [];
     }
     setStockItems(loadedStock);
 
@@ -1213,8 +1267,8 @@ function Index() {
     }
     setCurrentUser({ username: newUser.username });
     setInvoices([]);
-    setCustomers(defaultContacts);
-    setStockItems(defaultStockCatalog);
+    setCustomers([]);
+    setStockItems([]);
     setPurchaseBills([]);
     // First invoice for new user starts at 1001/2026-27
     setInvoiceNumber('1001/2026-27');
@@ -1654,6 +1708,99 @@ function Index() {
           />
         );
 
+      /* ================= 5. GST SECTION (Universal Importer, GSTR-1, 2B, 3B, Tools) ================= */
+      case 'GST File Importer (All Types)':
+      case 'GST Importer':
+      case 'Import GST Files':
+      case 'GST':
+        return (
+          <GstHub
+            key={activePage}
+            invoices={invoices}
+            purchaseBills={purchaseBills}
+            customers={customers}
+            company={company}
+            onSaveInvoices={handleSaveInvoices}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveCustomers={handleSaveCustomers}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="importer"
+          />
+        );
+
+      case 'GSTR-1 (Sales Outward)':
+      case 'GSTR-1':
+      case 'GSTR1':
+        return (
+          <GstHub
+            key={activePage}
+            invoices={invoices}
+            purchaseBills={purchaseBills}
+            customers={customers}
+            company={company}
+            onSaveInvoices={handleSaveInvoices}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveCustomers={handleSaveCustomers}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="gstr1"
+          />
+        );
+
+      case 'GSTR-2B (ITC Reconcile)':
+      case 'GSTR-2B':
+      case 'GSTR2B':
+      case 'ITC Reconciliation':
+        return (
+          <GstHub
+            key={activePage}
+            invoices={invoices}
+            purchaseBills={purchaseBills}
+            customers={customers}
+            company={company}
+            onSaveInvoices={handleSaveInvoices}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveCustomers={handleSaveCustomers}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="reconciliation"
+          />
+        );
+
+      case 'GSTR-3B Return Summary':
+      case 'GSTR-3B':
+      case 'GSTR3B':
+        return (
+          <GstHub
+            key={activePage}
+            invoices={invoices}
+            purchaseBills={purchaseBills}
+            customers={customers}
+            company={company}
+            onSaveInvoices={handleSaveInvoices}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveCustomers={handleSaveCustomers}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="gstr3b"
+          />
+        );
+
+      case 'GSTIN & HSN Directory':
+      case 'GST Directory':
+      case 'GST Tools':
+        return (
+          <GstHub
+            key={activePage}
+            invoices={invoices}
+            purchaseBills={purchaseBills}
+            customers={customers}
+            company={company}
+            onSaveInvoices={handleSaveInvoices}
+            onSavePurchaseBills={handleSavePurchaseBills}
+            onSaveCustomers={handleSaveCustomers}
+            onBack={() => setActivePage('Dashboard')}
+            initialTab="tools"
+          />
+        );
+
       case 'Company Details':
       case 'Create Company':
       case 'Edit Company':
@@ -1843,27 +1990,58 @@ function Index() {
                 {/* DROPDOWN MENU */}
                 {activeMenu === menu && (
                   <div className="dropdown-menu-custom">
-                    {menus[menu].map((option, index) => (
-                      <button
-                        key={index}
-                        type="button"
-                        className="dropdown-item-custom"
-                        onClick={() => handleOptionClick(option)}
-                      >
-                        <span className="item-icon">
-                          {index === 0
-                            ? '＋'
-                            : index === 1
-                            ? '◉'
-                            : index === 2
-                            ? '✎'
-                            : index === 3
-                            ? '✕'
-                            : '☰'}
-                        </span>
-                        {option}
-                      </button>
-                    ))}
+                    {Array.isArray(menus[menu]) ? (
+                      menus[menu].map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          className="dropdown-item-custom"
+                          onClick={() => handleOptionClick(option)}
+                        >
+                          <span className="item-icon">{getItemIcon(option)}</span>
+                          {option}
+                        </button>
+                      ))
+                    ) : (
+                      Object.entries(menus[menu]).map(([subKey, subOptions]) => {
+                        const fullSubKey = `${menu}_${subKey}`;
+                        const isSubOpen = !!openSubSections[fullSubKey];
+                        return (
+                          <div key={subKey} className="dropdown-section-block">
+                            <button
+                              type="button"
+                              className={`dropdown-section-toggle ${isSubOpen ? 'open' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSubSection(fullSubKey);
+                              }}
+                            >
+                              <span className="d-flex align-items-center gap-2">
+                                <span>{getSubSectionIcon(subKey)}</span>
+                                <span>{subKey}</span>
+                              </span>
+                              <span className="small text-muted">{isSubOpen ? '▲' : '▶'}</span>
+                            </button>
+
+                            {isSubOpen && (
+                              <div className="dropdown-sub-items-container">
+                                {subOptions.map((option) => (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    className="dropdown-sub-item"
+                                    onClick={() => handleOptionClick(option)}
+                                  >
+                                    <span className="item-icon">{getItemIcon(option)}</span>
+                                    {option}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 )}
               </div>
@@ -1915,7 +2093,7 @@ function Index() {
                 </div>
                 <div className="d-flex align-items-center justify-content-between">
                   <small className="text-muted text-truncate fw-semibold" style={{ maxWidth: '160px' }}>
-                    🏢 {company?.name || 'Priya Sales'}
+                    🏢 {company?.name || 'My Company'}
                   </small>
                   <button
                     type="button"
@@ -1953,22 +2131,53 @@ function Index() {
 
                       {isOpen && (
                         <div className="mobile-accordion-content">
-                          {itemsList.map((item, idx) => (
-                            <button
-                              key={item}
-                              type="button"
-                              className={`mobile-nav-link ${activePage === item ? 'active' : ''}`}
-                              onClick={() => {
-                                handleOptionClick(item);
-                                setMobileDrawerOpen(false);
-                              }}
-                            >
-                              <span className="text-primary small">
-                                {idx === 0 ? '＋' : idx === 1 ? '◉' : idx === 2 ? '✎' : idx === 3 ? '✕' : '•'}
-                              </span>
-                              <span>{item}</span>
-                            </button>
-                          ))}
+                          {itemsList.map((item, idx) => {
+                            const isSalesSubheader = group === 'Transactions' && idx === 0;
+                            const isPurchaseSubheader = group === 'Transactions' && idx === 3;
+                            const isAccountSubheader = group === 'Administration' && idx === 0;
+                            const isItemSubheader = group === 'Administration' && idx === 3;
+                            const isAdminSubheader = group === 'Administration' && idx === 6;
+                            return (
+                              <div key={item}>
+                                {isSalesSubheader && (
+                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-bottom bg-light">
+                                    💰 Sales
+                                  </div>
+                                )}
+                                {isPurchaseSubheader && (
+                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
+                                    🛒 Purchase
+                                  </div>
+                                )}
+                                {isAccountSubheader && (
+                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-bottom bg-light">
+                                    👤 Accounts / Parties
+                                  </div>
+                                )}
+                                {isItemSubheader && (
+                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
+                                    📦 Items / Inventory
+                                  </div>
+                                )}
+                                {isAdminSubheader && (
+                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
+                                    ⚙️ System &amp; Settings
+                                  </div>
+                                )}
+                                <button
+                                  type="button"
+                                  className={`mobile-nav-link ${activePage === item ? 'active' : ''}`}
+                                  onClick={() => {
+                                    handleOptionClick(item);
+                                    setMobileDrawerOpen(false);
+                                  }}
+                                >
+                                  <span className="text-primary small">{getItemIcon(item)}</span>
+                                  <span>{item}</span>
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -1987,7 +2196,7 @@ function Index() {
       {/* ================= SECONDARY SUB-NAV / STATUS BAR ================= */}
       <div className="sub-navbar">
         <div className="breadcrumb-tag">
-          <span>📁 {company?.name || 'Priya Sales'}</span>
+          <span>📁 {company?.name || 'My Company'}</span>
           <span className="text-muted">/</span>
           <span className="active-page-name">
             {currentUser ? activePage : 'Authentication Required'}
@@ -2078,7 +2287,7 @@ function Index() {
 
       {/* ================= FOOTER / COPYRIGHT ================= */}
       <footer className="app-footer text-center py-2 text-muted small border-top bg-white">
-        © 2026 Priya Sales | Tread GST Invoicing & Accounting Software
+        © {new Date().getFullYear()} {company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
       </footer>
 
       {/* ================= FIXED MOBILE BOTTOM APP BAR (1-Thumb Navigation) ================= */}

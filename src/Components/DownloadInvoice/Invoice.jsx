@@ -68,23 +68,20 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   const margin = 8;
   const contentWidth = pageWidth - margin * 2; // 194 mm
 
-  // Company Details & Defaults
-  const compName = (company?.name || 'M/S PRIYA SALES').trim();
-  const compAddress = (
-    company?.address ||
-    'SECTOR 53, VILL-GIJHOR, NOIDA, Gautambuddha Nagar, Uttar Pradesh, 201301'
-  ).trim();
-  const compGstin = (company?.gstin || '09ARGPM9069G1Z9').trim();
-  const compPan = (company?.pan || (compGstin.length >= 12 ? compGstin.slice(2, 12) : 'ARGPM9069G')).trim();
-  const compFssai = (company?.fssai || '12724055000459').trim();
-  const compPhone = (company?.phone || '9871772123, 9717183141').trim();
-  const compEmail = (company?.email || 'contact@priyasales.com').trim();
-  const compState = (company?.state || 'Uttar Pradesh (09)').trim();
+  // Company Details & Defaults (Clean, user-configured only)
+  const compName = (company?.name || '').trim();
+  const compAddress = (company?.address || '').trim();
+  const compGstin = (company?.gstin || '').trim();
+  const compPan = (company?.pan || (compGstin.length >= 12 ? compGstin.slice(2, 12) : '')).trim();
+  const compFssai = (company?.fssai || '').trim();
+  const compPhone = (company?.phone || '').trim();
+  const compEmail = (company?.email || '').trim();
+  const compState = (company?.state || '').trim();
 
-  const bankName = (company?.bankName || 'UNION BANK OF INDIA').trim();
-  const accountNo = (company?.accountNumber || '135811011000257').trim();
-  const ifscCode = (company?.ifsc || 'UBIN0813583').trim();
-  const branchName = (company?.branch || 'Noida Main Branch').trim();
+  const bankName = (company?.bankName || '').trim();
+  const accountNo = (company?.accountNumber || '').trim();
+  const ifscCode = (company?.ifsc || '').trim();
+  const branchName = (company?.branch || '').trim();
 
   // Invoice Mode (Local CGST+SGST vs Central IGST)
   const isInterState = invoice.invoiceType === 'central' || invoice.isInterState || false;
@@ -131,9 +128,11 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
     doc.setLineWidth(0.4);
     doc.roundedRect(logoX, logoY, logoWidth, logoHeight, 1.5, 1.5, 'S');
 
-    // Compute 2-letter monogram from company name
+    // Compute monogram initials from company name if set
     const wordsList = compName.replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(Boolean);
-    const initials = wordsList.length >= 2 ? (wordsList[0][0] + wordsList[1][0]).toUpperCase() : compName.slice(0, 2).toUpperCase();
+    const initials = wordsList.length >= 2
+      ? (wordsList[0][0] + wordsList[1][0]).toUpperCase()
+      : (compName ? compName.slice(0, 2).toUpperCase() : 'GST');
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
@@ -142,7 +141,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
 
     doc.setFontSize(5.8);
     doc.setTextColor(185, 28, 28);
-    doc.text('GST REGISTERED', logoX + 13, logoY + 15, { align: 'center' });
+    doc.text(compGstin ? 'GST REGISTERED' : 'TAX INVOICE', logoX + 13, logoY + 15, { align: 'center' });
   }
 
   // 4. Header Center Titles
@@ -153,31 +152,40 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
 
   doc.setFontSize(13.5);
   doc.setTextColor(30, 58, 138);
-  doc.text(compName.toUpperCase(), margin + contentWidth / 2, margin + 12, { align: 'center' });
+  doc.text(compName ? compName.toUpperCase() : 'TAX INVOICE', margin + contentWidth / 2, margin + 12, { align: 'center' });
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(51, 65, 85);
-  doc.text(compAddress, margin + contentWidth / 2, margin + 16, { align: 'center', maxWidth: 125 });
+  if (compAddress) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(51, 65, 85);
+    doc.text(compAddress, margin + contentWidth / 2, margin + 16, { align: 'center', maxWidth: 125 });
+  }
 
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(15, 23, 42);
-  doc.text(
-    `GSTIN: ${compGstin}  |  PAN: ${compPan}  |  State: ${compState}`,
-    margin + contentWidth / 2,
-    margin + 20,
-    { align: 'center' }
-  );
+  const taxDetailsLine = [
+    compGstin ? `GSTIN: ${compGstin}` : '',
+    compPan ? `PAN: ${compPan}` : '',
+    compState ? `State: ${compState}` : '',
+  ].filter(Boolean).join('  |  ');
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.2);
-  doc.setTextColor(71, 85, 105);
-  doc.text(
-    `FSSAI Lic. No.: ${compFssai}  |  Phone: ${compPhone}  |  Email: ${compEmail}`,
-    margin + contentWidth / 2,
-    margin + 23.8,
-    { align: 'center' }
-  );
+  if (taxDetailsLine) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(15, 23, 42);
+    doc.text(taxDetailsLine, margin + contentWidth / 2, margin + 20, { align: 'center' });
+  }
+
+  const contactLine = [
+    compFssai ? `FSSAI Lic. No.: ${compFssai}` : '',
+    compPhone ? `Phone: ${compPhone}` : '',
+    compEmail ? `Email: ${compEmail}` : '',
+  ].filter(Boolean).join('  |  ');
+
+  if (contactLine) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.2);
+    doc.setTextColor(71, 85, 105);
+    doc.text(contactLine, margin + contentWidth / 2, margin + 23.8, { align: 'center' });
+  }
 
   const headerBottomY = margin + 26.5;
   doc.setDrawColor(30, 41, 59);
@@ -702,10 +710,10 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   doc.setTextColor(51, 65, 85);
-  doc.text(`Bank Name : ${bankName}`, margin + 4, curY + 8.5);
-  doc.text(`A/C No. : ${accountNo}`, margin + 65, curY + 8.5);
-  doc.text(`IFSC Code : ${ifscCode}`, margin + 125, curY + 8.5);
-  doc.text(`Branch : ${branchName}`, margin + 165, curY + 8.5);
+  doc.text(`Bank Name : ${bankName || 'N/A'}`, margin + 4, curY + 8.5);
+  doc.text(`A/C No. : ${accountNo || 'N/A'}`, margin + 65, curY + 8.5);
+  doc.text(`IFSC Code : ${ifscCode || 'N/A'}`, margin + 125, curY + 8.5);
+  doc.text(`Branch : ${branchName || 'N/A'}`, margin + 165, curY + 8.5);
 
   // 10. Footer Section (Terms & Conditions | Authorised Signatory)
   const footerY = 248;
@@ -725,7 +733,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   doc.setTextColor(71, 85, 105);
   doc.text('1. Goods once sold will not be taken back or exchanged.', margin + 3, footerY + 9);
   doc.text('2. Interest @ 18% p.a. will be charged if payment is delayed beyond credit period.', margin + 3, footerY + 13.5);
-  doc.text(`3. All disputes are subject to '${compState}' Jurisdiction only.`, margin + 3, footerY + 18);
+  doc.text(`3. All disputes are subject to ${compState ? `'${compState}'` : 'local'} Jurisdiction only.`, margin + 3, footerY + 18);
   doc.text('4. Certified that the particulars given above are true and correct.', margin + 3, footerY + 22.5);
 
   // Right Footer: Signatures
@@ -737,7 +745,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(15, 23, 42);
-  doc.text(`For ${compName.toUpperCase()}`, margin + contentWidth - 4, footerY + 15, { align: 'right' });
+  doc.text(`For ${compName ? compName.toUpperCase() : 'AUTHORISED SIGNATORY'}`, margin + contentWidth - 4, footerY + 15, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);

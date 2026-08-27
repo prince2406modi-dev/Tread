@@ -412,7 +412,7 @@ axios.post('${apiEndpoint}', {
                             </small>
                           )}
                         </td>
-                        <td className="small text-muted">{user.companyName || 'Priya Sales'}</td>
+                        <td className="small text-muted">{user.companyName || '—'}</td>
                         <td>
                           <span className={`badge ${user.role === 'Admin' ? 'bg-primary' : 'bg-secondary'}`}>
                             {user.role || 'Operator'}
@@ -539,7 +539,7 @@ axios.post('${apiEndpoint}', {
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="e.g. Priya Sales Branch 2"
+                    placeholder="e.g. Branch 2 / Outlet"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                   />

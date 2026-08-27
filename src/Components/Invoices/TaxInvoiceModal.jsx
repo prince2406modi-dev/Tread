@@ -109,22 +109,20 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
 
   const isInterState = invoice.invoiceType === 'central' || invoice.isInterState || false;
 
-  // Defaults based on standard format
-  const compName = (company?.name || 'M/S PRIYA SALES').trim();
-  const compAddress =
-    (company?.address ||
-    'SECTOR 53, VILL-GIJHOR, NOIDA, Gautambuddha Nagar, Uttar Pradesh, 201301').trim();
-  const compGstin = (company?.gstin || '09ARGPM9069G1Z9').trim();
-  const compPan = (company?.pan || (compGstin.length >= 12 ? compGstin.slice(2, 12) : 'ARGPM9069G')).trim();
-  const compFssai = (company?.fssai || '12724055000459').trim();
-  const compPhone = (company?.phone || '9871772123, 9717183141').trim();
-  const compEmail = (company?.email || 'contact@priyasales.com').trim();
-  const compState = (company?.state || 'Uttar Pradesh (09)').trim();
+  // Defaults based on standard format (Clean, user-configured only)
+  const compName = (company?.name || '').trim();
+  const compAddress = (company?.address || '').trim();
+  const compGstin = (company?.gstin || '').trim();
+  const compPan = (company?.pan || (compGstin.length >= 12 ? compGstin.slice(2, 12) : '')).trim();
+  const compFssai = (company?.fssai || '').trim();
+  const compPhone = (company?.phone || '').trim();
+  const compEmail = (company?.email || '').trim();
+  const compState = (company?.state || '').trim();
 
-  const bankName = (company?.bankName || 'UNION BANK OF INDIA').trim();
-  const accountNo = (company?.accountNumber || '135811011000257').trim();
-  const ifscCode = (company?.ifsc || 'UBIN0813583').trim();
-  const branchName = (company?.branch || 'Noida Main Branch').trim();
+  const bankName = (company?.bankName || '').trim();
+  const accountNo = (company?.accountNumber || '').trim();
+  const ifscCode = (company?.ifsc || '').trim();
+  const branchName = (company?.branch || '').trim();
 
   const formattedDate = invoice.invoiceDate
     ? new Date(invoice.invoiceDate).toLocaleDateString('en-GB').replace(/\//g, '-')
@@ -227,10 +225,10 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
                     style={{ width: '100px', minWidth: '100px' }}
                   >
                     <div className="fw-bolder text-primary" style={{ fontSize: '26px', lineHeight: '1' }}>
-                      {compName ? compName.slice(0, 2).toUpperCase() : 'PS'}
+                      {compName ? compName.slice(0, 2).toUpperCase() : 'GST'}
                     </div>
                     <div className="fw-bold text-danger" style={{ fontSize: '9px', letterSpacing: '0.5px' }}>
-                      {compName || 'PRIYA SALES'}
+                      {compName || 'COMPANY NAME'}
                     </div>
                   </div>
                 )}
@@ -240,16 +238,22 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
                   <div className="fw-bolder text-uppercase tracking-wider fs-6 text-dark">
                     TAX INVOICE
                   </div>
-                  <div className="fw-bold fs-4 text-uppercase text-primary">{compName}</div>
-                  <div className="text-secondary small" style={{ fontSize: '11px' }}>
-                    {compAddress}
-                  </div>
-                  <div className="small fw-bold text-dark mt-1" style={{ fontSize: '11.5px' }}>
-                    GSTIN: {compGstin} | PAN: {compPan} | State: {compState}
-                  </div>
-                  <div className="small text-muted" style={{ fontSize: '11px' }}>
-                    FSSAI Lic. No.: {compFssai} | Phone: {compPhone} | Email: {compEmail}
-                  </div>
+                  <div className="fw-bold fs-4 text-uppercase text-primary">{compName || 'TAX INVOICE'}</div>
+                  {compAddress && (
+                    <div className="text-secondary small" style={{ fontSize: '11px' }}>
+                      {compAddress}
+                    </div>
+                  )}
+                  {(compGstin || compPan || compState) && (
+                    <div className="small fw-bold text-dark mt-1" style={{ fontSize: '11.5px' }}>
+                      {[compGstin && `GSTIN: ${compGstin}`, compPan && `PAN: ${compPan}`, compState && `State: ${compState}`].filter(Boolean).join(' | ')}
+                    </div>
+                  )}
+                  {(compFssai || compPhone || compEmail) && (
+                    <div className="small text-muted" style={{ fontSize: '11px' }}>
+                      {[compFssai && `FSSAI Lic. No.: ${compFssai}`, compPhone && `Phone: ${compPhone}`, compEmail && `Email: ${compEmail}`].filter(Boolean).join(' | ')}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -510,8 +514,8 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
 
               {/* Bank Details */}
               <div className="p-2 bg-light border border-dark rounded-1 mb-3 small">
-                <strong className="text-primary">🏦 Bank & Settlement Details: </strong>
-                <span>Bank Name: <strong>{bankName}</strong> | A/C No: <strong>{accountNo}</strong> | IFSC: <strong>{ifscCode}</strong> | Branch: <strong>{branchName}</strong></span>
+                <strong className="text-primary">🏦 Bank &amp; Settlement Details: </strong>
+                <span>Bank Name: <strong>{bankName || 'N/A'}</strong> | A/C No: <strong>{accountNo || 'N/A'}</strong> | IFSC: <strong>{ifscCode || 'N/A'}</strong> | Branch: <strong>{branchName || 'N/A'}</strong></span>
               </div>
 
               {/* Footer Terms & Signatures */}
@@ -521,12 +525,12 @@ function TaxInvoiceModal({ invoice, company, isOpen, onClose }) {
                   <ol className="ps-3 mb-0 text-muted" style={{ lineHeight: '1.4' }}>
                     <li>Goods once sold will not be taken back or exchanged.</li>
                     <li>Interest @ 18% p.a. will be charged if payment is delayed beyond credit period.</li>
-                    <li>Subject to &apos;{compState}&apos; Jurisdiction only.</li>
+                    <li>Subject to {compState ? `'${compState}'` : 'local'} Jurisdiction only.</li>
                   </ol>
                 </div>
                 <div className="col-6 ps-3 d-flex flex-column justify-content-between text-end">
                   <div className="text-start text-muted">Receiver&apos;s Stamp &amp; Signature :</div>
-                  <div className="fw-bold fs-6 text-dark">For {compName.toUpperCase()}</div>
+                  <div className="fw-bold fs-6 text-dark">For {compName ? compName.toUpperCase() : 'AUTHORISED SIGNATORY'}</div>
                   <div className="text-muted mt-3">Authorised Signatory</div>
                 </div>
               </div>

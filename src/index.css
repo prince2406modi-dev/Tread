@@ -164,6 +164,130 @@ body {
     text-align: center;
 }
 
+/* Sub-section Collapsible Headers (Desktop Dropdown) */
+.dropdown-section-toggle {
+    width: 100%;
+    border: none;
+    background: #f8fafc;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1e293b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: all 0.15s ease;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.dropdown-section-toggle:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.dropdown-section-toggle.open {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-bottom: 1px solid #dbeafe;
+}
+
+.dropdown-sub-items-container {
+    background: #ffffff;
+    border-left: 3px solid #3b82f6;
+    padding: 3px 0 3px 8px;
+    animation: dropdownAnimation 0.12s ease-out;
+}
+
+.dropdown-sub-item {
+    width: 100%;
+    border: none;
+    background: #ffffff;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.dropdown-sub-item:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+    padding-left: 16px;
+}
+
+/* Sub-section Collapsible Headers (Mobile Drawer) */
+.mobile-sub-accordion-card {
+    border-left: 3px solid #cbd5e1;
+    margin: 4px 8px 4px 12px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+}
+
+.mobile-sub-accordion-card.open {
+    border-left: 3px solid #2563eb;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mobile-sub-accordion-toggle {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #334155;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.mobile-sub-accordion-toggle:active {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.mobile-sub-nav-link {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 8px 16px 8px 24px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    min-height: 38px;
+    transition: all 0.12s ease;
+}
+
+.mobile-sub-nav-link:active,
+.mobile-sub-nav-link:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.mobile-sub-nav-link.active {
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-weight: 700;
+}
+
 /* =========================================================
    SECONDARY SUB-NAV / STATUS BAR
    ========================================================= */

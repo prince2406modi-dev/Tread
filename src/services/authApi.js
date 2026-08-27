@@ -17,9 +17,9 @@ export const ADMIN_MASTER_USER = {
   username: 'admin',
   password: 'prince',
   role: 'Admin',
-  companyName: 'M/S PRIYA SALES',
-  phone: '9871772123',
-  email: 'admin@priyasales.com',
+  companyName: '',
+  phone: '',
+  email: 'admin@tread.local',
   subscription: {
     planId: 'enterprise',
     planName: 'Enterprise Suite',
@@ -106,7 +106,7 @@ export async function cloudAuthenticateUser(usernameOrEmail, mobileNumber, passw
   const normalizedId = identifier.toLowerCase();
 
   // 1. Check if default Admin Master
-  if (normalizedId === 'admin' || normalizedId === 'admin@priyasales.com') {
+  if (normalizedId === 'admin' || normalizedId === 'admin@tread.local') {
     const adminMobile = sanitizeMobile(ADMIN_MASTER_USER.phone);
     if (rawPass === ADMIN_MASTER_USER.password && mobile === adminMobile) {
       return {
@@ -655,7 +655,7 @@ export async function verifyDeviceAuthCode(ownerIdentifier, code) {
     userAccount = {
       username: targetUsername,
       role: 'Authorized Device Operator',
-      companyName: 'M/S PRIYA SALES',
+      companyName: '',
       subscription: { planName: 'Enterprise Suite', status: 'Active' },
     };
   }
@@ -782,7 +782,7 @@ export async function callDeviceAuthApi(endpoint, method = 'POST', payload = {})
           user: {
             username: result.user.username,
             role: result.user.role || 'Authorized Operator',
-            companyName: result.user.companyName || 'M/S PRIYA SALES',
+            companyName: result.user.companyName || '',
             subscription: result.user.subscription,
           },
           message: result.message,

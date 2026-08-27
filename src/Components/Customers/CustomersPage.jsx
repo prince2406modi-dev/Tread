@@ -408,7 +408,7 @@ function CustomersPage({
                   <input
                     type="text"
                     className="form-control text-uppercase font-monospace"
-                    placeholder="e.g. 09ARGPM9069G1Z9, 07AAAAA0000A1Z5"
+                    placeholder="e.g. 27ABCDE1234F1Z5"
                     maxLength={15}
                     value={gstSearchInput}
                     onChange={(e) => {
@@ -848,7 +848,7 @@ function CustomersPage({
                               : 'is-invalid'
                             : ''
                         }`}
-                        placeholder="e.g. 09ARGPM9069G1Z9"
+                        placeholder="e.g. 27ABCDE1234F1Z5"
                         value={form.gstin}
                         onChange={(e) =>
                           setForm((f) => ({ ...f, gstin: e.target.value.toUpperCase() }))

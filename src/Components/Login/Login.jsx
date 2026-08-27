@@ -11,7 +11,7 @@ const PLANS = [
     description: 'Perfect for small retailers & individual proprietors.',
     features: [
       'Up to 500 Invoices / Year',
-      'Priya Sales Standard Tax Invoice Format',
+      'Standard GST Tax Invoice Format',
       'Customer & Party Directory',
       'Instant PDF Export & Print',
       'Local Secure Storage'
@@ -29,7 +29,7 @@ const PLANS = [
     description: 'Best for growing businesses with stock inventory & GST filing.',
     features: [
       'Unlimited Tax Invoices',
-      'Priya Sales Standard + 3 Formats',
+      'Standard & Custom Invoice Formats',
       'Live Stock Inventory & Low Stock Alerts',
       'GSTR-1 Monthly Reports & JSON Export',
       'Multi-Device Cloud Sync Access',
@@ -408,7 +408,7 @@ function Login({ users = [], onLogin, onRegister }) {
                       setPasscodeAccount(e.target.value);
                       clearError();
                     }}
-                    placeholder="e.g. admin or 9871772123"
+                    placeholder="e.g. admin or mobile number"
                     autoFocus
                     required
                   />
@@ -540,7 +540,7 @@ function Login({ users = [], onLogin, onRegister }) {
                         setUsername(e.target.value);
                         clearError();
                       }}
-                      placeholder="e.g. priyasales or rahul123"
+                      placeholder="e.g. user123 or rahul_store"
                       required
                       autoFocus
                     />
@@ -552,7 +552,7 @@ function Login({ users = [], onLogin, onRegister }) {
                       className="form-control"
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
-                      placeholder="e.g. M/S Priya Sales"
+                      placeholder="e.g. My Business / Firm Name"
                     />
                   </div>
                   <div className="col-md-6">

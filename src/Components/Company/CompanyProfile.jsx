@@ -1,22 +1,22 @@
 import { useState, useRef } from 'react';
 
 const DEFAULT_COMPANY = {
-  name: 'Priya Sales',
-  gstin: '07AAAAA0000A1Z5',
-  pan: 'AAAAA0000A',
-  fssai: '12724055000459',
-  email: 'contact@priyasales.com',
-  phone: '+91 98765 43210',
-  address: 'Sector 53, Vill-Gijhor, Noida',
-  cityState: 'Gautambuddha Nagar, Uttar Pradesh',
-  pincode: '201301',
-  state: 'Uttar Pradesh (09)',
-  bankName: 'State Bank of India',
-  accountNumber: '123456789012',
-  ifsc: 'SBIN0001234',
-  branch: 'Noida Main Branch',
+  name: '',
+  gstin: '',
+  pan: '',
+  fssai: '',
+  email: '',
+  phone: '',
+  address: '',
+  cityState: '',
+  pincode: '',
+  state: '',
+  bankName: '',
+  accountNumber: '',
+  ifsc: '',
+  branch: '',
   logo: '',
-  terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.\n3. Subject to Noida jurisdiction.',
+  terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.',
 };
 
 function CompanyProfile({ company, onSaveCompany, onBack }) {
@@ -227,10 +227,10 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                         ) : (
                           <div className="border border-primary rounded p-2 text-center bg-white shadow-xs" style={{ width: '100px' }}>
                             <div className="fw-bolder text-primary" style={{ fontSize: '20px', lineHeight: '1' }}>
-                              {formData.name ? formData.name.slice(0, 2).toUpperCase() : 'PS'}
+                              {formData.name ? formData.name.slice(0, 2).toUpperCase() : 'CO'}
                             </div>
                             <div className="fw-bold text-danger" style={{ fontSize: '7.5px', letterSpacing: '0.5px' }}>
-                              {formData.name || 'PRIYA SALES'}
+                              {formData.name || 'COMPANY NAME'}
                             </div>
                             <small className="text-muted d-block" style={{ fontSize: '8px' }}>
                               (Default Monogram)
@@ -278,7 +278,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
                       className="form-control text-uppercase"
                       value={formData.gstin}
                       onChange={handleChange}
-                      placeholder="e.g. 09ARGPM9069G1Z9"
+                      placeholder="e.g. 27AAAAA0000A1Z5"
                     />
                   </div>
                   <div className="col-md-6">
