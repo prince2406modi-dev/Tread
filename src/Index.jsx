@@ -1,41 +1,34 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import Logo from './assets/Images/Logo.png';
 import './index.css';
 
-// Immediate Eager Component for Instant Initial Screen Paint (< 0.5s LCP)
+// Immediate Eager Component for Fast Login Screen Paint (< 0.5s LCP)
 import Login from './Components/Login/Login.jsx';
 
-// Lazy Loaded Sub-View Components (Downloaded On-Demand in Background)
-const Dashboard = lazy(() => import('./Components/Dashboard/Dashboard.jsx'));
-const InvoiceEditor = lazy(() => import('./Components/CreateInvoice/InvoiceEditor.jsx'));
-const InvoicesList = lazy(() => import('./Components/Invoices/InvoicesList.jsx'));
-const CompanyProfile = lazy(() => import('./Components/Company/CompanyProfile.jsx'));
-const Reports = lazy(() => import('./Components/Reports/Reports.jsx'));
-const UserManagement = lazy(() => import('./Components/Administration/UserManagement.jsx'));
-const AppSettings = lazy(() => import('./Components/Administration/AppSettings.jsx'));
-const RolesPermissions = lazy(() => import('./Components/Administration/RolesPermissions.jsx'));
-const Housekeeping = lazy(() => import('./Components/Housekeeping/Housekeeping.jsx'));
-const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
-const HelpCenter = lazy(() => import('./Components/Help/HelpCenter.jsx'));
-const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
-const ManageFavourites = lazy(() => import('./Components/Favourites/ManageFavourites.jsx'));
-const CustomersPage = lazy(() => import('./Components/Customers/CustomersPage.jsx'));
-const StockManagement = lazy(() => import('./Components/Stock/StockManagement.jsx'));
-const ItemCatalogApi = lazy(() => import('./Components/Administration/ItemCatalogApi.jsx'));
-const DeviceAccessControl = lazy(() => import('./Components/Administration/DeviceAccessControl.jsx'));
-const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
-const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
-const GstHub = lazy(() => import('./Components/GST/GstHub.jsx'));
+// Navigation & Routing Components
+import TopNavbar from './Components/Navigation/TopNavbar.jsx';
+import SubNavbar from './Components/Navigation/SubNavbar.jsx';
+import MobileDrawer from './Components/Navigation/MobileDrawer.jsx';
+import MobileBottomBar from './Components/Navigation/MobileBottomBar.jsx';
+import ViewRouter from './Components/ViewRouter.jsx';
 
+// Constants & Custom Hooks
+import { MENUS, ALL_SHORTCUTS } from './constants/navigation.js';
+import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
+
+// Services
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
-import {
-  syncUserDataToCloud,
-  fetchUserDataFromCloud,
-} from './services/firebase.js';
+import { syncUserDataToCloud, fetchUserDataFromCloud } from './services/firebase.js';
 
+// Lazy Loaded Dialog Modals
+const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
+const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
+const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
+const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
+
+// Capacitor Native Platform Support
 import { Capacitor } from '@capacitor/core';
 import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -43,13 +36,12 @@ import { SplashScreen } from '@capacitor/splash-screen';
 
 function Index() {
   // =========================================================
-  // USER AUTHENTICATION STATE & CROSS-DEVICE CLOUD SYNC
+  // USER AUTHENTICATION STATE & CLOUD SYNC
   // =========================================================
   const [users, setUsers] = useState(getLocalUsers);
-  // Always require User ID and Password when app opens (no auto-login)
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Sync latest users from Cloud Firestore on application startup
+  // Sync users from Cloud Firestore on application startup
   useEffect(() => {
     syncAllUsersFromCloud()
       .then((cloudUsers) => {
@@ -63,12 +55,11 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('gst-invoice-app-users', JSON.stringify(users));
-    // Clear any previous persistent login session so fresh opening always requires credentials
     window.sessionStorage.removeItem('gst-invoice-app-current-user');
     window.localStorage.removeItem('gst-invoice-app-current-user');
   }, [users]);
 
-  // Prompt user before leaving the app if logged in, and clear session upon exit
+  // Prompt before unload if logged in
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -152,14 +143,16 @@ function Index() {
     if (typeof window === 'undefined') return {};
     try {
       const saved = window.localStorage.getItem('gst-invoice-app-settings');
-      return saved ? JSON.parse(saved) : {
-        defaultGst: '18',
-        currencySymbol: '₹',
-        invoicePrefix: 'INV',
-        autoInvoiceNumber: true,
-        enableVoice: true,
-        dateFormat: 'YYYY-MM-DD',
-      };
+      return saved
+        ? JSON.parse(saved)
+        : {
+            defaultGst: '18',
+            currencySymbol: '₹',
+            invoicePrefix: 'INV',
+            autoInvoiceNumber: true,
+            enableVoice: true,
+            dateFormat: 'YYYY-MM-DD',
+          };
     } catch {
       return {};
     }
@@ -194,10 +187,7 @@ function Index() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
-    window.localStorage.setItem(
-      invoiceStorageKey(currentUser.username),
-      JSON.stringify(invoices)
-    );
+    window.localStorage.setItem(invoiceStorageKey(currentUser.username), JSON.stringify(invoices));
   }, [invoices, currentUser]);
 
   // =========================================================
@@ -217,10 +207,7 @@ function Index() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
-    window.localStorage.setItem(
-      customersStorageKey(currentUser.username),
-      JSON.stringify(customers)
-    );
+    window.localStorage.setItem(customersStorageKey(currentUser.username), JSON.stringify(customers));
   }, [customers, currentUser]);
 
   const handleSaveCustomers = (updatedCustomers) => {
@@ -231,15 +218,13 @@ function Index() {
     setCustomers((current) => current.filter((c) => c.id !== id));
   };
 
-  // Load a saved customer's details into the invoice editor fields
   const handleLoadCustomerToInvoice = (customer) => {
     setCustomerName(customer.name || '');
     setCustomerPhone(customer.phone || '');
     setCustomerAddress(customer.address || '');
-    setActivePage('Create Transaction');
+    setActivePage('Add Sales');
   };
 
-  // Quick save a customer directly from invoice creation
   const handleSaveSingleCustomer = (newCust) => {
     const exists = customers.some(
       (c) => c.name.toLowerCase() === newCust.name.toLowerCase()
@@ -259,7 +244,7 @@ function Index() {
   };
 
   // =========================================================
-  // STOCK / INVENTORY DATA STATE (LOCAL STORAGE PERSISTENCE)
+  // STOCK / INVENTORY DATA STATE
   // =========================================================
   const stockStorageKey = (username) => `gst-invoice-app-stock-${username || 'default'}`;
 
@@ -275,10 +260,7 @@ function Index() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
-    window.localStorage.setItem(
-      stockStorageKey(currentUser.username),
-      JSON.stringify(stockItems)
-    );
+    window.localStorage.setItem(stockStorageKey(currentUser.username), JSON.stringify(stockItems));
   }, [stockItems, currentUser]);
 
   const handleSaveStock = (updatedStock) => {
@@ -286,7 +268,7 @@ function Index() {
   };
 
   // =========================================================
-  // PURCHASE BILLS STATE (LOCAL STORAGE PERSISTENCE)
+  // PURCHASE BILLS STATE
   // =========================================================
   const purchasesStorageKey = (username) => `gst-invoice-app-purchases-${username || 'default'}`;
 
@@ -294,10 +276,7 @@ function Index() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
-    window.localStorage.setItem(
-      purchasesStorageKey(currentUser.username),
-      JSON.stringify(purchaseBills)
-    );
+    window.localStorage.setItem(purchasesStorageKey(currentUser.username), JSON.stringify(purchaseBills));
   }, [purchaseBills, currentUser]);
 
   const handleSavePurchaseBills = (updatedBills) => {
@@ -312,7 +291,7 @@ function Index() {
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [invoiceType, setInvoiceType] = useState('local'); // 'local' (CGST+SGST) | 'central' (IGST)
+  const [invoiceType, setInvoiceType] = useState('local');
   const [items, setItems] = useState([]);
 
   const totals = useMemo(() => {
@@ -396,13 +375,12 @@ function Index() {
       return;
     }
 
-    // Enforce that customer must be saved in the customers folder
     const isRegistered = customers.some(
       (c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
     );
     if (!isRegistered) {
       alert(
-        `❌ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nYou cannot create an invoice for an unsaved customer. Please select a saved customer or register them in the Customer folder first.`
+        `❌ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nPlease select a saved customer or register them in the Customer folder first.`
       );
       return;
     }
@@ -431,7 +409,7 @@ function Index() {
     const updatedInvoices = [newInvoice, ...invoices];
     setInvoices(updatedInvoices);
 
-    // Automatically deduct sold items from available stock inventory
+    // Deduct sold quantity from inventory
     setStockItems((prevStock) =>
       prevStock.map((stockItem) => {
         const matchingSold = items.find(
@@ -452,20 +430,17 @@ function Index() {
     alert(`✓ Invoice ${calculatedInvoiceNumber} saved successfully!`);
   };
 
-  const handleSaveInvoices = (updatedInvoicesList) => {
-    setInvoices(updatedInvoicesList);
-  };
-
   // =========================================================
   // ACTIVE SCREEN & NAVIGATION STATE
   // =========================================================
   const [activeMenu, setActiveMenu] = useState(null);
-  const [activePage, setActivePage] = useState('Dashboard');
+  const [activePage, setActivePage] = useState(null);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [shareModal, setShareModal] = useState({ isOpen: false, mode: 'pdf', targetInvoice: null });
   const [aboutModal, setAboutModal] = useState(false);
   const [cloudSyncModalOpen, setCloudSyncModalOpen] = useState(false);
   const [exitConfirmModal, setExitConfirmModal] = useState({ isOpen: false, type: 'logout' });
+
   const [expandedMobileGroups, setExpandedMobileGroups] = useState({
     Transactions: true,
     Administration: true,
@@ -477,6 +452,13 @@ function Index() {
     Help: false,
   });
 
+  const toggleMobileGroup = (group) => {
+    setExpandedMobileGroups((prev) => ({
+      ...prev,
+      [group]: !prev[group],
+    }));
+  };
+
   const [openSubSections, setOpenSubSections] = useState({});
 
   const toggleSubSection = (key) => {
@@ -484,66 +466,6 @@ function Index() {
       ...prev,
       [key]: !prev[key],
     }));
-  };
-
-  const getSubSectionIcon = (sub) => {
-    if (sub.includes('Sales')) return '💰';
-    if (sub.includes('Purchase')) return '🛒';
-    if (sub.includes('Account')) return '👤';
-    if (sub.includes('Item')) return '📦';
-    if (sub.includes('System') || sub.includes('Security')) return '⚙️';
-    return '📁';
-  };
-
-  const getCategoryIcon = (group) => {
-    switch (group) {
-      case 'Transactions':
-        return '💳';
-      case 'Account':
-        return '👥';
-      case 'Items':
-        return '📦';
-      case 'GST':
-        return '🏛️';
-      case 'Display':
-        return '📊';
-      case 'Administration':
-        return '⚙️';
-      case 'Company':
-        return '🏢';
-      case 'Print/Email/SMS':
-        return '✉️';
-      case 'House-Keeping':
-        return '🧹';
-      case 'Favourites':
-        return '⭐';
-      case 'Help':
-        return '❓';
-      default:
-        return '📁';
-    }
-  };
-
-  const getItemIcon = (item) => {
-    if (item.includes('Import') || item.includes('Download')) return '📥';
-    if (item.includes('GSTR-1') || item.includes('Export')) return '📤';
-    if (item.includes('Reconcile') || item.includes('GSTR-2B') || item.includes('2B')) return '⚖️';
-    if (item.includes('GSTR-3B') || item.includes('3B')) return '📊';
-    if (item.includes('Add') || item.includes('Create')) return '＋';
-    if (item.includes('Modify') || item.includes('Edit')) return '✏️';
-    if (item.includes('List') || item.includes('View') || item.includes('All')) return '📋';
-    if (item.includes('Delete') || item.includes('Remove')) return '✕';
-    if (item.includes('Search') || item.includes('Lookup') || item.includes('GSTIN') || item.includes('HSN')) return '🔍';
-    if (item.includes('PDF') || item.includes('Print')) return '📄';
-    if (item.includes('Email')) return '✉️';
-    if (item.includes('SMS')) return '📱';
-    if (item.includes('Backup') || item.includes('Restore')) return '💾';
-    if (item.includes('User')) return '👤';
-    if (item.includes('Setting') || item.includes('Device')) return '⚙️';
-    if (item.includes('Report')) return '📈';
-    if (item.includes('Company')) return '🏢';
-    if (item.includes('Help') || item.includes('Guide')) return '❓';
-    return '•';
   };
 
   // =========================================================
@@ -570,8 +492,8 @@ function Index() {
           setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null });
         } else if (aboutModal) {
           setAboutModal(false);
-        } else if (activePage !== 'Dashboard' && activePage !== 'Home') {
-          setActivePage('Dashboard');
+        } else if (activePage) {
+          setActivePage(null);
         } else if (currentUser) {
           setExitConfirmModal({ isOpen: true, type: 'exit' });
         } else {
@@ -615,7 +537,7 @@ function Index() {
     setCustomerAddress(inv.customerAddress || '');
     setInvoiceType(inv.invoiceType || (inv.isInterState ? 'central' : 'local'));
     setItems(inv.items || []);
-    setActivePage('Create Transaction');
+    setActivePage('Add Sales');
   };
 
   const deleteInvoice = (id) => {
@@ -627,221 +549,24 @@ function Index() {
   };
 
   // =========================================================
-  // VOICE ASSISTANT
+  // VOICE ASSISTANT CUSTOM HOOK
   // =========================================================
-  const [voiceSupported] = useState(
-    () => typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
-  );
-  const [recognitionActive, setRecognitionActive] = useState(false);
-  const [voiceTranscript, setVoiceTranscript] = useState('');
-  const recognitionRef = useRef(null);
-
-  const processVoiceCommand = (command) => {
-    if (!command) return;
-    const text = command.toLowerCase().trim();
-
-    if (text.includes('clear invoice') || text.includes('reset invoice') || text.includes('new invoice')) {
-      resetInvoice(invoices);
-      return;
-    }
-    if (text.includes('save invoice') || text.includes('submit invoice')) {
-      saveInvoice();
-      return;
-    }
-    if (text.includes('set customer name to')) {
-      const val = command.split(/set customer name to/i)[1]?.trim();
-      if (val) setCustomerName(val);
-      return;
-    }
-    if (text.includes('set invoice number to')) {
-      const val = command.split(/set invoice number to/i)[1]?.trim();
-      if (val) setInvoiceNumber(val);
-      return;
-    }
-    if (text.includes('set customer phone to') || text.includes('set mobile to') || text.includes('set phone to')) {
-      const parts = command.split(/set (customer )?(phone|mobile) to/i);
-      const val = parts[parts.length - 1]?.trim();
-      if (val) setCustomerPhone(val);
-      return;
-    }
-    if (text.includes('set address to') || text.includes('set customer address to')) {
-      const val = command.split(/set (customer )?address to/i)[1]?.trim();
-      if (val) setCustomerAddress(val);
-      return;
-    }
-    if (text.includes('add item')) {
-      const regex = /add item\s+(.+?)(?:\s+quantity\s+(\d+))?(?:\s+rate\s+(\d+(?:\.\d+)?))?(?:\s+gst\s+(\d+))?$/i;
-      const match = command.match(regex);
-      if (match) {
-        addItem({
-          description: match[1]?.trim() || 'Voice Item',
-          quantity: Number(match[2] || 1),
-          rate: Number(match[3] || 0),
-          gstPercent: Number(match[4] || 18),
-        });
-      }
-    }
-  };
-
-  const processVoiceRef = useRef(processVoiceCommand);
-
-  useEffect(() => {
-    processVoiceRef.current = processVoiceCommand;
+  const {
+    voiceSupported,
+    recognitionActive,
+    setRecognitionActive,
+    voiceTranscript,
+  } = useVoiceAssistant({
+    onResetInvoice: () => resetInvoice(invoices),
+    onSaveInvoice: saveInvoice,
+    onSetCustomerName: setCustomerName,
+    onSetInvoiceNumber: setInvoiceNumber,
+    onSetCustomerPhone: setCustomerPhone,
+    onSetCustomerAddress: setCustomerAddress,
+    onAddItem: addItem,
   });
 
-  useEffect(() => {
-    if (!voiceSupported || typeof window === 'undefined') return;
-    const SpeechClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechClass) return;
-
-    const recognition = new SpeechClass();
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onresult = (e) => {
-      const last = e.results[e.results.length - 1];
-      const sentence = last[0].transcript.trim();
-      setVoiceTranscript((prev) => `${prev} ${sentence}`.trim());
-      processVoiceRef.current?.(sentence);
-    };
-
-    recognition.onerror = () => setRecognitionActive(false);
-    recognitionRef.current = recognition;
-
-    return () => {
-      recognition.stop();
-      recognitionRef.current = null;
-    };
-  }, [voiceSupported]);
-
-  useEffect(() => {
-    if (!recognitionRef.current) return;
-    if (recognitionActive) {
-      try {
-        recognitionRef.current.start();
-      } catch {
-        // already started
-      }
-    } else {
-      try {
-        recognitionRef.current.stop();
-      } catch {
-        // already stopped
-      }
-    }
-  }, [recognitionActive]);
-
   const menuRef = useRef(null);
-
-  const menus = {
-    Company: [
-      'Company Details',
-      'Create Company',
-      'Edit Company',
-      'Open Company',
-    ],
-    Transactions: {
-      Sales: [
-        'Add Sales',
-        'Modify Sales',
-        'List Sales',
-      ],
-      Purchase: [
-        'Add Purchase',
-        'Modify Purchase',
-        'List Purchase',
-      ],
-    },
-    Administration: {
-      Accounts: [
-        'Add Account',
-        'Modify Account',
-        'List Account',
-      ],
-      Items: [
-        'Add Item',
-        'Modify Item',
-        'List Items',
-      ],
-      'System & Security': [
-        'Master Item Catalog & API',
-        'Users',
-        'Device Access Control',
-        'Roles & Permissions',
-        'Settings',
-        'Backup',
-        'Restore',
-      ],
-    },
-    GST: [
-      'GST File Importer (All Types)',
-      'GSTR-1 (Sales Outward)',
-      'GSTR-2B (ITC Reconcile)',
-      'GSTR-3B Return Summary',
-      'GSTIN & HSN Directory',
-    ],
-    Display: [
-      'Dashboard',
-      'All Transactions',
-      'Company Details',
-      'Reports',
-    ],
-    'Print/Email/SMS': [
-      'Print Invoice',
-      'Email Invoice',
-      'Send SMS',
-      'Download PDF',
-    ],
-    'House-Keeping': [
-      'Data Backup',
-      'Data Restore',
-      'Clear Temporary Data',
-      'Database Maintenance',
-      'System Cleanup',
-    ],
-    Favourites: [
-      'Add to Favourites',
-      'View Favourites',
-      'Remove Favourite',
-      'Manage Favourites',
-    ],
-    Help: [
-      'Help Center',
-      'User Guide',
-      'Keyboard Shortcuts',
-      'Login',
-      'About Tread',
-    ],
-  };
-
-  const allAvailableShortcuts = [
-    { name: 'Dashboard', category: 'Display', icon: '📊' },
-    { name: 'Add Sales', category: 'Transactions', icon: '📝' },
-    { name: 'Modify Sales', category: 'Transactions', icon: '✏️' },
-    { name: 'List Sales', category: 'Transactions', icon: '📋' },
-    { name: 'Add Purchase', category: 'Transactions', icon: '🛒' },
-    { name: 'Modify Purchase', category: 'Transactions', icon: '✎' },
-    { name: 'List Purchase', category: 'Transactions', icon: '📦' },
-    { name: 'Add Account', category: 'Administration', icon: '👤' },
-    { name: 'Modify Account', category: 'Administration', icon: '✏️' },
-    { name: 'List Account', category: 'Administration', icon: '📋' },
-    { name: 'Add Item', category: 'Administration', icon: '📦' },
-    { name: 'Modify Item', category: 'Administration', icon: '🔧' },
-    { name: 'List Items', category: 'Administration', icon: '📑' },
-    { name: 'GST File Importer (All Types)', category: 'GST', icon: '📥' },
-    { name: 'GSTR-1 (Sales Outward)', category: 'GST', icon: '📤' },
-    { name: 'GSTR-2B (ITC Reconcile)', category: 'GST', icon: '⚖️' },
-    { name: 'GSTR-3B Return Summary', category: 'GST', icon: '📊' },
-    { name: 'GSTIN & HSN Directory', category: 'GST', icon: '🔍' },
-    { name: 'Master Item Catalog & API', category: 'Administration', icon: '🏷️' },
-    { name: 'Reports', category: 'Display', icon: '📈' },
-    { name: 'Company Details', category: 'Company', icon: '🏢' },
-    { name: 'Users', category: 'Administration', icon: '👤' },
-    { name: 'Settings', category: 'Administration', icon: '⚙️' },
-    { name: 'Data Backup', category: 'House-Keeping', icon: '💾' },
-    { name: 'Help Center', category: 'Help', icon: '❓' },
-  ];
 
   // Close dropdown on outside click or Escape
   useEffect(() => {
@@ -863,16 +588,16 @@ function Index() {
         setActiveMenu(null);
         setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null });
         setAboutModal(false);
+        setActivePage(null);
         return;
       }
 
-      // Fast-path: bypass shortcut handling when actively typing to prevent INP delays
       if (isTyping) return;
 
       // Alt + N -> New Invoice
       if (e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        setActivePage('Create Transaction');
+        setActivePage('Add Sales');
       }
       // Alt + D -> Dashboard
       if (e.altKey && e.key.toLowerCase() === 'd') {
@@ -892,7 +617,7 @@ function Index() {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, []);
+  }, [setRecognitionActive]);
 
   const handleMenuClick = (menu) => {
     if (!currentUser) {
@@ -921,29 +646,13 @@ function Index() {
       setActivePage('Company Details');
       return;
     }
-    if (option === 'Delete Company') {
-      if (window.confirm('Reset company profile details to default?')) {
-        handleSaveCompany({
-          name: '',
-          gstin: '',
-          address: '',
-          cityState: '',
-          phone: '',
-          email: '',
-          terms: '',
-        });
-        alert('Company profile reset.');
-      }
-      return;
-    }
 
     // Administration Actions
     if (
       option === 'Master Item Catalog & API' ||
       option === 'Master Item Catalog' ||
       option === 'Add Item (Master Catalog & API)' ||
-      option === 'Item API' ||
-      option === 'Add Item'
+      option === 'Item API'
     ) {
       setActivePage('Master Item Catalog');
       return;
@@ -966,8 +675,8 @@ function Index() {
     }
 
     // Transactions Actions
-    if (option === 'Create Transaction') {
-      setActivePage('Create Transaction');
+    if (option === 'Create Transaction' || option === 'Add Sales') {
+      setActivePage('Add Sales');
       return;
     }
     if (
@@ -979,16 +688,12 @@ function Index() {
       setActivePage('All Transactions');
       return;
     }
-    if (option === 'Customers') {
-      setActivePage('Customers');
+    if (option === 'Customers' || option === 'List Account') {
+      setActivePage('List Account');
       return;
     }
-    if (
-      option === 'Stock Inventory' ||
-      option === 'Stock' ||
-      option === 'Inventory'
-    ) {
-      setActivePage('Stock Inventory');
+    if (option === 'Stock Inventory' || option === 'Stock' || option === 'Inventory' || option === 'List Items') {
+      setActivePage('List Items');
       return;
     }
 
@@ -997,8 +702,8 @@ function Index() {
       setActivePage('Dashboard');
       return;
     }
-    if (option === 'All Transactions') {
-      setActivePage('All Transactions');
+    if (option === 'All Transactions' || option === 'List Sales') {
+      setActivePage('List Sales');
       return;
     }
     if (option === 'Reports') {
@@ -1042,8 +747,10 @@ function Index() {
 
     // Favourites Actions
     if (option === 'Add to Favourites') {
-      toggleFavourite(activePage);
-      alert(`Updated favourites for "${activePage}"!`);
+      if (activePage) {
+        toggleFavourite(activePage);
+        alert(`Updated favourites for "${activePage}"!`);
+      }
       return;
     }
     if (
@@ -1078,15 +785,13 @@ function Index() {
 
   // =========================================================
   // ON-DEMAND MANUAL CLOUD SYNC CONTROLS
-  // (Sync only operates when explicitly triggered by the user)
   // =========================================================
-  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const [cloudSyncStatus, setCloudSyncStatus] = useState('idle');
   const [lastSyncTime, setLastSyncTime] = useState(() => {
     if (typeof window === 'undefined') return null;
     return window.localStorage.getItem('gst-invoice-app-last-cloud-sync') || null;
   });
 
-  // 1. Full 2-Way Smart Merge Sync
   const handleForceCloudSync = async () => {
     if (!currentUser?.username) return;
     setCloudSyncStatus('syncing');
@@ -1142,7 +847,6 @@ function Index() {
     }
   };
 
-  // 2. Push / Upload Local Workspace to Cloud
   const handlePushToCloud = async () => {
     if (!currentUser?.username) return;
     setCloudSyncStatus('syncing');
@@ -1169,7 +873,6 @@ function Index() {
     }
   };
 
-  // 3. Pull / Download Cloud Workspace to Local
   const handlePullFromCloud = async () => {
     if (!currentUser?.username) return;
     setCloudSyncStatus('syncing');
@@ -1252,7 +955,7 @@ function Index() {
     setCloudSyncStatus('idle');
 
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
-    setActivePage('Dashboard');
+    setActivePage(null);
   };
 
   const handleRegister = (newUser) => {
@@ -1270,9 +973,8 @@ function Index() {
     setCustomers([]);
     setStockItems([]);
     setPurchaseBills([]);
-    // First invoice for new user starts at 1001/2026-27
     setInvoiceNumber('1001/2026-27');
-    setActivePage('Dashboard');
+    setActivePage(null);
   };
 
   const executeLogout = () => {
@@ -1283,7 +985,7 @@ function Index() {
     window.sessionStorage.removeItem('gst-invoice-app-current-user');
     window.localStorage.removeItem('gst-invoice-app-current-user');
     setExitConfirmModal({ isOpen: false, type: 'logout' });
-    setActivePage('Dashboard');
+    setActivePage(null);
   };
 
   const initiateLogout = () => {
@@ -1293,8 +995,9 @@ function Index() {
   const handleSyncAndProceedExitOrLogout = async () => {
     await handleForceCloudSync();
     if (exitConfirmModal.type === 'exit') {
-      setExitConfirmModal({ isOpen: false, type: 'exit' });
-      if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      window.sessionStorage.removeItem('gst-invoice-app-current-user');
+      window.localStorage.removeItem('gst-invoice-app-current-user');
+      if (Capacitor.isNativePlatform()) {
         CapApp.exitApp();
       } else {
         executeLogout();
@@ -1306,8 +1009,9 @@ function Index() {
 
   const handleProceedWithoutSync = () => {
     if (exitConfirmModal.type === 'exit') {
-      setExitConfirmModal({ isOpen: false, type: 'exit' });
-      if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      window.sessionStorage.removeItem('gst-invoice-app-current-user');
+      window.localStorage.removeItem('gst-invoice-app-current-user');
+      if (Capacitor.isNativePlatform()) {
         CapApp.exitApp();
       } else {
         executeLogout();
@@ -1317,957 +1021,63 @@ function Index() {
     }
   };
 
-  const handleRestoreData = (parsed) => {
-    if (parsed.company) {
-      handleSaveCompany(parsed.company);
-    }
-    if (parsed.invoices) {
-      setInvoices(parsed.invoices);
-    }
-    if (parsed.customers) {
-      setCustomers(parsed.customers);
-    }
-    if (parsed.stockItems) {
-      setStockItems(parsed.stockItems);
-    }
-    if (parsed.purchaseBills) {
-      setPurchaseBills(parsed.purchaseBills);
-    }
-    if (parsed.settings) {
-      setSettings(parsed.settings);
-    }
-    if (parsed.users) {
-      setUsers(parsed.users);
-    }
-  };
-
-  // Download PDF helper passing current company profile (dynamic import to reduce initial bundle)
+  // Download PDF helper
   const handleDownloadPDF = async (inv) => {
     const { default: downloadPDF } = await import('./Components/DownloadInvoice/Invoice.jsx');
     downloadPDF(inv, company);
   };
 
-  // Render current active screen
-  const renderActiveView = () => {
-    if (!currentUser) {
-      return (
-        <div className="py-4">
-          <div className="row justify-content-center">
-            <div className="col-xl-5 col-lg-7 col-md-9">
-              <Login
-                users={users}
-                onLogin={handleLogin}
-                onRegister={handleRegister}
-              />
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    switch (activePage) {
-      case 'Home':
-        return (
-          <div className="home-brand-screen py-4 text-center animate-fade-in">
-            <div className="card shadow-sm border-0 p-5 mx-auto bg-white rounded-4" style={{ maxWidth: '850px' }}>
-              <div className="mb-4">
-                <img
-                  src={Logo}
-                  alt="Tread Logo"
-                  className="tread-home-logo mb-3"
-                  style={{ maxHeight: '160px', width: 'auto', objectFit: 'contain' }}
-                />
-                <h1 className="display-4 fw-bolder text-primary mb-1">
-                  TREAD
-                </h1>
-                <div className="fs-5 text-uppercase fw-semibold text-secondary letter-spacing-2 mb-3">
-                  GST Invoice & Billing Enterprise System
-                </div>
-                <p className="lead text-muted mx-auto" style={{ maxWidth: '620px' }}>
-                  Smart tax billing platform with automated GST slab calculations, voice-assisted data entry, company customization, and instant PDF invoice generation.
-                </p>
-              </div>
-
-              <div className="d-flex justify-content-center gap-3 flex-wrap mb-4">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-lg px-4 fw-bold shadow-sm"
-                  onClick={() => setActivePage('Dashboard')}
-                >
-                  📊 Open Dashboard
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-primary btn-lg px-4 fw-semibold"
-                  onClick={() => setActivePage('Create Transaction')}
-                >
-                  ＋ Create New Invoice
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline-secondary btn-lg px-4 fw-semibold"
-                  onClick={() => setActivePage('All Transactions')}
-                >
-                  📋 View Invoices
-                </button>
-              </div>
-
-              <div className="row g-3 text-start pt-3 border-top">
-                <div className="col-md-4">
-                  <div className="p-3 bg-light rounded-3 h-100">
-                    <div className="fw-bold mb-1">🎤 Voice Assistant</div>
-                    <small className="text-muted">Speak natural voice commands to fill customer details and add items.</small>
-                  </div>
-                </div>
-                <div className="col-md-4">
-                  <div className="p-3 bg-light rounded-3 h-100">
-                    <div className="fw-bold mb-1">🏷️ GST Auto-Calculations</div>
-                    <small className="text-muted">Automatic CGST, SGST, IGST per item slab (0%, 5%, 12%, 18%, 28%).</small>
-                  </div>
-                </div>
-                <div className="col-md-4">
-                  <div className="p-3 bg-light rounded-3 h-100">
-                    <div className="fw-bold mb-1">📥 Official PDF Invoices</div>
-                    <small className="text-muted">Generate and export tax invoices with custom company branding.</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'Dashboard':
-        return (
-          <Dashboard
-            invoices={invoices}
-            company={company}
-            currentUser={currentUser}
-            onNavigate={setActivePage}
-            onLoadInvoice={(inv) => {
-              loadInvoiceToEditor(inv);
-              setActivePage('Add Sales');
-            }}
-            onDownloadPDF={handleDownloadPDF}
-            onStartVoice={() => {
-              setActivePage('Add Sales');
-              setRecognitionActive(true);
-            }}
-          />
-        );
-
-      /* ================= 1. SALES SECTION (Add, Modify, List) ================= */
-      case 'Add Sales':
-      case 'Create Transaction':
-      case 'Create Invoice':
-        return (
-          <InvoiceEditor
-            customerName={customerName}
-            setCustomerName={setCustomerName}
-            invoiceNumber={invoiceNumber}
-            setInvoiceNumber={setInvoiceNumber}
-            invoiceDate={invoiceDate}
-            setInvoiceDate={setInvoiceDate}
-            customerPhone={customerPhone}
-            setCustomerPhone={setCustomerPhone}
-            customerAddress={customerAddress}
-            setCustomerAddress={setCustomerAddress}
-            invoiceType={invoiceType}
-            setInvoiceType={setInvoiceType}
-            items={items}
-            addItem={addItem}
-            updateItem={updateItem}
-            removeItem={removeItem}
-            totals={totals}
-            resetInvoice={resetInvoice}
-            saveInvoice={saveInvoice}
-            recognitionActive={recognitionActive}
-            setRecognitionActive={setRecognitionActive}
-            voiceSupported={voiceSupported}
-            voiceTranscript={voiceTranscript}
-            downloadPDF={handleDownloadPDF}
-            onViewAllInvoices={() => setActivePage('List Sales')}
-            customers={customers}
-            company={company}
-            onSaveCustomer={handleSaveSingleCustomer}
-            onNavigateToCustomers={() => setActivePage('List Account')}
-            stockItems={stockItems}
-            onNavigateToStock={() => setActivePage('List Items')}
-          />
-        );
-
-      case 'Modify Sales':
-      case 'Edit Transaction':
-        return (
-          <InvoicesList
-            key={activePage}
-            invoices={invoices}
-            company={company}
-            onLoadInvoice={(inv) => {
-              loadInvoiceToEditor(inv);
-              setActivePage('Add Sales');
-            }}
-            onDeleteInvoice={deleteInvoice}
-            onClearAllInvoices={clearAllInvoices}
-            onDownloadPDF={handleDownloadPDF}
-            onShareInvoice={(inv) =>
-              setShareModal({ isOpen: true, mode: 'email', targetInvoice: inv })
-            }
-            onNavigate={setActivePage}
-            mode="modify"
-          />
-        );
-
-      case 'List Sales':
-      case 'All Transactions':
-      case 'View Transactions':
-      case 'Search Transaction':
-        return (
-          <InvoicesList
-            key={activePage}
-            invoices={invoices}
-            company={company}
-            onLoadInvoice={(inv) => {
-              loadInvoiceToEditor(inv);
-              setActivePage('Add Sales');
-            }}
-            onDeleteInvoice={deleteInvoice}
-            onClearAllInvoices={clearAllInvoices}
-            onDownloadPDF={handleDownloadPDF}
-            onShareInvoice={(inv) =>
-              setShareModal({ isOpen: true, mode: 'email', targetInvoice: inv })
-            }
-            onNavigate={setActivePage}
-            mode="list"
-          />
-        );
-
-      /* ================= 2. PURCHASE SECTION (Add, Modify, List) ================= */
-      case 'Add Purchase':
-      case 'Purchase Bills':
-      case 'Purchase Bill Entry':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="manual-bill"
-            initialShowAdd={false}
-            mode="add"
-          />
-        );
-
-      case 'Modify Purchase':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="purchase-history"
-            initialShowAdd={false}
-            mode="modify"
-          />
-        );
-
-      case 'List Purchase':
-      case 'Purchase':
-      case 'Purchase History':
-      case 'Purchase Register':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="purchase-history"
-            initialShowAdd={false}
-            mode="list"
-          />
-        );
-
-      /* ================= 3. ACCOUNT SECTION (Add, Modify, List) ================= */
-      case 'Add Account':
-      case 'Add Customer':
-      case 'Add Vendor':
-      case 'Add Party':
-        return (
-          <CustomersPage
-            key={activePage}
-            customers={customers}
-            onSave={handleSaveCustomers}
-            onDelete={handleDeleteCustomer}
-            onLoadToInvoice={handleLoadCustomerToInvoice}
-            onBack={() => setActivePage('Dashboard')}
-            initialShowAdd={true}
-            initialMode="add"
-          />
-        );
-
-      case 'Modify Account':
-      case 'Edit Party':
-      case 'Edit Customer':
-        return (
-          <CustomersPage
-            key={activePage}
-            customers={customers}
-            onSave={handleSaveCustomers}
-            onDelete={handleDeleteCustomer}
-            onLoadToInvoice={handleLoadCustomerToInvoice}
-            onBack={() => setActivePage('Dashboard')}
-            initialShowAdd={false}
-            initialMode="modify"
-          />
-        );
-
-      case 'List Account':
-      case 'Customers':
-      case 'Vendors':
-      case 'Parties':
-      case 'Account List':
-        return (
-          <CustomersPage
-            key={activePage}
-            customers={customers}
-            onSave={handleSaveCustomers}
-            onDelete={handleDeleteCustomer}
-            onLoadToInvoice={handleLoadCustomerToInvoice}
-            onBack={() => setActivePage('Dashboard')}
-            initialShowAdd={false}
-            initialMode="list"
-          />
-        );
-
-      /* ================= 4. ITEMS SECTION (Add, Modify, List) ================= */
-      case 'Add Item':
-      case 'Add Stock Item':
-      case 'Add Product':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="inventory"
-            initialShowAdd={true}
-            mode="add"
-          />
-        );
-
-      case 'Modify Item':
-      case 'Modify Stock Item':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="inventory"
-            initialShowAdd={false}
-            mode="modify"
-          />
-        );
-
-      case 'List Items':
-      case 'Stock Inventory':
-      case 'Stock':
-      case 'Inventory':
-        return (
-          <StockManagement
-            key={activePage}
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
-            purchaseBills={purchaseBills}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveVendor={handleSaveSingleCustomer}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="inventory"
-            initialShowAdd={false}
-            mode="list"
-          />
-        );
-
-      /* ================= 5. GST SECTION (Universal Importer, GSTR-1, 2B, 3B, Tools) ================= */
-      case 'GST File Importer (All Types)':
-      case 'GST Importer':
-      case 'Import GST Files':
-      case 'GST':
-        return (
-          <GstHub
-            key={activePage}
-            invoices={invoices}
-            purchaseBills={purchaseBills}
-            customers={customers}
-            company={company}
-            onSaveInvoices={handleSaveInvoices}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveCustomers={handleSaveCustomers}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="importer"
-          />
-        );
-
-      case 'GSTR-1 (Sales Outward)':
-      case 'GSTR-1':
-      case 'GSTR1':
-        return (
-          <GstHub
-            key={activePage}
-            invoices={invoices}
-            purchaseBills={purchaseBills}
-            customers={customers}
-            company={company}
-            onSaveInvoices={handleSaveInvoices}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveCustomers={handleSaveCustomers}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="gstr1"
-          />
-        );
-
-      case 'GSTR-2B (ITC Reconcile)':
-      case 'GSTR-2B':
-      case 'GSTR2B':
-      case 'ITC Reconciliation':
-        return (
-          <GstHub
-            key={activePage}
-            invoices={invoices}
-            purchaseBills={purchaseBills}
-            customers={customers}
-            company={company}
-            onSaveInvoices={handleSaveInvoices}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveCustomers={handleSaveCustomers}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="reconciliation"
-          />
-        );
-
-      case 'GSTR-3B Return Summary':
-      case 'GSTR-3B':
-      case 'GSTR3B':
-        return (
-          <GstHub
-            key={activePage}
-            invoices={invoices}
-            purchaseBills={purchaseBills}
-            customers={customers}
-            company={company}
-            onSaveInvoices={handleSaveInvoices}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveCustomers={handleSaveCustomers}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="gstr3b"
-          />
-        );
-
-      case 'GSTIN & HSN Directory':
-      case 'GST Directory':
-      case 'GST Tools':
-        return (
-          <GstHub
-            key={activePage}
-            invoices={invoices}
-            purchaseBills={purchaseBills}
-            customers={customers}
-            company={company}
-            onSaveInvoices={handleSaveInvoices}
-            onSavePurchaseBills={handleSavePurchaseBills}
-            onSaveCustomers={handleSaveCustomers}
-            onBack={() => setActivePage('Dashboard')}
-            initialTab="tools"
-          />
-        );
-
-      case 'Company Details':
-      case 'Create Company':
-      case 'Edit Company':
-        return (
-          <CompanyProfile
-            company={company}
-            onSaveCompany={handleSaveCompany}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Reports':
-        return (
-          <Reports
-            invoices={invoices}
-            company={company}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Users':
-        return (
-          <UserManagement
-            users={users}
-            currentUser={currentUser}
-            onSwitchUser={handleLogin}
-            onAddUser={handleRegister}
-            onLogout={initiateLogout}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Multi-Device & Remote Access':
-      case 'Device Access Control':
-      case 'Remote Access':
-        return (
-          <DeviceAccessControl
-            currentUser={currentUser}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Master Item Catalog':
-      case 'Master Item Catalog & API':
-      case 'Add Item (Master Catalog & API)':
-        return (
-          <ItemCatalogApi
-            stockItems={stockItems}
-            onSaveStock={handleSaveStock}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Settings':
-        return (
-          <AppSettings
-            settings={settings}
-            onSaveSettings={handleSaveSettings}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Roles & Permissions':
-        return (
-          <RolesPermissions onBack={() => setActivePage('Dashboard')} />
-        );
-
-      case 'House-Keeping':
-      case 'Data Backup':
-      case 'Data Restore':
-        return (
-          <Housekeeping
-            invoices={invoices}
-            company={company}
-            users={users}
-            currentUser={currentUser}
-            customers={customers}
-            stockItems={stockItems}
-            purchaseBills={purchaseBills}
-            onRestoreData={handleRestoreData}
-            onClearDrafts={resetInvoice}
-            onBack={() => setActivePage('Dashboard')}
-            onNavigateToSettings={() => setActivePage('Settings')}
-          />
-        );
-
-      case 'Manage Favourites':
-      case 'View Favourites':
-        return (
-          <ManageFavourites
-            allOptions={allAvailableShortcuts}
-            favourites={favourites}
-            onToggleFavourite={toggleFavourite}
-            onNavigate={setActivePage}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Help Center':
-      case 'User Guide':
-      case 'Keyboard Shortcuts':
-        return (
-          <HelpCenter
-            onNavigate={setActivePage}
-            onBack={() => setActivePage('Dashboard')}
-          />
-        );
-
-      case 'Login':
-        return (
-          <div className="py-4">
-            <div className="row justify-content-center">
-              <div className="col-xl-6 col-lg-8">
-                <Login
-                  users={users}
-                  onLogin={handleLogin}
-                  onRegister={handleRegister}
-                  onBack={() => setActivePage('Dashboard')}
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return (
-          <div className="text-center py-5">
-            <h2 className="h4 fw-bold">{activePage}</h2>
-            <p className="text-muted">Section loaded. Choose an option from the menu.</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => setActivePage('Dashboard')}
-            >
-              Return to Dashboard
-            </button>
-          </div>
-        );
-    }
-  };
-
   return (
     <div className="menu-container" ref={menuRef}>
       {/* ================= TOP NAVIGATION BAR ================= */}
-      <div id="box">
-        <div className="d-flex align-items-center">
-          {/* Mobile Hamburger Menu Toggle Button */}
-          {currentUser && (
-            <button
-              type="button"
-              className="mobile-menu-toggle me-2"
-              onClick={() => setMobileDrawerOpen((prev) => !prev)}
-              aria-label="Toggle Navigation Menu"
-              title="Open Navigation Menu"
-            >
-              {mobileDrawerOpen ? '✕' : '☰'}
-            </button>
-          )}
-
-          <div
-            className="brand-nav-title mb-0"
-            onClick={() => {
-              setActivePage('Home');
-              setActiveMenu(null);
-            }}
-            title="Tread Home - View Brand Logo & Overview"
-            style={{ cursor: 'pointer' }}
-          >
-            <img src={Logo} alt="Tread Logo" className="brand-nav-logo" />
-            <span>Tread</span>
-          </div>
-        </div>
-
-        <div className="menus-horizontal">
-          {currentUser ? (
-            Object.keys(menus).map((menu) => (
-              <div className="menu-wrapper" key={menu}>
-                <button
-                  type="button"
-                  className={`top-button ${activeMenu === menu ? 'active' : ''}`}
-                  onClick={() => handleMenuClick(menu)}
-                >
-                  {menu}
-                  <span className="arrow">{activeMenu === menu ? '▲' : '▼'}</span>
-                </button>
-
-                {/* DROPDOWN MENU */}
-                {activeMenu === menu && (
-                  <div className="dropdown-menu-custom">
-                    {Array.isArray(menus[menu]) ? (
-                      menus[menu].map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          className="dropdown-item-custom"
-                          onClick={() => handleOptionClick(option)}
-                        >
-                          <span className="item-icon">{getItemIcon(option)}</span>
-                          {option}
-                        </button>
-                      ))
-                    ) : (
-                      Object.entries(menus[menu]).map(([subKey, subOptions]) => {
-                        const fullSubKey = `${menu}_${subKey}`;
-                        const isSubOpen = !!openSubSections[fullSubKey];
-                        return (
-                          <div key={subKey} className="dropdown-section-block">
-                            <button
-                              type="button"
-                              className={`dropdown-section-toggle ${isSubOpen ? 'open' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSubSection(fullSubKey);
-                              }}
-                            >
-                              <span className="d-flex align-items-center gap-2">
-                                <span>{getSubSectionIcon(subKey)}</span>
-                                <span>{subKey}</span>
-                              </span>
-                              <span className="small text-muted">{isSubOpen ? '▲' : '▶'}</span>
-                            </button>
-
-                            {isSubOpen && (
-                              <div className="dropdown-sub-items-container">
-                                {subOptions.map((option) => (
-                                  <button
-                                    key={option}
-                                    type="button"
-                                    className="dropdown-sub-item"
-                                    onClick={() => handleOptionClick(option)}
-                                  >
-                                    <span className="item-icon">{getItemIcon(option)}</span>
-                                    {option}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
-          ) : (
-            <div className="text-white-50 small ps-2">
-              🔒 Please sign in with your User ID &amp; Password
-            </div>
-          )}
-        </div>
-      </div>
+      <TopNavbar
+        currentUser={currentUser}
+        menus={MENUS}
+        activeMenu={activeMenu}
+        onMenuClick={handleMenuClick}
+        onOptionClick={handleOptionClick}
+        openSubSections={openSubSections}
+        onToggleSubSection={toggleSubSection}
+        mobileDrawerOpen={mobileDrawerOpen}
+        onToggleMobileDrawer={() => setMobileDrawerOpen((prev) => !prev)}
+        onBrandClick={() => {
+          setActivePage(null);
+          setActiveMenu(null);
+        }}
+      />
 
       {/* ================= MOBILE SLIDE-DOWN ACCORDION MENU ================= */}
-      {mobileDrawerOpen && (
-        <>
-          <div
-            className="mobile-slide-down-backdrop"
-            onClick={() => setMobileDrawerOpen(false)}
-          />
-          <nav className="mobile-slide-down-menu" aria-label="Mobile Navigation Menu">
-            <div className="mobile-slide-down-header">
-              <div className="d-flex align-items-center gap-2">
-                <img src={Logo} alt="Tread Logo" style={{ height: '24px' }} />
-                <span className="fw-bold fs-6">Navigation Menu</span>
-              </div>
-              <button
-                type="button"
-                className="btn-close btn-close-white btn-sm"
-                onClick={() => setMobileDrawerOpen(false)}
-                aria-label="Close menu"
-              />
-            </div>
-
-            {currentUser ? (
-              <div className="p-3 bg-light border-bottom">
-                <div className="d-flex justify-content-between align-items-center mb-2">
-                  <span className="badge bg-primary fs-7">👤 {currentUser.username}</span>
-                  <button
-                    type="button"
-                    className="btn btn-outline-danger btn-sm py-0 px-2 fw-semibold"
-                    style={{ fontSize: '11px' }}
-                    onClick={() => {
-                      setMobileDrawerOpen(false);
-                      initiateLogout();
-                    }}
-                  >
-                    Logout
-                  </button>
-                </div>
-                <div className="d-flex align-items-center justify-content-between">
-                  <small className="text-muted text-truncate fw-semibold" style={{ maxWidth: '160px' }}>
-                    🏢 {company?.name || 'My Company'}
-                  </small>
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-white border py-0 px-2 shadow-xs"
-                    style={{ fontSize: '10.5px' }}
-                    onClick={() => {
-                      setMobileDrawerOpen(false);
-                      setCloudSyncModalOpen(true);
-                    }}
-                    title="On-Demand Cloud Sync Controls"
-                  >
-                    {cloudSyncStatus === 'syncing' ? '⏳ Syncing' : '☁️ Cloud Sync 🔄'}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="mobile-slide-down-body">
-              {currentUser ? (
-                Object.entries(menus).map(([group, itemsList]) => {
-                  const isOpen = !!expandedMobileGroups[group];
-                  return (
-                    <div key={group} className={`mobile-accordion-card ${isOpen ? 'open' : ''}`}>
-                      <button
-                        type="button"
-                        className="mobile-accordion-toggle"
-                        onClick={() => toggleMobileGroup(group)}
-                      >
-                        <span className="d-flex align-items-center gap-2">
-                          <span>{getCategoryIcon(group)}</span>
-                          <span>{group}</span>
-                        </span>
-                        <span className="mobile-accordion-chevron">{isOpen ? '▲' : '▼'}</span>
-                      </button>
-
-                      {isOpen && (
-                        <div className="mobile-accordion-content">
-                          {itemsList.map((item, idx) => {
-                            const isSalesSubheader = group === 'Transactions' && idx === 0;
-                            const isPurchaseSubheader = group === 'Transactions' && idx === 3;
-                            const isAccountSubheader = group === 'Administration' && idx === 0;
-                            const isItemSubheader = group === 'Administration' && idx === 3;
-                            const isAdminSubheader = group === 'Administration' && idx === 6;
-                            return (
-                              <div key={item}>
-                                {isSalesSubheader && (
-                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-bottom bg-light">
-                                    💰 Sales
-                                  </div>
-                                )}
-                                {isPurchaseSubheader && (
-                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
-                                    🛒 Purchase
-                                  </div>
-                                )}
-                                {isAccountSubheader && (
-                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-bottom bg-light">
-                                    👤 Accounts / Parties
-                                  </div>
-                                )}
-                                {isItemSubheader && (
-                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
-                                    📦 Items / Inventory
-                                  </div>
-                                )}
-                                {isAdminSubheader && (
-                                  <div className="px-3 py-1 text-uppercase text-muted fw-bold small border-top border-bottom bg-light mt-1">
-                                    ⚙️ System &amp; Settings
-                                  </div>
-                                )}
-                                <button
-                                  type="button"
-                                  className={`mobile-nav-link ${activePage === item ? 'active' : ''}`}
-                                  onClick={() => {
-                                    handleOptionClick(item);
-                                    setMobileDrawerOpen(false);
-                                  }}
-                                >
-                                  <span className="text-primary small">{getItemIcon(item)}</span>
-                                  <span>{item}</span>
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="p-3 text-muted small text-center">
-                  Please sign in to access full tools.
-                </div>
-              )}
-            </div>
-          </nav>
-        </>
-      )}
+      <MobileDrawer
+        isOpen={mobileDrawerOpen}
+        onClose={() => setMobileDrawerOpen(false)}
+        currentUser={currentUser}
+        company={company}
+        cloudSyncStatus={cloudSyncStatus}
+        onOpenCloudSync={() => setCloudSyncModalOpen(true)}
+        onInitiateLogout={initiateLogout}
+        menus={MENUS}
+        expandedGroups={expandedMobileGroups}
+        onToggleGroup={toggleMobileGroup}
+        openSubSections={openSubSections}
+        onToggleSubSection={toggleSubSection}
+        activePage={activePage}
+        onSelectOption={handleOptionClick}
+      />
 
       {/* ================= SECONDARY SUB-NAV / STATUS BAR ================= */}
-      <div className="sub-navbar">
-        <div className="breadcrumb-tag">
-          <span>📁 {company?.name || 'My Company'}</span>
-          <span className="text-muted">/</span>
-          <span className="active-page-name">
-            {currentUser ? activePage : 'Authentication Required'}
-          </span>
-          {currentUser && recognitionActive && (
-            <span className="badge bg-danger animate-pulse ms-2">
-              ● Voice Active
-            </span>
-          )}
-        </div>
-
-        {/* Quick Favourites Pills (Desktop/Tablet) */}
-        {currentUser && (
-          <div className="favourites-pills d-none d-md-flex">
-            <span className="text-muted small me-1">⭐ Quick:</span>
-            {favourites.map((fav) => (
-              <button
-                key={fav}
-                type="button"
-                className={`fav-pill-btn ${activePage === fav ? 'active' : ''}`}
-                onClick={() => setActivePage(fav)}
-              >
-                {fav}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* User Account & Quick Status */}
-        <div className="d-flex align-items-center gap-2">
-          {currentUser ? (
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              {/* On-Demand Cloud Sync Button */}
-              <button
-                type="button"
-                className="btn btn-sm btn-light border py-0 px-2 d-flex align-items-center gap-1 shadow-xs"
-                style={{ fontSize: '11.5px' }}
-                onClick={() => setCloudSyncModalOpen(true)}
-                title={`On-Demand Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`}
-              >
-                {cloudSyncStatus === 'syncing' ? (
-                  <span className="text-primary fw-semibold">⏳ Syncing...</span>
-                ) : cloudSyncStatus === 'error' ? (
-                  <span className="text-danger fw-semibold">⚠️ Sync Error</span>
-                ) : (
-                  <span className="text-dark fw-medium">
-                    ☁️ Cloud Sync {lastSyncTime ? `(${lastSyncTime})` : ''}
-                  </span>
-                )}
-                <span className="text-primary small">🔄</span>
-              </button>
-
-              <span className="badge bg-light text-dark border d-none d-sm-inline-block">
-                👤 {currentUser.username}
-              </span>
-              <button
-                type="button"
-                className="btn btn-outline-danger btn-sm py-0 px-2 d-none d-sm-inline-block"
-                style={{ fontSize: '11.5px' }}
-                onClick={initiateLogout}
-              >
-                🔒 Logout
-              </button>
-            </div>
-          ) : (
-            <span className="badge bg-warning text-dark border py-1 px-2">
-              🔒 Sign In Required
-            </span>
-          )}
-        </div>
-      </div>
+      <SubNavbar
+        currentUser={currentUser}
+        company={company}
+        activePage={activePage}
+        onClosePage={() => setActivePage(null)}
+        recognitionActive={recognitionActive}
+        favourites={favourites}
+        onSelectFavourite={(fav) => setActivePage(fav)}
+        cloudSyncStatus={cloudSyncStatus}
+        lastSyncTime={lastSyncTime}
+        onOpenCloudSync={() => setCloudSyncModalOpen(true)}
+        onInitiateLogout={initiateLogout}
+      />
 
       {/* ================= MAIN PAGE VIEWPORT ================= */}
       <main className="content-area">
@@ -2281,72 +1091,94 @@ function Index() {
             </div>
           }
         >
-          {renderActiveView()}
+          {currentUser ? (
+            <ViewRouter
+              activePage={activePage}
+              onNavigate={setActivePage}
+              currentUser={currentUser}
+              users={users}
+              onLogin={handleLogin}
+              onRegister={handleRegister}
+              company={company}
+              onSaveCompany={handleSaveCompany}
+              settings={settings}
+              onSaveSettings={handleSaveSettings}
+              invoices={invoices}
+              customerName={customerName}
+              setCustomerName={setCustomerName}
+              invoiceNumber={invoiceNumber}
+              setInvoiceNumber={setInvoiceNumber}
+              invoiceDate={invoiceDate}
+              setInvoiceDate={setInvoiceDate}
+              customerPhone={customerPhone}
+              setCustomerPhone={setCustomerPhone}
+              customerAddress={customerAddress}
+              setCustomerAddress={setCustomerAddress}
+              invoiceType={invoiceType}
+              setInvoiceType={setInvoiceType}
+              items={items}
+              addItem={addItem}
+              updateItem={updateItem}
+              removeItem={removeItem}
+              totals={totals}
+              resetInvoice={resetInvoice}
+              saveInvoice={saveInvoice}
+              loadInvoiceToEditor={loadInvoiceToEditor}
+              deleteInvoice={deleteInvoice}
+              clearAllInvoices={clearAllInvoices}
+              onDownloadPDF={handleDownloadPDF}
+              onShareInvoice={(inv) =>
+                setShareModal({ isOpen: true, mode: 'email', targetInvoice: inv })
+              }
+              customers={customers}
+              onSaveCustomers={handleSaveCustomers}
+              onSaveSingleCustomer={handleSaveSingleCustomer}
+              onDeleteCustomer={handleDeleteCustomer}
+              onLoadCustomerToInvoice={handleLoadCustomerToInvoice}
+              stockItems={stockItems}
+              onSaveStock={handleSaveStock}
+              purchaseBills={purchaseBills}
+              onSavePurchaseBills={handleSavePurchaseBills}
+              favourites={favourites}
+              onToggleFavourite={toggleFavourite}
+              allAvailableShortcuts={ALL_SHORTCUTS}
+              voiceSupported={voiceSupported}
+              recognitionActive={recognitionActive}
+              setRecognitionActive={setRecognitionActive}
+              voiceTranscript={voiceTranscript}
+              onStartVoice={() => {
+                setActivePage('Add Sales');
+                setRecognitionActive(true);
+              }}
+            />
+          ) : (
+            <div className="py-4">
+              <div className="row justify-content-center">
+                <div className="col-xl-5 col-lg-7 col-md-9">
+                  <Login
+                    users={users}
+                    onLogin={handleLogin}
+                    onRegister={handleRegister}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </Suspense>
       </main>
 
-      {/* ================= FOOTER / COPYRIGHT ================= */}
+      {/* ================= FOOTER ================= */}
       <footer className="app-footer text-center py-2 text-muted small border-top bg-white">
         © {new Date().getFullYear()} {company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
       </footer>
 
-      {/* ================= FIXED MOBILE BOTTOM APP BAR (1-Thumb Navigation) ================= */}
-      {currentUser && (
-        <nav className="mobile-bottom-bar d-md-none" aria-label="Mobile Bottom Navigation">
-          <button
-            type="button"
-            className={`mobile-bottom-btn ${activePage === 'Dashboard' ? 'active' : ''}`}
-            onClick={() => {
-              setActivePage('Dashboard');
-              setMobileDrawerOpen(false);
-            }}
-          >
-            <span className="btn-icon">📊</span>
-            <span>Dashboard</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-bottom-btn ${activePage === 'Add Sales' || activePage === 'Create Transaction' || activePage === 'Create Invoice' ? 'active' : ''}`}
-            onClick={() => {
-              setActivePage('Add Sales');
-              setMobileDrawerOpen(false);
-            }}
-          >
-            <span className="btn-icon">＋</span>
-            <span>New Sale</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-bottom-btn ${activePage === 'List Sales' || activePage === 'All Transactions' || activePage === 'View Transactions' ? 'active' : ''}`}
-            onClick={() => {
-              setActivePage('List Sales');
-              setMobileDrawerOpen(false);
-            }}
-          >
-            <span className="btn-icon">📋</span>
-            <span>Sales</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-bottom-btn ${activePage === 'List Account' || activePage === 'Customers' || activePage === 'Parties' ? 'active' : ''}`}
-            onClick={() => {
-              setActivePage('List Account');
-              setMobileDrawerOpen(false);
-            }}
-          >
-            <span className="btn-icon">👥</span>
-            <span>Parties</span>
-          </button>
-          <button
-            type="button"
-            className={`mobile-bottom-btn ${mobileDrawerOpen ? 'active' : ''}`}
-            onClick={() => setMobileDrawerOpen((prev) => !prev)}
-          >
-            <span className="btn-icon">☰</span>
-            <span>Menu</span>
-          </button>
-        </nav>
-      )}
+      {/* ================= FIXED MOBILE BOTTOM APP BAR ================= */}
+      <MobileBottomBar
+        currentUser={currentUser}
+        activePage={activePage}
+        onNavigate={setActivePage}
+        onToggleMobileDrawer={() => setMobileDrawerOpen((prev) => !prev)}
+      />
 
       {/* ================= MODALS ================= */}
       <Suspense fallback={null}>
