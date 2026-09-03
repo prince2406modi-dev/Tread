@@ -21,6 +21,8 @@ import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
 import { syncUserDataToCloud, fetchUserDataFromCloud } from './services/firebase.js';
+import { GST_STATE_CODES } from './services/gstinValidator.js';
+import { GST_STATE_CODES } from './services/gstinValidator.js';
 
 // Lazy Loaded Dialog Modals
 const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
@@ -147,7 +149,7 @@ function Index() {
         ? JSON.parse(saved)
         : {
             defaultGst: '18',
-            currencySymbol: '₹',
+            currencySymbol: 'â‚¹',
             invoicePrefix: 'INV',
             autoInvoiceNumber: true,
             enableVoice: true,
@@ -240,7 +242,7 @@ function Index() {
       createdAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newEntry, ...prev]);
-    alert(`✓ Customer "${newCust.name}" saved to your Sales Directory!`);
+    alert(`âœ“ Customer "${newCust.name}" saved to your Sales Directory!`);
   };
 
   // =========================================================
@@ -375,12 +377,12 @@ function Index() {
       return;
     }
 
-    const isRegistered = customers.some(
+    const matchedCustomer = customers.find(
       (c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
     );
-    if (!isRegistered) {
+    if (!matchedCustomer) {
       alert(
-        `❌ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nPlease select a saved customer or register them in the Customer folder first.`
+        `âŒ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nPlease select a saved customer or register them in the Customer folder first.`
       );
       return;
     }
@@ -392,6 +394,27 @@ function Index() {
 
     const calculatedInvoiceNumber = invoiceNumber.trim() || getNextInvoiceNumber(invoices);
 
+    // Pull the customer's GSTIN from their saved contact card so it travels
+    // with the invoice (needed for GST reports, exports, and the printed PDF).
+    const buyerGstin = (matchedCustomer.gstin || '').trim().toUpperCase();
+    const isCentral = invoiceType === 'central';
+
+    // Work out "Place of Supply" / customer state. If the customer has a
+    // valid 15-char GSTIN, its first 2 digits are the official state code -
+    // that's the real, correct place of supply. If they don't have one
+    // (a normal walk-in/retail customer), there is no dedicated "customer
+    // state" field yet, so we fall back to our own business's state - which
+    // is accurate for the common same-state sale, but is a known
+    // approximation for an inter-state sale to a non-GSTIN customer.
+    let placeOfSupply = (company.state || '').trim();
+    if (buyerGstin.length === 15) {
+      const buyerStateCode = buyerGstin.slice(0, 2);
+      const buyerStateName = GST_STATE_CODES[buyerStateCode];
+      if (buyerStateName) {
+        placeOfSupply = `${buyerStateName} (${buyerStateCode})`;
+      }
+    }
+
     const newInvoice = {
       id: uuidv4(),
       customerName: customerName.trim(),
@@ -399,8 +422,11 @@ function Index() {
       invoiceDate,
       customerPhone: customerPhone.trim(),
       customerAddress: customerAddress.trim(),
+      customerGstin: buyerGstin,
+      customerState: placeOfSupply,
+      placeOfSupply,
       invoiceType,
-      isInterState: invoiceType === 'central',
+      isInterState: isCentral,
       items,
       totals,
       createdAt: new Date().toISOString(),
@@ -427,7 +453,7 @@ function Index() {
     );
 
     resetInvoice(updatedInvoices);
-    alert(`✓ Invoice ${calculatedInvoiceNumber} saved successfully!`);
+    alert(`âœ“ Invoice ${calculatedInvoiceNumber} saved successfully!`);
   };
 
   // =========================================================
@@ -741,7 +767,7 @@ function Index() {
     }
     if (option === 'Clear Temporary Data') {
       resetInvoice();
-      alert('✓ Unsaved invoice draft cleared.');
+      alert('âœ“ Unsaved invoice draft cleared.');
       return;
     }
 
@@ -1169,7 +1195,7 @@ function Index() {
 
       {/* ================= FOOTER ================= */}
       <footer className="app-footer text-center py-2 text-muted small border-top bg-white">
-        © {new Date().getFullYear()} {company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
+        Â© {new Date().getFullYear()} {company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
       </footer>
 
       {/* ================= FIXED MOBILE BOTTOM APP BAR ================= */}
