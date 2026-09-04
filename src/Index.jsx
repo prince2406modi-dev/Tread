@@ -22,7 +22,7 @@ import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
 import { syncUserDataToCloud, fetchUserDataFromCloud } from './services/firebase.js';
 import { GST_STATE_CODES } from './services/gstinValidator.js';
-import { GST_STATE_CODES } from './services/gstinValidator.js';
+import { DEFAULT_UNIT } from './constants/units.js';
 
 // Lazy Loaded Dialog Modals
 const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
@@ -343,6 +343,8 @@ function Index() {
       {
         id: uuidv4(),
         description: itemData.description || 'New Item',
+        hsn: itemData.hsn || '',
+        unit: itemData.unit || DEFAULT_UNIT,
         quantity: Number(itemData.quantity) || 1,
         rate: Number(itemData.rate) || 0,
         gstPercent: Number(itemData.gstPercent) || 18,
@@ -350,13 +352,19 @@ function Index() {
     ]);
   };
 
+  // Text fields (description, HSN code, unit) must stay as text - only the
+  // actual number fields (quantity, rate, gstPercent) should be converted
+  // to numbers. Forcing every field through Number() previously turned a
+  // typed unit like "PCS" into 0 the moment it was edited in the table.
+  const TEXT_ITEM_FIELDS = ['description', 'hsn', 'unit'];
+
   const updateItem = (id, field, value) => {
     setItems((current) =>
       current.map((item) =>
         item.id === id
           ? {
               ...item,
-              [field]: field === 'description' ? value : Number(value) || 0,
+              [field]: TEXT_ITEM_FIELDS.includes(field) ? value : Number(value) || 0,
             }
           : item
       )
