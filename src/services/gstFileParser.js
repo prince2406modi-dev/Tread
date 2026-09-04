@@ -37,25 +37,25 @@ export function detectGstFileType(fileName = '', contentObj = null, workbook = n
 
   if (contentObj && typeof contentObj === 'object') {
     if (contentObj.gstin && (contentObj.b2b || contentObj.b2cl || contentObj.b2cs || contentObj.hsn || contentObj.doc_issue)) {
-      return { type: 'GSTR1_JSON', label: 'GSTR-1 Sales Return (JSON)', category: 'sales', icon: '📤' };
+      return { type: 'GSTR1_JSON', label: 'GSTR-1 Sales Return (JSON)', category: 'sales', icon: 'ðŸ“¤' };
     }
     if (contentObj.docdata && (contentObj.docdata.b2b || contentObj.docdata.b2ba || contentObj.docdata.cdnr)) {
-      return { type: 'GSTR2B_JSON', label: 'GSTR-2B Auto-Drafted ITC Statement (JSON)', category: 'purchase', icon: '📥' };
+      return { type: 'GSTR2B_JSON', label: 'GSTR-2B Auto-Drafted ITC Statement (JSON)', category: 'purchase', icon: 'ðŸ“¥' };
     }
     if (contentObj.b2b && Array.isArray(contentObj.b2b) && contentObj.b2b[0]?.inv) {
-      return { type: 'GSTR2A_JSON', label: 'GSTR-2A Inward Supplies (JSON)', category: 'purchase', icon: '📥' };
+      return { type: 'GSTR2A_JSON', label: 'GSTR-2A Inward Supplies (JSON)', category: 'purchase', icon: 'ðŸ“¥' };
     }
     if (contentObj.sup_details || contentObj.itc_elg || contentObj.inward_sup) {
-      return { type: 'GSTR3B_JSON', label: 'GSTR-3B Return Summary (JSON)', category: 'summary', icon: '📊' };
+      return { type: 'GSTR3B_JSON', label: 'GSTR-3B Return Summary (JSON)', category: 'summary', icon: 'ðŸ“Š' };
     }
     if (contentObj.Irn || contentObj.irn || (contentObj.ValDtls && contentObj.BuyerDtls)) {
-      return { type: 'EINVOICE_JSON', label: 'e-Invoice IRN Standard Schema (JSON)', category: 'sales', icon: '⚡' };
+      return { type: 'EINVOICE_JSON', label: 'e-Invoice IRN Standard Schema (JSON)', category: 'sales', icon: 'âš¡' };
     }
     if (contentObj.ewbNo || contentObj.ewbDate || contentObj.GenGstin) {
-      return { type: 'EWAYBILL_JSON', label: 'e-Way Bill Schema (JSON)', category: 'logistics', icon: '🚚' };
+      return { type: 'EWAYBILL_JSON', label: 'e-Way Bill Schema (JSON)', category: 'logistics', icon: 'ðŸšš' };
     }
     if (Array.isArray(contentObj) && contentObj.length > 0 && (contentObj[0].gstin || contentObj[0].GSTIN)) {
-      return { type: 'TAXPAYER_MASTER_JSON', label: 'Taxpayer Master / GSTIN Directory (JSON)', category: 'parties', icon: '👥' };
+      return { type: 'TAXPAYER_MASTER_JSON', label: 'Taxpayer Master / GSTIN Directory (JSON)', category: 'parties', icon: 'ðŸ‘¥' };
     }
   }
 
@@ -67,28 +67,28 @@ export function detectGstFileType(fileName = '', contentObj = null, workbook = n
     const hasGstr2B = sheetNamesLower.some((s) => s.includes('gstr-2b') || s.includes('gstr2b') || s.includes('itc'));
 
     if (hasGstr2B || lowerName.includes('gstr2b') || lowerName.includes('gstr-2b') || lowerName.includes('2b')) {
-      return { type: 'GSTR2B_EXCEL', label: 'GSTR-2B ITC Statement (Excel)', category: 'purchase', icon: '📥' };
+      return { type: 'GSTR2B_EXCEL', label: 'GSTR-2B ITC Statement (Excel)', category: 'purchase', icon: 'ðŸ“¥' };
     }
     if (hasB2B && (hasB2CS || hasHSN || lowerName.includes('gstr1') || lowerName.includes('gstr-1'))) {
-      return { type: 'GSTR1_EXCEL', label: 'GSTR-1 Portal Offline Tool (Excel)', category: 'sales', icon: '📤' };
+      return { type: 'GSTR1_EXCEL', label: 'GSTR-1 Portal Offline Tool (Excel)', category: 'sales', icon: 'ðŸ“¤' };
     }
     if (sheetNamesLower.some((s) => s.includes('3b') || s.includes('gstr-3b'))) {
-      return { type: 'GSTR3B_EXCEL', label: 'GSTR-3B Return (Excel)', category: 'summary', icon: '📊' };
+      return { type: 'GSTR3B_EXCEL', label: 'GSTR-3B Return (Excel)', category: 'summary', icon: 'ðŸ“Š' };
     }
-    return { type: 'GENERIC_GST_EXCEL', label: 'GST Spreadsheet (.XLSX/.CSV)', category: 'general', icon: '📊' };
+    return { type: 'GENERIC_GST_EXCEL', label: 'GST Spreadsheet (.XLSX/.CSV)', category: 'general', icon: 'ðŸ“Š' };
   }
 
   if (lowerName.includes('gstr1') || lowerName.includes('gstr-1')) {
-    return { type: 'GSTR1_GENERIC', label: 'GSTR-1 File', category: 'sales', icon: '📤' };
+    return { type: 'GSTR1_GENERIC', label: 'GSTR-1 File', category: 'sales', icon: 'ðŸ“¤' };
   }
   if (lowerName.includes('gstr2b') || lowerName.includes('gstr-2b') || lowerName.includes('2b')) {
-    return { type: 'GSTR2B_GENERIC', label: 'GSTR-2B Statement', category: 'purchase', icon: '📥' };
+    return { type: 'GSTR2B_GENERIC', label: 'GSTR-2B Statement', category: 'purchase', icon: 'ðŸ“¥' };
   }
   if (lowerName.includes('einvoice') || lowerName.includes('e-invoice') || lowerName.includes('irn')) {
-    return { type: 'EINVOICE_GENERIC', label: 'e-Invoice File', category: 'sales', icon: '⚡' };
+    return { type: 'EINVOICE_GENERIC', label: 'e-Invoice File', category: 'sales', icon: 'âš¡' };
   }
 
-  return { type: 'UNKNOWN_GST', label: 'GST Document / Spreadsheet', category: 'general', icon: '📄' };
+  return { type: 'UNKNOWN_GST', label: 'GST Document / Spreadsheet', category: 'general', icon: 'ðŸ“„' };
 }
 
 export function parseGstJsonFile(jsonString) {
@@ -216,7 +216,7 @@ export function parseGstJsonFile(jsonString) {
               invoiceDate: normalizeGstDate(inv.idt),
               customerName: `Inter-State Consumer (${GST_STATE_CODES[pos] || pos})`,
               customerGstin: 'URP',
-              invoiceType: 'B2C Large (> ₹2.5 Lakhs)',
+              invoiceType: 'B2C Large (> â‚¹2.5 Lakhs)',
               pos,
               totals: { subtotal: invTaxable, totalGst: invIgst, igst: invIgst, total: invTotal },
               sourceSection: 'B2CL',
@@ -544,45 +544,90 @@ export function reconcile2bWithPurchaseBills(gstr2bInvoices = [], purchaseBills 
 export function generateGstr1UploadJson(invoices = [], company = {}, returnPeriod = '') {
   const gstin = (company.gstin || '').trim().toUpperCase();
   const fp = returnPeriod || new Date().toISOString().slice(5, 7) + new Date().getFullYear();
+  // Our own business's state code, used as the Place of Supply for retail
+  // (non-GSTIN) sales - see the note on b2cl below for why this is a
+  // deliberate, documented simplification rather than a bug.
+  const sellerStateCode = gstin.slice(0, 2) || (company.state || '').trim().slice(0, 2) || '';
 
   const b2bMap = {};
+  // B2CS rows are grouped by "place of supply + GST rate", matching the
+  // official GSTR-1 offline-tool schema (one summary line per state+rate
+  // combination, not one line per invoice).
+  const b2csMap = {};
   const hsnMap = {};
+
+  const round2 = (n) => Number((n || 0).toFixed(2));
 
   invoices.forEach((inv) => {
     const buyerGstin = (inv.customerGstin || '').trim().toUpperCase();
     const isB2B = buyerGstin && buyerGstin !== 'URP' && validateGSTIN(buyerGstin).isValid;
     const invDate = inv.invoiceDate ? inv.invoiceDate.split('-').reverse().join('-') : new Date().toISOString().slice(0, 10).split('-').reverse().join('-');
 
-    const itms = (inv.items || []).map((itm, idx) => {
-      const txval = Number(itm.price || 0) * Number(itm.quantity || 1);
-      const rt = Number(itm.gst || 18);
-      const isIgst = Boolean(itm.igst);
-      const iamt = isIgst ? (txval * rt) / 100 : 0;
-      const camt = !isIgst ? (txval * (rt / 2)) / 100 : 0;
-      const samt = !isIgst ? (txval * (rt / 2)) / 100 : 0;
+    // Inter-state (IGST) vs intra-state (CGST+SGST) is decided once per
+    // invoice - from the Local/Central choice made when it was created -
+    // not per item (an invoice can't be "half interstate").
+    const isInterState = Boolean(inv.isInterState);
+
+    // Place of supply: for B2B, use the buyer's own state from their GSTIN
+    // (always correct). For B2C, there is no separate "customer state"
+    // field yet, so we use our own business's state - correct for the
+    // common same-state retail sale.
+    const pos = isB2B ? buyerGstin.slice(0, 2) : sellerStateCode;
+
+    const b2bItems = [];
+
+    (inv.items || []).forEach((itm, idx) => {
+      const qty = Number(itm.quantity || 1);
+      const rate = Number(itm.rate || 0);
+      const gstPercent = Number(itm.gstPercent ?? 18);
+      const txval = qty * rate;
+      const iamt = isInterState ? (txval * gstPercent) / 100 : 0;
+      const camt = isInterState ? 0 : (txval * gstPercent) / 200;
+      const samt = isInterState ? 0 : (txval * gstPercent) / 200;
 
       const hsnCode = itm.hsn || '9983';
       if (!hsnMap[hsnCode]) {
-        hsnMap[hsnCode] = { hsn_sc: hsnCode, desc: itm.name || 'Goods/Services', uqc: itm.unit || 'NOS', qty: 0, val: 0, txval: 0, iamt: 0, camt: 0, samt: 0, csamt: 0 };
+        hsnMap[hsnCode] = { hsn_sc: hsnCode, desc: itm.description || 'Goods/Services', uqc: itm.unit || 'NOS', qty: 0, val: 0, txval: 0, iamt: 0, camt: 0, samt: 0, csamt: 0 };
       }
-      hsnMap[hsnCode].qty += Number(itm.quantity || 1);
+      hsnMap[hsnCode].qty += qty;
       hsnMap[hsnCode].txval += txval;
       hsnMap[hsnCode].iamt += iamt;
       hsnMap[hsnCode].camt += camt;
       hsnMap[hsnCode].samt += samt;
       hsnMap[hsnCode].val += txval + iamt + camt + samt;
 
-      return {
-        num: idx + 1,
-        itm_det: {
-          txval: Number(txval.toFixed(2)),
-          rt,
-          iamt: Number(iamt.toFixed(2)),
-          camt: Number(camt.toFixed(2)),
-          samt: Number(samt.toFixed(2)),
-          csamt: 0,
-        },
-      };
+      if (isB2B) {
+        b2bItems.push({
+          num: idx + 1,
+          itm_det: {
+            txval: round2(txval),
+            rt: gstPercent,
+            iamt: round2(iamt),
+            camt: round2(camt),
+            samt: round2(samt),
+            csamt: 0,
+          },
+        });
+      } else {
+        const key = `${pos}-${gstPercent}`;
+        if (!b2csMap[key]) {
+          b2csMap[key] = {
+            sply_ty: isInterState ? 'INTER' : 'INTRA',
+            pos,
+            typ: 'OE',
+            rt: gstPercent,
+            txval: 0,
+            iamt: 0,
+            camt: 0,
+            samt: 0,
+            csamt: 0,
+          };
+        }
+        b2csMap[key].txval += txval;
+        b2csMap[key].iamt += iamt;
+        b2csMap[key].camt += camt;
+        b2csMap[key].samt += samt;
+      }
     });
 
     if (isB2B) {
@@ -596,13 +641,30 @@ export function generateGstr1UploadJson(invoices = [], company = {}, returnPerio
         inum: inv.invoiceNumber || 'INV-001',
         idt: invDate,
         val: Number((inv.totals?.total || 0).toFixed(2)),
-        pos: buyerGstin.slice(0, 2),
+        pos,
         rchrg: 'N',
         inv_typ: 'R',
-        itms,
+        itms: b2bItems,
       });
     }
   });
+
+  const b2cs = Object.values(b2csMap).map((row) => ({
+    ...row,
+    txval: round2(row.txval),
+    iamt: round2(row.iamt),
+    camt: round2(row.camt),
+    samt: round2(row.samt),
+  }));
+
+  const hsnData = Object.values(hsnMap).map((h) => ({
+    ...h,
+    txval: round2(h.txval),
+    iamt: round2(h.iamt),
+    camt: round2(h.camt),
+    samt: round2(h.samt),
+    val: round2(h.val),
+  }));
 
   return {
     gstin,
@@ -610,11 +672,17 @@ export function generateGstr1UploadJson(invoices = [], company = {}, returnPerio
     gt: 0,
     cur_gt: 0,
     b2b: Object.values(b2bMap),
+    // B2CL (large inter-state retail sales, invoice value > Rs 2.5 lakh)
+    // needs the buyer's exact state, which the app does not capture for
+    // non-GSTIN customers yet. Rather than guess a state and risk an
+    // incorrect government filing, those sales are safely included in
+    // B2CS above instead. Flag for discussion: add a "state" field for
+    // walk-in customers if accurate B2CL reporting is needed.
     b2cl: [],
-    b2cs: [],
+    b2cs,
     cdnr: [],
     hsn: {
-      data: Object.values(hsnMap),
+      data: hsnData,
     },
     doc_issue: {
       doc_det: [

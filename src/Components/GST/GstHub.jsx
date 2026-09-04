@@ -57,7 +57,7 @@ export default function GstHub({
         setImportResult(parsed);
         setStatusMessage({
           type: 'success',
-          text: `✓ Successfully parsed ${parsed.fileType.label} with ${parsed.invoices.length} transactions.`,
+          text: `âœ“ Successfully parsed ${parsed.fileType.label} with ${parsed.invoices.length} transactions.`,
         });
       } else if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv')) {
         const data = await file.arrayBuffer();
@@ -66,7 +66,7 @@ export default function GstHub({
         setImportResult(parsed);
         setStatusMessage({
           type: 'success',
-          text: `✓ Successfully parsed ${parsed.fileType.label} with ${parsed.invoices.length} records.`,
+          text: `âœ“ Successfully parsed ${parsed.fileType.label} with ${parsed.invoices.length} records.`,
         });
       } else {
         throw new Error('Unsupported file extension. Please upload a .json, .xlsx, .xls, or .csv GST file.');
@@ -123,7 +123,7 @@ export default function GstHub({
       onSaveInvoices([...newInvoices, ...invoices]);
       setStatusMessage({
         type: 'success',
-        text: `✓ Imported ${newInvoices.length} invoices into Sales Register! ${duplicateCount > 0 ? `(${duplicateCount} duplicates skipped)` : ''}`,
+        text: `âœ“ Imported ${newInvoices.length} invoices into Sales Register! ${duplicateCount > 0 ? `(${duplicateCount} duplicates skipped)` : ''}`,
       });
     } else {
       setStatusMessage({
@@ -163,7 +163,7 @@ export default function GstHub({
       onSavePurchaseBills([...newBills, ...purchaseBills]);
       setStatusMessage({
         type: 'success',
-        text: `✓ Imported ${newBills.length} purchase bills into Purchase Register! ${duplicateCount > 0 ? `(${duplicateCount} duplicates skipped)` : ''}`,
+        text: `âœ“ Imported ${newBills.length} purchase bills into Purchase Register! ${duplicateCount > 0 ? `(${duplicateCount} duplicates skipped)` : ''}`,
       });
     } else {
       setStatusMessage({
@@ -207,7 +207,7 @@ export default function GstHub({
       onSaveCustomers([...customers, ...newParties]);
       setStatusMessage({
         type: 'success',
-        text: `✓ Added ${newParties.length} new parties to your Customer & Vendor Master!`,
+        text: `âœ“ Added ${newParties.length} new parties to your Customer & Vendor Master!`,
       });
     } else {
       setStatusMessage({
@@ -326,28 +326,118 @@ export default function GstHub({
     URL.revokeObjectURL(url);
   };
 
-  // Export GSTR-1 Excel Table
+  // Export GSTR-1 Excel Table (Portal Offline Tool format: B2B / B2CS / HSN sheets)
   const handleExportGstr1Excel = () => {
-    const b2bRows = invoices
-      .filter((inv) => inv.customerGstin && inv.customerGstin !== 'URP')
-      .map((inv) => ({
-        'GSTIN/UIN of Recipient': inv.customerGstin,
-        'Receiver Name': inv.customerName,
-        'Invoice Number': inv.invoiceNumber,
-        'Invoice date': inv.invoiceDate,
-        'Invoice Value': Number((inv.totals?.total || 0).toFixed(2)),
-        'Place Of Supply': (inv.customerGstin || '27').slice(0, 2),
-        'Reverse Charge': 'N',
-        'Invoice Type': 'Regular',
-        'E-Commerce GSTIN': '',
-        'Rate': 18,
-        'Taxable Value': Number((inv.totals?.subtotal || 0).toFixed(2)),
-        'Cess Amount': 0,
-      }));
+    const sellerStateCode = (company.gstin || '').trim().slice(0, 2) || (company.state || '').trim().slice(0, 2) || '';
 
-    const ws = XLSX.utils.json_to_sheet(b2bRows);
+    const b2bRows = [];
+    const b2csMap = {};
+    const hsnMap = {};
+
+    invoices.forEach((inv) => {
+      const buyerGstin = (inv.customerGstin || '').trim().toUpperCase();
+      const isB2B = buyerGstin && buyerGstin !== 'URP' && validateGSTIN(buyerGstin).isValid;
+      const isInterState = Boolean(inv.isInterState);
+      const pos = isB2B ? buyerGstin.slice(0, 2) : sellerStateCode;
+
+      // Group this invoice's items by GST rate - the official offline-tool
+      // template expects one row per invoice PER RATE, not one row per
+      // invoice (an invoice with 5% and 18% items needs two rows).
+      const rateGroups = {};
+      (inv.items || []).forEach((itm) => {
+        const qty = Number(itm.quantity || 1);
+        const rate = Number(itm.rate || 0);
+        const gstPercent = Number(itm.gstPercent ?? 18);
+        const taxable = qty * rate;
+
+        rateGroups[gstPercent] = (rateGroups[gstPercent] || 0) + taxable;
+
+        // HSN-wise summary sheet - covers every sale, B2B and B2C together.
+        const hsnCode = itm.hsn || '9983';
+        if (!hsnMap[hsnCode]) {
+          hsnMap[hsnCode] = {
+            'HSN': hsnCode,
+            'Description': itm.description || 'Goods/Services',
+            'UQC': itm.unit || 'NOS',
+            'Total Quantity': 0,
+            'Rate': gstPercent,
+            'Taxable Value': 0,
+            'Integrated Tax Amount': 0,
+            'Central Tax Amount': 0,
+            'State/UT Tax Amount': 0,
+            'Total Value': 0,
+          };
+        }
+        const igstAmt = isInterState ? (taxable * gstPercent) / 100 : 0;
+        const cgstAmt = isInterState ? 0 : (taxable * gstPercent) / 200;
+        const sgstAmt = isInterState ? 0 : (taxable * gstPercent) / 200;
+        hsnMap[hsnCode]['Total Quantity'] += qty;
+        hsnMap[hsnCode]['Taxable Value'] += taxable;
+        hsnMap[hsnCode]['Integrated Tax Amount'] += igstAmt;
+        hsnMap[hsnCode]['Central Tax Amount'] += cgstAmt;
+        hsnMap[hsnCode]['State/UT Tax Amount'] += sgstAmt;
+        hsnMap[hsnCode]['Total Value'] += taxable + igstAmt + cgstAmt + sgstAmt;
+      });
+
+      Object.entries(rateGroups).forEach(([rateKey, taxableValue]) => {
+        const gstPercent = Number(rateKey);
+        if (isB2B) {
+          b2bRows.push({
+            'GSTIN/UIN of Recipient': buyerGstin,
+            'Receiver Name': inv.customerName || '',
+            'Invoice Number': inv.invoiceNumber || '',
+            'Invoice date': inv.invoiceDate || '',
+            'Invoice Value': Number((inv.totals?.total || 0).toFixed(2)),
+            'Place Of Supply': pos,
+            'Reverse Charge': 'N',
+            'Invoice Type': 'Regular',
+            'E-Commerce GSTIN': '',
+            'Rate': gstPercent,
+            'Taxable Value': Number(taxableValue.toFixed(2)),
+            'Cess Amount': 0,
+          });
+        } else {
+          // Retail / no-GSTIN sale -> B2CS, grouped by state + rate.
+          const key = `${pos}-${gstPercent}`;
+          if (!b2csMap[key]) {
+            b2csMap[key] = {
+              'Type': 'OE',
+              'Place Of Supply': pos,
+              'Rate': gstPercent,
+              'Taxable Value': 0,
+              'Cess Amount': 0,
+              'E-Commerce GSTIN': '',
+            };
+          }
+          b2csMap[key]['Taxable Value'] += taxableValue;
+        }
+      });
+    });
+
+    const b2csRows = Object.values(b2csMap).map((r) => ({
+      ...r,
+      'Taxable Value': Number(r['Taxable Value'].toFixed(2)),
+    }));
+
+    const hsnRows = Object.values(hsnMap).map((r) => ({
+      ...r,
+      'Taxable Value': Number(r['Taxable Value'].toFixed(2)),
+      'Integrated Tax Amount': Number(r['Integrated Tax Amount'].toFixed(2)),
+      'Central Tax Amount': Number(r['Central Tax Amount'].toFixed(2)),
+      'State/UT Tax Amount': Number(r['State/UT Tax Amount'].toFixed(2)),
+      'Total Value': Number(r['Total Value'].toFixed(2)),
+    }));
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'b2b');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(b2bRows), 'b2b');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(b2csRows), 'b2cs');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(hsnRows), 'hsn');
+    // Note: a "b2cl" sheet (large inter-state retail invoices, over Rs 2.5
+    // lakh) is intentionally left out for now - see the matching comment in
+    // generateGstr1UploadJson() in gstFileParser.js. The app doesn't capture
+    // a walk-in customer's state, so we can't classify these accurately
+    // without guessing; those sales are safely counted in b2cs instead.
+
     XLSX.writeFile(wb, `GSTR1_Offline_Export_${returnPeriod}.xlsx`);
   };
 
@@ -399,7 +489,7 @@ export default function GstHub({
           <div>
             <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
               <span className="badge bg-primary px-3 py-1 fw-bold fs-7">
-                🏛️ GST &amp; Compliance Hub
+                ðŸ›ï¸ GST &amp; Compliance Hub
               </span>
               <span className="badge bg-info text-white px-2 py-1 small">
                 Universal GST File Importer &amp; Returns Engine
@@ -415,7 +505,7 @@ export default function GstHub({
           <div className="d-flex gap-2 flex-wrap">
             {onBack && (
               <button type="button" className="btn btn-outline-light btn-sm" onClick={onBack}>
-                ← Dashboard
+                â† Dashboard
               </button>
             )}
             <button
@@ -423,7 +513,7 @@ export default function GstHub({
               className="btn btn-success btn-sm fw-bold shadow-sm"
               onClick={handleExportGstr1Json}
             >
-              📥 Export GSTR-1 JSON (GSTN)
+              ðŸ“¥ Export GSTR-1 JSON (GSTN)
             </button>
           </div>
         </div>
@@ -445,7 +535,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'importer' ? 'active' : ''}`}
             onClick={() => setActiveTab('importer')}
           >
-            📥 Universal GST Importer (All Files)
+            ðŸ“¥ Universal GST Importer (All Files)
           </button>
         </li>
         <li className="nav-item">
@@ -454,7 +544,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'gstr1' ? 'active' : ''}`}
             onClick={() => setActiveTab('gstr1')}
           >
-            📤 GSTR-1 (Sales Outward)
+            ðŸ“¤ GSTR-1 (Sales Outward)
           </button>
         </li>
         <li className="nav-item">
@@ -463,7 +553,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'reconciliation' ? 'active' : ''}`}
             onClick={() => setActiveTab('reconciliation')}
           >
-            ⚖️ GSTR-2B vs Books ITC Reconcile
+            âš–ï¸ GSTR-2B vs Books ITC Reconcile
           </button>
         </li>
         <li className="nav-item">
@@ -472,7 +562,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'gstr3b' ? 'active' : ''}`}
             onClick={() => setActiveTab('gstr3b')}
           >
-            📊 GSTR-3B Tax Summary
+            ðŸ“Š GSTR-3B Tax Summary
           </button>
         </li>
         <li className="nav-item">
@@ -481,7 +571,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'tools' ? 'active' : ''}`}
             onClick={() => setActiveTab('tools')}
           >
-            🔍 GSTIN / HSN Directory &amp; Calc
+            ðŸ” GSTIN / HSN Directory &amp; Calc
           </button>
         </li>
       </ul>
@@ -493,7 +583,7 @@ export default function GstHub({
             {/* Upload Box */}
             <div className="card shadow-sm border-0 h-100">
               <div className="card-header bg-white py-3">
-                <h2 className="h5 mb-0 fw-bold">📥 Import Any GST File</h2>
+                <h2 className="h5 mb-0 fw-bold">ðŸ“¥ Import Any GST File</h2>
                 <small className="text-muted">Auto-detects format, extracts invoices &amp; verifies GSTINs</small>
               </div>
               <div className="card-body p-4">
@@ -513,9 +603,9 @@ export default function GstHub({
                     accept=".json,.xlsx,.xls,.csv"
                     onChange={(e) => handleFileProcess(e.target.files[0])}
                   />
-                  <div className="fs-1 mb-2">📁</div>
+                  <div className="fs-1 mb-2">ðŸ“</div>
                   <div className="fw-bold mb-1">
-                    {isProcessing ? '⏳ Parsing GST Document...' : 'Drag & Drop GST File or Click to Browse'}
+                    {isProcessing ? 'â³ Parsing GST Document...' : 'Drag & Drop GST File or Click to Browse'}
                   </div>
                   <p className="text-muted small mb-3">
                     Supports <strong>GSTR-1 JSON</strong>, <strong>GSTR-2B JSON</strong>, <strong>e-Invoice IRN</strong>, <strong>e-Way Bill</strong>, and <strong>GST Offline Excel Tool (.XLSX, .CSV)</strong>
@@ -528,12 +618,12 @@ export default function GstHub({
                 <div className="mt-4">
                   <h3 className="h6 fw-bold mb-2">Supported Formats:</h3>
                   <div className="d-flex flex-wrap gap-2">
-                    <span className="badge bg-light text-dark border">📤 GSTR-1 JSON</span>
-                    <span className="badge bg-light text-dark border">📥 GSTR-2A / 2B JSON</span>
-                    <span className="badge bg-light text-dark border">📊 GSTR-3B JSON</span>
-                    <span className="badge bg-light text-dark border">⚡ e-Invoice Schema</span>
-                    <span className="badge bg-light text-dark border">🚚 e-Way Bill JSON</span>
-                    <span className="badge bg-light text-dark border">📑 GST Portal Excel Tool</span>
+                    <span className="badge bg-light text-dark border">ðŸ“¤ GSTR-1 JSON</span>
+                    <span className="badge bg-light text-dark border">ðŸ“¥ GSTR-2A / 2B JSON</span>
+                    <span className="badge bg-light text-dark border">ðŸ“Š GSTR-3B JSON</span>
+                    <span className="badge bg-light text-dark border">âš¡ e-Invoice Schema</span>
+                    <span className="badge bg-light text-dark border">ðŸšš e-Way Bill JSON</span>
+                    <span className="badge bg-light text-dark border">ðŸ“‘ GST Portal Excel Tool</span>
                   </div>
                 </div>
               </div>
@@ -555,21 +645,21 @@ export default function GstHub({
                       className="btn btn-outline-primary btn-sm fw-semibold"
                       onClick={handleImportToSales}
                     >
-                      ＋ Import to Sales ({importResult.invoices.length})
+                      ï¼‹ Import to Sales ({importResult.invoices.length})
                     </button>
                     <button
                       type="button"
                       className="btn btn-outline-secondary btn-sm fw-semibold"
                       onClick={handleImportToPurchase}
                     >
-                      ＋ Import to Purchase
+                      ï¼‹ Import to Purchase
                     </button>
                     <button
                       type="button"
                       className="btn btn-outline-dark btn-sm"
                       onClick={handleImportParties}
                     >
-                      👥 Import Parties
+                      ðŸ‘¥ Import Parties
                     </button>
                   </div>
                 </div>
@@ -580,32 +670,32 @@ export default function GstHub({
                     <div className="col-sm-3">
                       <div className="p-2 bg-light rounded text-center">
                         <small className="text-muted d-block">Taxable Value</small>
-                        <strong className="text-primary">₹{importResult.grossTaxable.toFixed(2)}</strong>
+                        <strong className="text-primary">â‚¹{importResult.grossTaxable.toFixed(2)}</strong>
                       </div>
                     </div>
                     <div className="col-sm-3">
                       <div className="p-2 bg-light rounded text-center">
                         <small className="text-muted d-block">CGST + SGST</small>
-                        <strong>₹{(importResult.totalCgst + importResult.totalSgst).toFixed(2)}</strong>
+                        <strong>â‚¹{(importResult.totalCgst + importResult.totalSgst).toFixed(2)}</strong>
                       </div>
                     </div>
                     <div className="col-sm-3">
                       <div className="p-2 bg-light rounded text-center">
                         <small className="text-muted d-block">IGST</small>
-                        <strong>₹{importResult.totalIgst.toFixed(2)}</strong>
+                        <strong>â‚¹{importResult.totalIgst.toFixed(2)}</strong>
                       </div>
                     </div>
                     <div className="col-sm-3">
                       <div className="p-2 bg-success bg-opacity-10 rounded text-center">
                         <small className="text-success fw-bold d-block">Total Invoice Value</small>
-                        <strong className="text-success">₹{importResult.totalInvoiceValue.toFixed(2)}</strong>
+                        <strong className="text-success">â‚¹{importResult.totalInvoiceValue.toFixed(2)}</strong>
                       </div>
                     </div>
                   </div>
 
                   {/* Search Bar */}
                   <div className="input-group input-group-sm mb-3">
-                    <span className="input-group-text bg-light">🔍</span>
+                    <span className="input-group-text bg-light">ðŸ”</span>
                     <input
                       type="text"
                       className="form-control"
@@ -637,9 +727,9 @@ export default function GstHub({
                               <div className="fw-semibold">{inv.customerName || inv.vendorName}</div>
                               <small className="text-muted font-monospace">{inv.customerGstin || inv.vendorGstin || 'URP'}</small>
                             </td>
-                            <td className="text-end">₹{(inv.totals?.subtotal || inv.totals?.taxableAmount || 0).toFixed(2)}</td>
-                            <td className="text-end">₹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
-                            <td className="text-end fw-bold">₹{(inv.totals?.total || 0).toFixed(2)}</td>
+                            <td className="text-end">â‚¹{(inv.totals?.subtotal || inv.totals?.taxableAmount || 0).toFixed(2)}</td>
+                            <td className="text-end">â‚¹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
+                            <td className="text-end fw-bold">â‚¹{(inv.totals?.total || 0).toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -650,7 +740,7 @@ export default function GstHub({
             ) : (
               <div className="card shadow-sm border-0 h-100 d-flex align-items-center justify-content-center p-5 text-center text-muted">
                 <div>
-                  <div className="fs-1 mb-2">📊</div>
+                  <div className="fs-1 mb-2">ðŸ“Š</div>
                   <div className="fw-bold fs-5">No File Uploaded Yet</div>
                   <p className="small mb-0">Upload a GST JSON or Excel file on the left to preview tables and import records.</p>
                 </div>
@@ -665,7 +755,7 @@ export default function GstHub({
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
-              <h2 className="h5 mb-0 fw-bold">📤 GSTR-1 Sales Outward Returns</h2>
+              <h2 className="h5 mb-0 fw-bold">ðŸ“¤ GSTR-1 Sales Outward Returns</h2>
               <small className="text-muted">Generated live from your recorded Sales Invoices in Tread</small>
             </div>
             <div className="d-flex align-items-center gap-2">
@@ -679,10 +769,10 @@ export default function GstHub({
                 title="Return Period (MMYYYY, e.g. 082026)"
               />
               <button type="button" className="btn btn-primary btn-sm fw-bold" onClick={handleExportGstr1Json}>
-                📥 Download GSTR-1 JSON
+                ðŸ“¥ Download GSTR-1 JSON
               </button>
               <button type="button" className="btn btn-outline-success btn-sm fw-bold" onClick={handleExportGstr1Excel}>
-                📊 Export Excel (B2B)
+                ðŸ“Š Export Excel (B2B)
               </button>
             </div>
           </div>
@@ -692,27 +782,27 @@ export default function GstHub({
                 <div className="card bg-primary text-white border-0 p-3 rounded-3 shadow-xs">
                   <small className="text-white-50">B2B Invoices (Registered)</small>
                   <div className="fs-4 fw-bold">{gstr1Summary.b2bCount} Invoices</div>
-                  <small>Taxable: ₹{gstr1Summary.b2bTotal.toFixed(2)}</small>
+                  <small>Taxable: â‚¹{gstr1Summary.b2bTotal.toFixed(2)}</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="card bg-info text-white border-0 p-3 rounded-3 shadow-xs">
                   <small className="text-white-50">B2C Retail (Unregistered)</small>
                   <div className="fs-4 fw-bold">{gstr1Summary.b2cCount} Invoices</div>
-                  <small>Taxable: ₹{gstr1Summary.b2cTotal.toFixed(2)}</small>
+                  <small>Taxable: â‚¹{gstr1Summary.b2cTotal.toFixed(2)}</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="card bg-success text-white border-0 p-3 rounded-3 shadow-xs">
                   <small className="text-white-50">Total Outward Taxable</small>
-                  <div className="fs-4 fw-bold">₹{gstr1Summary.totalOutward.toFixed(2)}</div>
+                  <div className="fs-4 fw-bold">â‚¹{gstr1Summary.totalOutward.toFixed(2)}</div>
                   <small>Combined Sales</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="card bg-dark text-white border-0 p-3 rounded-3 shadow-xs">
                   <small className="text-white-50">Total Output GST</small>
-                  <div className="fs-4 fw-bold">₹{gstr1Summary.totalTax.toFixed(2)}</div>
+                  <div className="fs-4 fw-bold">â‚¹{gstr1Summary.totalTax.toFixed(2)}</div>
                   <small>CGST + SGST + IGST</small>
                 </div>
               </div>
@@ -745,9 +835,9 @@ export default function GstHub({
                         </span>
                       </td>
                       <td>{inv.invoiceType || 'Tax Invoice'}</td>
-                      <td className="text-end">₹{(inv.totals?.subtotal || 0).toFixed(2)}</td>
-                      <td className="text-end">₹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
-                      <td className="text-end fw-bold">₹{(inv.totals?.total || 0).toFixed(2)}</td>
+                      <td className="text-end">â‚¹{(inv.totals?.subtotal || 0).toFixed(2)}</td>
+                      <td className="text-end">â‚¹{(inv.totals?.totalGst || 0).toFixed(2)}</td>
+                      <td className="text-end fw-bold">â‚¹{(inv.totals?.total || 0).toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -761,35 +851,35 @@ export default function GstHub({
       {activeTab === 'reconciliation' && (
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white py-3">
-            <h2 className="h5 mb-0 fw-bold">⚖️ GSTR-2B (Portal) vs Purchase Books (ITC Reconciliation)</h2>
+            <h2 className="h5 mb-0 fw-bold">âš–ï¸ GSTR-2B (Portal) vs Purchase Books (ITC Reconciliation)</h2>
             <small className="text-muted">Compare auto-drafted ITC statements against recorded purchase vouchers</small>
           </div>
           <div className="card-body p-4">
             <div className="row g-3 mb-4">
               <div className="col-md-3">
                 <div className="p-3 bg-success bg-opacity-10 rounded text-center">
-                  <span className="fs-3">✅</span>
+                  <span className="fs-3">âœ…</span>
                   <div className="fw-bold text-success mt-1">{reconciliationData.matched.length} Matched</div>
-                  <small className="text-muted">₹{reconciliationData.claimableItcMatched.toFixed(2)} Eligible ITC</small>
+                  <small className="text-muted">â‚¹{reconciliationData.claimableItcMatched.toFixed(2)} Eligible ITC</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="p-3 bg-warning bg-opacity-10 rounded text-center">
-                  <span className="fs-3">⚠️</span>
+                  <span className="fs-3">âš ï¸</span>
                   <div className="fw-bold text-warning mt-1">{reconciliationData.portalOnly.length} Missing in Books</div>
                   <small className="text-muted">In 2B but unrecorded</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="p-3 bg-danger bg-opacity-10 rounded text-center">
-                  <span className="fs-3">❌</span>
+                  <span className="fs-3">âŒ</span>
                   <div className="fw-bold text-danger mt-1">{reconciliationData.booksOnly.length} Missing in Portal</div>
                   <small className="text-muted">Supplier not filed GSTR-1</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="p-3 bg-info bg-opacity-10 rounded text-center">
-                  <span className="fs-3">⚡</span>
+                  <span className="fs-3">âš¡</span>
                   <div className="fw-bold text-info mt-1">{reconciliationData.amountMismatch.length} Mismatches</div>
                   <small className="text-muted">Amount discrepancy</small>
                 </div>
@@ -798,7 +888,7 @@ export default function GstHub({
 
             {reconciliationData.matched.length === 0 && reconciliationData.portalOnly.length === 0 ? (
               <div className="alert alert-info">
-                ℹ️ To run live ITC Reconciliation, upload a <strong>GSTR-2B JSON or Excel file</strong> in the <strong>&quot;Universal GST Importer&quot;</strong> tab.
+                â„¹ï¸ To run live ITC Reconciliation, upload a <strong>GSTR-2B JSON or Excel file</strong> in the <strong>&quot;Universal GST Importer&quot;</strong> tab.
               </div>
             ) : null}
           </div>
@@ -809,7 +899,7 @@ export default function GstHub({
       {activeTab === 'gstr3b' && (
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white py-3">
-            <h2 className="h5 mb-0 fw-bold">📊 GSTR-3B Monthly Return Summary</h2>
+            <h2 className="h5 mb-0 fw-bold">ðŸ“Š GSTR-3B Monthly Return Summary</h2>
             <small className="text-muted">Tax liability computation, eligible ITC, and Net Cash Tax Payable</small>
           </div>
           <div className="card-body p-4">
@@ -830,28 +920,28 @@ export default function GstHub({
                   <tr>
                     <td className="fw-bold">3.1 (a)</td>
                     <td>Outward Taxable Supplies (Sales)</td>
-                    <td className="text-end fw-bold">₹{gstr3bSummary.outwardTaxable.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.outwardIgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.outwardCgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.outwardSgst.toFixed(2)}</td>
-                    <td className="text-end fw-bold text-primary">₹{gstr3bSummary.outwardTotalGst.toFixed(2)}</td>
+                    <td className="text-end fw-bold">â‚¹{gstr3bSummary.outwardTaxable.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.outwardIgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.outwardCgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.outwardSgst.toFixed(2)}</td>
+                    <td className="text-end fw-bold text-primary">â‚¹{gstr3bSummary.outwardTotalGst.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td className="fw-bold">4 (A)</td>
                     <td>Eligible Input Tax Credit (ITC from Purchases)</td>
-                    <td className="text-end fw-bold">₹{gstr3bSummary.itcTaxable.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.itcIgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.itcCgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.itcSgst.toFixed(2)}</td>
-                    <td className="text-end fw-bold text-success">₹{gstr3bSummary.itcTotal.toFixed(2)}</td>
+                    <td className="text-end fw-bold">â‚¹{gstr3bSummary.itcTaxable.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.itcIgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.itcCgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.itcSgst.toFixed(2)}</td>
+                    <td className="text-end fw-bold text-success">â‚¹{gstr3bSummary.itcTotal.toFixed(2)}</td>
                   </tr>
                   <tr className="table-warning fw-bold">
                     <td colSpan="2">Net Tax Payable in Cash / Electronic Ledger</td>
                     <td className="text-end">-</td>
-                    <td className="text-end">₹{gstr3bSummary.netIgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.netCgst.toFixed(2)}</td>
-                    <td className="text-end">₹{gstr3bSummary.netSgst.toFixed(2)}</td>
-                    <td className="text-end text-danger fs-6">₹{gstr3bSummary.netPayable.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.netIgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.netCgst.toFixed(2)}</td>
+                    <td className="text-end">â‚¹{gstr3bSummary.netSgst.toFixed(2)}</td>
+                    <td className="text-end text-danger fs-6">â‚¹{gstr3bSummary.netPayable.toFixed(2)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -866,7 +956,7 @@ export default function GstHub({
           <div className="col-lg-6">
             <div className="card shadow-sm border-0 h-100">
               <div className="card-header bg-white py-3">
-                <h2 className="h5 mb-0 fw-bold">🔍 GSTIN Live Validator</h2>
+                <h2 className="h5 mb-0 fw-bold">ðŸ” GSTIN Live Validator</h2>
                 <small className="text-muted">Inspect 15-digit GST Number, state jurisdiction &amp; PAN entity</small>
               </div>
               <div className="card-body p-4">
@@ -879,7 +969,7 @@ export default function GstHub({
                 />
                 {gstinAnalysis ? (
                   <div className={`p-3 rounded-3 ${gstinAnalysis.isValid ? 'bg-success bg-opacity-10 border border-success' : 'bg-danger bg-opacity-10 border border-danger'}`}>
-                    <div className="fw-bold mb-2">{gstinAnalysis.isValid ? '✅ Valid GSTIN Format' : '❌ Invalid GSTIN Format'}</div>
+                    <div className="fw-bold mb-2">{gstinAnalysis.isValid ? 'âœ… Valid GSTIN Format' : 'âŒ Invalid GSTIN Format'}</div>
                     <ul className="mb-0 small ps-3">
                       <li><strong>State:</strong> {gstinAnalysis.stateName} (Code: {gstinAnalysis.stateCode})</li>
                       <li><strong>PAN:</strong> {gstinAnalysis.pan}</li>
@@ -894,13 +984,13 @@ export default function GstHub({
           <div className="col-lg-6">
             <div className="card shadow-sm border-0 h-100">
               <div className="card-header bg-white py-3">
-                <h2 className="h5 mb-0 fw-bold">🧮 Reverse GST Calculator</h2>
+                <h2 className="h5 mb-0 fw-bold">ðŸ§® Reverse GST Calculator</h2>
                 <small className="text-muted">Calculate Base Amount &amp; GST from Gross MRP Price</small>
               </div>
               <div className="card-body p-4">
                 <div className="row g-3 mb-3">
                   <div className="col-6">
-                    <label className="form-label small fw-bold">Gross Total Amount (₹)</label>
+                    <label className="form-label small fw-bold">Gross Total Amount (â‚¹)</label>
                     <input
                       type="number"
                       className="form-control"
@@ -926,21 +1016,21 @@ export default function GstHub({
                 <div className="p-3 bg-light rounded-3">
                   <div className="d-flex justify-content-between mb-1">
                     <span>Base Taxable Price:</span>
-                    <strong className="text-primary">₹{reverseCalc.base.toFixed(2)}</strong>
+                    <strong className="text-primary">â‚¹{reverseCalc.base.toFixed(2)}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-1">
                     <span>Total GST ({calcGstRate}%):</span>
-                    <strong>₹{reverseCalc.gst.toFixed(2)}</strong>
+                    <strong>â‚¹{reverseCalc.gst.toFixed(2)}</strong>
                   </div>
                   <div className="d-flex justify-content-between small text-muted">
                     <span>CGST ({calcGstRate / 2}%) + SGST ({calcGstRate / 2}%):</span>
-                    <span>₹{reverseCalc.cgst.toFixed(2)} + ₹{reverseCalc.sgst.toFixed(2)}</span>
+                    <span>â‚¹{reverseCalc.cgst.toFixed(2)} + â‚¹{reverseCalc.sgst.toFixed(2)}</span>
                   </div>
                 </div>
 
                 <hr className="my-3" />
 
-                <h3 className="h6 fw-bold mb-2">🔍 Search HSN / SAC Catalog</h3>
+                <h3 className="h6 fw-bold mb-2">ðŸ” Search HSN / SAC Catalog</h3>
                 <input
                   type="text"
                   className="form-control form-control-sm mb-2"
