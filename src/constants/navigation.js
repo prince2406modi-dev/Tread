@@ -36,6 +36,7 @@ export const MENUS = {
       'Master Item Catalog & API',
       'Users',
       'Device Access Control',
+      'App Permissions & Access',
       'Roles & Permissions',
       'Settings',
       'Backup',
@@ -51,6 +52,7 @@ export const MENUS = {
   ],
   Display: [
     'Dashboard',
+    '✨ Tread AI Copilot',
     'All Transactions',
     'Company Details',
     'Reports',
@@ -76,6 +78,7 @@ export const MENUS = {
   ],
   Help: [
     'Help Center',
+    '✨ Tread AI Copilot',
     'User Guide',
     'Keyboard Shortcuts',
     'Login',
@@ -85,6 +88,7 @@ export const MENUS = {
 
 export const ALL_SHORTCUTS = [
   { name: 'Dashboard', category: 'Display', icon: '📊' },
+  { name: '✨ Tread AI Copilot', category: 'Display', icon: '✨' },
   { name: 'Add Sales', category: 'Transactions', icon: '📝' },
   { name: 'Modify Sales', category: 'Transactions', icon: '✏️' },
   { name: 'List Sales', category: 'Transactions', icon: '📋' },
@@ -159,8 +163,8 @@ export const getItemIcon = (item) => {
   if (item.includes('List') || item.includes('View') || item.includes('All')) return '📋';
   if (item.includes('Delete') || item.includes('Remove')) return '✕';
   if (item.includes('Users')) return '👤';
-  if (item.includes('Device')) return '🔑';
-  if (item.includes('Roles')) return '🛡️';
+  if (item.includes('Device') || item.includes('Permissions')) return '🛡️';
+  if (item.includes('Roles')) return '👥';
   if (item.includes('Settings')) return '⚙️';
   if (item.includes('Backup')) return '💾';
   if (item.includes('Restore')) return '🔄';

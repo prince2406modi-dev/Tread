@@ -9,6 +9,7 @@ export default function SubNavbar({
   cloudSyncStatus,
   lastSyncTime,
   onOpenCloudSync,
+  onOpenAiCopilot,
   onInitiateLogout,
 }) {
   return (
@@ -81,6 +82,22 @@ export default function SubNavbar({
                   ☁️ Sync {lastSyncTime ? `(${lastSyncTime})` : 'Now'}
                 </span>
               )}
+            </button>
+
+            {/* Tread AI Copilot Button */}
+            <button
+              type="button"
+              className="btn btn-sm btn-primary py-0 px-2 d-flex align-items-center gap-1 shadow-xs fw-semibold"
+              style={{
+                fontSize: '11.5px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #2563eb 100%)',
+                border: 'none',
+              }}
+              onClick={onOpenAiCopilot}
+              title="Open Tread AI Copilot"
+            >
+              <span>✨</span>
+              <span>Ask AI</span>
             </button>
 
             <span className="badge bg-primary text-white py-1 px-2 fw-semibold">

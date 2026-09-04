@@ -8,7 +8,7 @@ import {
   callDeviceAuthApi,
 } from '../../services/authApi.js';
 
-function DeviceAccessControl({ currentUser, onBack }) {
+function DeviceAccessControl({ currentUser, onBack, onOpenAppAccessModal }) {
   const username = currentUser?.username || 'admin';
 
   // Sub-tabs: 'manager' | 'api-docs'
@@ -364,11 +364,23 @@ axios.get('${baseUrl}/api/v1/auth/device/list-passcodes?owner=${targetOwner}')
             Grant permission so team members or secondary devices can sign into your account when you want.
           </p>
         </div>
-        {onBack && (
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>
-            ← Back to Administration
-          </button>
-        )}
+        <div className="d-flex align-items-center gap-2">
+          {onOpenAppAccessModal && (
+            <button
+              type="button"
+              className="btn btn-outline-primary btn-sm d-flex align-items-center gap-1 shadow-xs"
+              onClick={onOpenAppAccessModal}
+            >
+              <span>🛡️</span>
+              <span>Device Permissions (Mic, Notifications, Storage)</span>
+            </button>
+          )}
+          {onBack && (
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+              ← Back to Administration
+            </button>
+          )}
+        </div>
       </div>
 
       {actionMessage && (

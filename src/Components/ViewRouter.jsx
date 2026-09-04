@@ -77,6 +77,7 @@ export default function ViewRouter({
   setRecognitionActive,
   voiceTranscript,
   onStartVoice,
+  onOpenAppAccessModal,
 }) {
   if (!activePage) {
     return null;
@@ -284,17 +285,19 @@ export default function ViewRouter({
     );
   }
 
-  // 8. Device Access Control
+  // 8. Device Access Control & Permissions
   if (
     activePage === 'Device Access Control' ||
     activePage === 'Device Security' ||
-    activePage === 'Device Access'
+    activePage === 'Device Access' ||
+    activePage === 'App Permissions & Access'
   ) {
     return (
       <DeviceAccessControl
         key={activePage}
         currentUser={currentUser}
         onBack={() => onNavigate(null)}
+        onOpenAppAccessModal={onOpenAppAccessModal}
       />
     );
   }

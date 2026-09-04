@@ -13,6 +13,10 @@ import MobileDrawer from './Components/Navigation/MobileDrawer.jsx';
 import MobileBottomBar from './Components/Navigation/MobileBottomBar.jsx';
 import ViewRouter from './Components/ViewRouter.jsx';
 
+// Tread AI Assistant Components
+import TreadAICopilot from './Components/AI/TreadAICopilot.jsx';
+import FloatingAiButton from './Components/AI/FloatingAiButton.jsx';
+
 // Constants & Custom Hooks
 import { MENUS, ALL_SHORTCUTS } from './constants/navigation.js';
 import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
@@ -27,6 +31,7 @@ const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInv
 const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
 const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
 const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
+const AppAccessModal = lazy(() => import('./Components/Modals/AppAccessModal.jsx'));
 
 // Capacitor Native Platform Support
 import { Capacitor } from '@capacitor/core';
@@ -440,6 +445,16 @@ function Index() {
   const [aboutModal, setAboutModal] = useState(false);
   const [cloudSyncModalOpen, setCloudSyncModalOpen] = useState(false);
   const [exitConfirmModal, setExitConfirmModal] = useState({ isOpen: false, type: 'logout' });
+  const [aiCopilotOpen, setAiCopilotOpen] = useState(false);
+  const [appAccessModalOpen, setAppAccessModalOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      const dontShow = window.localStorage.getItem('tread-access-dont-show-again');
+      return !dontShow;
+    } catch {
+      return true;
+    }
+  });
 
   const [expandedMobileGroups, setExpandedMobileGroups] = useState({
     Transactions: true,
@@ -484,6 +499,10 @@ function Index() {
       const backListener = CapApp.addListener('backButton', () => {
         if (mobileDrawerOpen) {
           setMobileDrawerOpen(false);
+        } else if (appAccessModalOpen) {
+          setAppAccessModalOpen(false);
+        } else if (aiCopilotOpen) {
+          setAiCopilotOpen(false);
         } else if (exitConfirmModal.isOpen) {
           setExitConfirmModal({ isOpen: false, type: 'logout' });
         } else if (cloudSyncModalOpen) {
@@ -505,7 +524,7 @@ function Index() {
         backListener.then((handle) => handle.remove()).catch(() => {});
       };
     }
-  }, [mobileDrawerOpen, exitConfirmModal.isOpen, cloudSyncModalOpen, shareModal.isOpen, aboutModal, activePage, currentUser]);
+  }, [mobileDrawerOpen, appAccessModalOpen, aiCopilotOpen, exitConfirmModal.isOpen, cloudSyncModalOpen, shareModal.isOpen, aboutModal, activePage, currentUser]);
 
   const [favourites, setFavourites] = useState(() => {
     if (typeof window === 'undefined') return [];
@@ -588,12 +607,18 @@ function Index() {
         setActiveMenu(null);
         setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null });
         setAboutModal(false);
+        setAiCopilotOpen(false);
         setActivePage(null);
         return;
       }
 
       if (isTyping) return;
 
+      // Alt + A -> Toggle Tread AI Copilot
+      if (e.altKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setAiCopilotOpen((prev) => !prev);
+      }
       // Alt + N -> New Invoice
       if (e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault();
@@ -636,6 +661,17 @@ function Index() {
       return;
     }
 
+    // AI Copilot Actions
+    if (
+      option === '✨ Tread AI Copilot' ||
+      option === 'Tread AI Copilot' ||
+      option === 'Tread AI' ||
+      option === 'AI Copilot'
+    ) {
+      setAiCopilotOpen(true);
+      return;
+    }
+
     // Company Actions
     if (
       option === 'Create Company' ||
@@ -663,6 +699,10 @@ function Index() {
     }
     if (option === 'Roles & Permissions') {
       setActivePage('Roles & Permissions');
+      return;
+    }
+    if (option === 'App Permissions & Access' || option === 'App Permissions' || option === 'Device Access & Permissions') {
+      setAppAccessModalOpen(true);
       return;
     }
     if (option === 'Settings') {
@@ -1076,6 +1116,7 @@ function Index() {
         cloudSyncStatus={cloudSyncStatus}
         lastSyncTime={lastSyncTime}
         onOpenCloudSync={() => setCloudSyncModalOpen(true)}
+        onOpenAiCopilot={() => setAiCopilotOpen(true)}
         onInitiateLogout={initiateLogout}
       />
 
@@ -1150,6 +1191,7 @@ function Index() {
                 setActivePage('Add Sales');
                 setRecognitionActive(true);
               }}
+              onOpenAppAccessModal={() => setAppAccessModalOpen(true)}
             />
           ) : (
             <div className="py-4">
@@ -1180,8 +1222,41 @@ function Index() {
         onToggleMobileDrawer={() => setMobileDrawerOpen((prev) => !prev)}
       />
 
+      {/* ================= FLOATING TREAD AI COPILOT BUTTON ================= */}
+      {currentUser && (
+        <FloatingAiButton onClick={() => setAiCopilotOpen(true)} />
+      )}
+
       {/* ================= MODALS ================= */}
       <Suspense fallback={null}>
+        {/* Tread AI Copilot Assistant Modal */}
+        {aiCopilotOpen && (
+          <TreadAICopilot
+            isOpen={aiCopilotOpen}
+            onClose={() => setAiCopilotOpen(false)}
+            invoices={invoices}
+            customers={customers}
+            stockItems={stockItems}
+            company={company}
+            onLoadInvoiceToEditor={loadInvoiceToEditor}
+            onSaveCustomer={handleSaveSingleCustomer}
+            onAddStockItem={(newItem) => {
+              const entry = {
+                id: uuidv4(),
+                name: newItem.name,
+                price: Number(newItem.price) || 0,
+                hsn: newItem.hsn || '',
+                gst: Number(newItem.gst) || 18,
+                stock: Number(newItem.stock) || 0,
+                unit: newItem.unit || 'PCS',
+                createdAt: new Date().toISOString(),
+              };
+              setStockItems((prev) => [entry, ...prev]);
+            }}
+            onNavigate={setActivePage}
+          />
+        )}
+
         {shareModal.isOpen && (
           <ShareInvoiceModal
             invoices={invoices}
@@ -1229,6 +1304,13 @@ function Index() {
             onSyncAndProceed={handleSyncAndProceedExitOrLogout}
             onProceedWithoutSync={handleProceedWithoutSync}
             onClose={() => setExitConfirmModal({ isOpen: false, type: 'logout' })}
+          />
+        )}
+
+        {appAccessModalOpen && (
+          <AppAccessModal
+            isOpen={appAccessModalOpen}
+            onClose={() => setAppAccessModalOpen(false)}
           />
         )}
       </Suspense>
