@@ -865,14 +865,14 @@ export default function GstHub({
               </div>
               <div className="col-md-3">
                 <div className="p-3 bg-warning bg-opacity-10 rounded text-center">
-                  <span className="fs-3">âš ï¸</span>
+                  <span className="fs-3">⚠️</span>
                   <div className="fw-bold text-warning mt-1">{reconciliationData.portalOnly.length} Missing in Books</div>
                   <small className="text-muted">In 2B but unrecorded</small>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="p-3 bg-danger bg-opacity-10 rounded text-center">
-                  <span className="fs-3">âŒ</span>
+                  <span className="fs-3">❌</span>
                   <div className="fw-bold text-danger mt-1">{reconciliationData.booksOnly.length} Missing in Portal</div>
                   <small className="text-muted">Supplier not filed GSTR-1</small>
                 </div>

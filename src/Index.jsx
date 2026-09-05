@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import './index.css';
@@ -24,7 +24,7 @@ import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
 // Services
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
 import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
-import { syncUserDataToCloud, fetchUserDataFromCloud } from './services/firebase.js';
+import { syncUserDataToCloud, fetchUserDataFromCloud, subscribeUserDataFromCloud } from './services/firebase.js';
 import { GST_STATE_CODES } from './services/gstinValidator.js';
 import { DEFAULT_UNIT } from './constants/units.js';
 
@@ -41,12 +41,28 @@ import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 
+const getSavedCurrentUser = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const saved = window.localStorage.getItem('gst-invoice-app-current-user');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed?.username) return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+};
+
 function Index() {
   // =========================================================
   // USER AUTHENTICATION STATE & CLOUD SYNC
   // =========================================================
   const [users, setUsers] = useState(getLocalUsers);
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentUser, setCurrentUser] = useState(getSavedCurrentUser);
+  const [cloudNotice, setCloudNotice] = useState(null);
+  const isRemoteSyncingRef = useRef(false);
 
   // Sync users from Cloud Firestore on application startup
   useEffect(() => {
@@ -62,34 +78,16 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem('gst-invoice-app-users', JSON.stringify(users));
-    window.sessionStorage.removeItem('gst-invoice-app-current-user');
-    window.localStorage.removeItem('gst-invoice-app-current-user');
   }, [users]);
 
-  // Prompt before unload if logged in
+  // Persist logged-in user in localStorage across app restarts
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const handleBeforeUnload = (e) => {
-      if (currentUser) {
-        e.preventDefault();
-        e.returnValue = 'You are currently logged into Tread. Please make sure to log out before leaving!';
-        return e.returnValue;
-      }
-    };
-
-    const handleUnload = () => {
-      window.sessionStorage.removeItem('gst-invoice-app-current-user');
+    if (currentUser?.username) {
+      window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(currentUser));
+    } else {
       window.localStorage.removeItem('gst-invoice-app-current-user');
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('unload', handleUnload);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('unload', handleUnload);
-    };
+    }
   }, [currentUser]);
 
   // =========================================================
@@ -190,7 +188,10 @@ function Index() {
     }
   };
 
-  const [invoices, setInvoices] = useState([]);
+  const [invoices, setInvoices] = useState(() => {
+    const savedUser = getSavedCurrentUser();
+    return savedUser?.username ? loadInvoices(savedUser.username) : [];
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -203,9 +204,10 @@ function Index() {
   const customersStorageKey = (username) => `gst-invoice-app-customers-${username || 'default'}`;
 
   const [customers, setCustomers] = useState(() => {
-    if (typeof window === 'undefined') return [];
+    const savedUser = getSavedCurrentUser();
+    if (typeof window === 'undefined' || !savedUser?.username) return [];
     try {
-      const saved = window.localStorage.getItem(customersStorageKey(currentUser?.username));
+      const saved = window.localStorage.getItem(customersStorageKey(savedUser.username));
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -247,7 +249,7 @@ function Index() {
       createdAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newEntry, ...prev]);
-    alert(`âœ“ Customer "${newCust.name}" saved to your Sales Directory!`);
+    alert(`✓ Customer "${newCust.name}" saved to your Sales Directory!`);
   };
 
   // =========================================================
@@ -256,9 +258,10 @@ function Index() {
   const stockStorageKey = (username) => `gst-invoice-app-stock-${username || 'default'}`;
 
   const [stockItems, setStockItems] = useState(() => {
-    if (typeof window === 'undefined') return [];
+    const savedUser = getSavedCurrentUser();
+    if (typeof window === 'undefined' || !savedUser?.username) return [];
     try {
-      const saved = window.localStorage.getItem(stockStorageKey(currentUser?.username));
+      const saved = window.localStorage.getItem(stockStorageKey(savedUser.username));
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -279,7 +282,20 @@ function Index() {
   // =========================================================
   const purchasesStorageKey = (username) => `gst-invoice-app-purchases-${username || 'default'}`;
 
-  const [purchaseBills, setPurchaseBills] = useState([]);
+  const loadPurchaseBills = (username) => {
+    if (typeof window === 'undefined' || !username) return [];
+    try {
+      const saved = window.localStorage.getItem(purchasesStorageKey(username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [purchaseBills, setPurchaseBills] = useState(() => {
+    const savedUser = getSavedCurrentUser();
+    return savedUser?.username ? loadPurchaseBills(savedUser.username) : [];
+  });
 
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
@@ -858,7 +874,7 @@ function Index() {
   };
 
   // =========================================================
-  // ON-DEMAND MANUAL CLOUD SYNC CONTROLS
+  // CLOUD SYNC & DATA EXTRACTION ENGINE
   // =========================================================
   const [cloudSyncStatus, setCloudSyncStatus] = useState('idle');
   const [lastSyncTime, setLastSyncTime] = useState(() => {
@@ -866,59 +882,215 @@ function Index() {
     return window.localStorage.getItem('gst-invoice-app-last-cloud-sync') || null;
   });
 
-  const handleForceCloudSync = async () => {
-    if (!currentUser?.username) return;
-    setCloudSyncStatus('syncing');
-    const targetUser = currentUser.username.toLowerCase();
+  // Apply cloud data payload into app state and localStorage
+  const applyCloudData = useCallback((cloudData, username) => {
+    if (!cloudData) return;
+    const targetUser = (username || 'admin').toLowerCase().trim();
+    isRemoteSyncingRef.current = true;
 
     try {
-      const cloudRes = await fetchUserDataFromCloud(targetUser);
-      if (cloudRes.success && cloudRes.data) {
-        const cloudInvoices = cloudRes.data.invoices || [];
-        const cloudCustomers = cloudRes.data.customers || [];
-        const cloudStock = cloudRes.data.stockItems || [];
-        const cloudPurchases = cloudRes.data.purchaseBills || [];
-
-        const combinedInvoicesMap = new Map();
-        cloudInvoices.forEach((inv) => combinedInvoicesMap.set(inv.id || inv.invoiceNumber, inv));
-        invoices.forEach((inv) => combinedInvoicesMap.set(inv.id || inv.invoiceNumber, inv));
-        const mergedInvoices = Array.from(combinedInvoicesMap.values());
-
-        setInvoices(mergedInvoices);
-        if (cloudCustomers.length > 0) setCustomers(cloudCustomers);
-        if (cloudStock.length > 0) setStockItems(cloudStock);
-        if (cloudPurchases.length > 0) setPurchaseBills(cloudPurchases);
-        if (cloudRes.data.company?.name) setCompany(cloudRes.data.company);
-        if (cloudRes.data.settings) setSettings(cloudRes.data.settings);
-
-        await syncUserDataToCloud(targetUser, {
-          invoices: mergedInvoices,
-          customers: cloudCustomers.length > 0 ? cloudCustomers : customers,
-          stockItems: cloudStock.length > 0 ? cloudStock : stockItems,
-          purchaseBills: cloudPurchases.length > 0 ? cloudPurchases : purchaseBills,
-          company: cloudRes.data.company?.name ? cloudRes.data.company : company,
-          settings: cloudRes.data.settings || settings,
-        });
-      } else {
-        await syncUserDataToCloud(targetUser, {
-          invoices,
-          customers,
-          stockItems,
-          purchaseBills,
-          company,
-          settings,
+      // 1. Invoices
+      if (Array.isArray(cloudData.invoices)) {
+        setInvoices((prevLocal) => {
+          const map = new Map();
+          cloudData.invoices.forEach((inv) => map.set(inv.id || inv.invoiceNumber, inv));
+          (prevLocal || []).forEach((inv) => map.set(inv.id || inv.invoiceNumber, inv));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(invoiceStorageKey(targetUser), JSON.stringify(merged));
+          return merged;
         });
       }
+
+      // 2. Customers
+      if (Array.isArray(cloudData.customers)) {
+        setCustomers((prevLocal) => {
+          const map = new Map();
+          cloudData.customers.forEach((c) => map.set(c.id || (c.name ? c.name.toLowerCase() : null), c));
+          (prevLocal || []).forEach((c) => map.set(c.id || (c.name ? c.name.toLowerCase() : null), c));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(customersStorageKey(targetUser), JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 3. Stock Items
+      if (Array.isArray(cloudData.stockItems)) {
+        setStockItems((prevLocal) => {
+          const map = new Map();
+          cloudData.stockItems.forEach((s) => map.set(s.id || (s.name ? s.name.toLowerCase() : null), s));
+          (prevLocal || []).forEach((s) => map.set(s.id || (s.name ? s.name.toLowerCase() : null), s));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(stockStorageKey(targetUser), JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 4. Purchase Bills
+      if (Array.isArray(cloudData.purchaseBills)) {
+        setPurchaseBills((prevLocal) => {
+          const map = new Map();
+          cloudData.purchaseBills.forEach((p) => map.set(p.id || p.billNumber, p));
+          (prevLocal || []).forEach((p) => map.set(p.id || p.billNumber, p));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 5. Company Details
+      if (cloudData.company && cloudData.company.name) {
+        setCompany((prev) => {
+          const updated = { ...prev, ...cloudData.company };
+          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(updated));
+          return updated;
+        });
+      }
+
+      // 6. Settings
+      if (cloudData.settings && Object.keys(cloudData.settings).length > 0) {
+        setSettings((prev) => {
+          const updated = { ...prev, ...cloudData.settings };
+          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(updated));
+          return updated;
+        });
+      }
+
       const syncTimestamp = new Date().toLocaleTimeString('en-IN');
       setCloudSyncStatus('synced');
       setLastSyncTime(syncTimestamp);
       window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
-      return { success: true };
-    } catch (err) {
-      console.error(err);
-      setCloudSyncStatus('error');
-      throw err;
+      setCloudNotice({
+        type: 'success',
+        message: `✓ Extracted latest cloud data for "${targetUser}" (${syncTimestamp})`,
+      });
+      setTimeout(() => setCloudNotice(null), 4000);
+    } finally {
+      setTimeout(() => {
+        isRemoteSyncingRef.current = false;
+      }, 500);
     }
+  }, []);
+
+  // Extract user's complete data from Firebase Cloud Firestore
+  const extractUserDataFromCloud = useCallback(
+    async (explicitUser) => {
+      const targetUser = (explicitUser || currentUser?.username || 'admin').toLowerCase().trim();
+      if (!targetUser) return { success: false };
+
+      setCloudSyncStatus('syncing');
+      setCloudNotice({
+        type: 'info',
+        message: `☁️ Extracting data from cloud for ${targetUser}...`,
+      });
+
+      try {
+        const cloudRes = await fetchUserDataFromCloud(targetUser);
+        if (cloudRes.success && cloudRes.data) {
+          applyCloudData(cloudRes.data, targetUser);
+          return { success: true, count: cloudRes.data.invoices?.length || 0 };
+        } else {
+          setCloudSyncStatus('idle');
+          setCloudNotice(null);
+          return { success: false, message: cloudRes.message };
+        }
+      } catch (err) {
+        console.warn('Cloud data extraction notice:', err);
+        setCloudSyncStatus('error');
+        setCloudNotice({
+          type: 'warning',
+          message: '⚠️ Working in offline mode (using local cached data)',
+        });
+        setTimeout(() => setCloudNotice(null), 4000);
+        return { success: false, error: err.message };
+      }
+    },
+    [currentUser?.username, applyCloudData]
+  );
+
+  // 1. EXTRACT DATA ON APPLICATION STARTUP (When App Opens)
+  useEffect(() => {
+    const initialUser = getSavedCurrentUser();
+    if (initialUser?.username) {
+      Promise.resolve().then(() => {
+        extractUserDataFromCloud(initialUser.username);
+      });
+    }
+  }, [extractUserDataFromCloud]);
+
+  // 2. EXTRACT DATA WHEN APP IS BROUGHT TO FOREGROUND / RE-OPENED (Tab Visibility)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && currentUser?.username) {
+        extractUserDataFromCloud(currentUser.username);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [currentUser?.username, extractUserDataFromCloud]);
+
+  // 3. EXTRACT DATA ON MOBILE APP RESUME (Capacitor Native Platform)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && Capacitor.isNativePlatform()) {
+      const appStateHandle = CapApp.addListener('appStateChange', (state) => {
+        if (state.isActive && currentUser?.username) {
+          extractUserDataFromCloud(currentUser.username);
+        }
+      });
+
+      return () => {
+        appStateHandle.then((h) => h.remove()).catch(() => {});
+      };
+    }
+  }, [currentUser?.username, extractUserDataFromCloud]);
+
+  // 4. REAL-TIME CROSS-DEVICE SNAPSHOT SUBSCRIPTION
+  useEffect(() => {
+    if (!currentUser?.username) return;
+    const unsubscribe = subscribeUserDataFromCloud(currentUser.username, (cloudData) => {
+      applyCloudData(cloudData, currentUser.username);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [currentUser?.username, applyCloudData]);
+
+  // 5. DEBOUNCED AUTO-SAVE TO CLOUD ON LOCAL DATA CHANGES
+  useEffect(() => {
+    if (!currentUser?.username || isRemoteSyncingRef.current) return;
+
+    const timer = setTimeout(() => {
+      syncUserDataToCloud(currentUser.username, {
+        invoices,
+        customers,
+        stockItems,
+        purchaseBills,
+        company,
+        settings,
+      })
+        .then((res) => {
+          if (res?.success) {
+            const syncTimestamp = new Date().toLocaleTimeString('en-IN');
+            setCloudSyncStatus('synced');
+            setLastSyncTime(syncTimestamp);
+            window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
+          }
+        })
+        .catch(() => {});
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [invoices, customers, stockItems, purchaseBills, company, settings, currentUser?.username]);
+
+  // Manual Cloud Sync Handlers
+  const handleForceCloudSync = async () => {
+    if (!currentUser?.username) return;
+    return await extractUserDataFromCloud(currentUser.username);
   };
 
   const handlePushToCloud = async () => {
@@ -939,6 +1111,11 @@ function Index() {
       setCloudSyncStatus('synced');
       setLastSyncTime(syncTimestamp);
       window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
+      setCloudNotice({
+        type: 'success',
+        message: `✓ Pushed local data to cloud for "${targetUser}" (${syncTimestamp})`,
+      });
+      setTimeout(() => setCloudNotice(null), 4000);
       return { success: true };
     } catch (err) {
       console.error(err);
@@ -949,55 +1126,16 @@ function Index() {
 
   const handlePullFromCloud = async () => {
     if (!currentUser?.username) return;
-    setCloudSyncStatus('syncing');
-    const targetUser = currentUser.username.toLowerCase();
-
-    try {
-      const cloudRes = await fetchUserDataFromCloud(targetUser);
-      if (cloudRes.success && cloudRes.data) {
-        const d = cloudRes.data;
-        if (Array.isArray(d.invoices)) {
-          setInvoices(d.invoices);
-          window.localStorage.setItem(invoiceStorageKey(targetUser), JSON.stringify(d.invoices));
-        }
-        if (Array.isArray(d.customers)) {
-          setCustomers(d.customers);
-          window.localStorage.setItem(customersStorageKey(targetUser), JSON.stringify(d.customers));
-        }
-        if (Array.isArray(d.stockItems)) {
-          setStockItems(d.stockItems);
-          window.localStorage.setItem(stockStorageKey(targetUser), JSON.stringify(d.stockItems));
-        }
-        if (Array.isArray(d.purchaseBills)) {
-          setPurchaseBills(d.purchaseBills);
-          window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(d.purchaseBills));
-        }
-        if (d.company && d.company.name) {
-          setCompany(d.company);
-          window.localStorage.setItem('gst-invoice-app-company', JSON.stringify(d.company));
-        }
-        if (d.settings && Object.keys(d.settings).length > 0) {
-          setSettings(d.settings);
-          window.localStorage.setItem('gst-invoice-app-settings', JSON.stringify(d.settings));
-        }
-      }
-      const syncTimestamp = new Date().toLocaleTimeString('en-IN');
-      setCloudSyncStatus('synced');
-      setLastSyncTime(syncTimestamp);
-      window.localStorage.setItem('gst-invoice-app-last-cloud-sync', syncTimestamp);
-      return { success: true };
-    } catch (err) {
-      console.error(err);
-      setCloudSyncStatus('error');
-      throw err;
-    }
+    return await extractUserDataFromCloud(currentUser.username);
   };
 
   // Auth Handlers
   const handleLogin = async (rawUsername) => {
     const username = (rawUsername || 'admin').toLowerCase().trim();
     const userInvoices = loadInvoices(username);
-    setCurrentUser({ username });
+    const userObj = { username };
+    setCurrentUser(userObj);
+    window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
 
     let loadedCust = [];
     try {
@@ -1026,10 +1164,12 @@ function Index() {
     }
     setPurchaseBills(loadedPurchases);
     setInvoices(userInvoices);
-    setCloudSyncStatus('idle');
 
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
     setActivePage(null);
+
+    // Immediately extract user's data from Cloud Firestore on login!
+    extractUserDataFromCloud(username);
   };
 
   const handleRegister = (newUser) => {
@@ -1042,13 +1182,18 @@ function Index() {
         email: newUser.email || prev.email,
       }));
     }
-    setCurrentUser({ username: newUser.username });
+    const userObj = { username: newUser.username };
+    setCurrentUser(userObj);
+    window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
     setInvoices([]);
     setCustomers([]);
     setStockItems([]);
     setPurchaseBills([]);
     setInvoiceNumber('1001/2026-27');
     setActivePage(null);
+
+    // Extract cloud data
+    extractUserDataFromCloud(newUser.username);
   };
 
   const executeLogout = () => {
@@ -1156,6 +1301,26 @@ function Index() {
 
       {/* ================= MAIN PAGE VIEWPORT ================= */}
       <main className="content-area">
+        {cloudNotice && (
+          <div className="container-fluid px-3 pt-2">
+            <div
+              className={`alert alert-${cloudNotice.type === 'success' ? 'success' : cloudNotice.type === 'warning' ? 'warning' : 'info'} py-2 px-3 d-flex align-items-center justify-content-between mb-2 shadow-xs border`}
+              style={{ fontSize: '13px', borderRadius: '8px' }}
+              role="alert"
+            >
+              <div className="d-flex align-items-center gap-2">
+                <span>{cloudNotice.message}</span>
+              </div>
+              <button
+                type="button"
+                className="btn-close btn-close-sm"
+                style={{ fontSize: '10px' }}
+                onClick={() => setCloudNotice(null)}
+                aria-label="Close"
+              />
+            </div>
+          </div>
+        )}
         <Suspense
           fallback={
             <div className="text-center py-5">
