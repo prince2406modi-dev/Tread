@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react';
-import AddItemModal from '../AddItem/ItemAddition.jsx';
-import TaxInvoiceModal from '../Invoices/TaxInvoiceModal.jsx';
+import AddItemModal from '../AddItem/index.jsx';
+import { TaxInvoiceModal } from '../Invoices/index.jsx';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 import { validateGSTIN, GST_STATE_CODES, parseGSTPortalText } from '../../services/gstinValidator.js';
-import { validateHSN, COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 function InvoiceEditor({
   customerName,
@@ -118,14 +117,138 @@ function InvoiceEditor({
     }
   };
 
+  const [showExcelPasteModal, setShowExcelPasteModal] = useState(false);
+  const [excelPastedText, setExcelPastedText] = useState('');
+
+  const matchedCustomer = useMemo(() => {
+    if (!customerName || !customerName.trim()) return null;
+    return customers.find(
+      (c) => c.name && c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
+    );
+  }, [customerName, customers]);
+
+  const applyCustomer = (cust) => {
+    if (!cust) return;
+    setCustomerName(cust.name || '');
+    if (cust.phone) setCustomerPhone(cust.phone);
+    if (cust.address) setCustomerAddress(cust.address);
+    // Auto-select Local vs Central invoice according to buyer state
+    if (setInvoiceType) {
+      if (cust.gstin && cust.gstin.length >= 2 && company?.gstin && company.gstin.length >= 2) {
+        const custState = cust.gstin.slice(0, 2);
+        const compState = company.gstin.slice(0, 2);
+        setInvoiceType(custState === compState ? 'local' : 'central');
+      } else if (cust.address && company?.state) {
+        const compStateLower = company.state.toLowerCase().trim();
+        const custAddrLower = cust.address.toLowerCase().trim();
+        setInvoiceType(custAddrLower.includes(compStateLower) ? 'local' : 'central');
+      }
+    }
+  };
+
+  const handleCustomerNameChange = (newName) => {
+    setCustomerName(newName);
+    if (!newName) return;
+    const found = customers.find(
+      (c) => c.name && c.name.trim().toLowerCase() === newName.trim().toLowerCase()
+    );
+    if (found) {
+      applyCustomer(found);
+    }
+  };
+
   const handleSelectCustomer = (e) => {
     const custId = e.target.value;
     if (!custId) return;
     const found = customers.find((c) => c.id === custId);
     if (found) {
-      setCustomerName(found.name || '');
-      setCustomerPhone(found.phone || '');
-      setCustomerAddress(found.address || '');
+      applyCustomer(found);
+    }
+  };
+
+  const parseAndAddExcelRows = (text) => {
+    if (!text || !text.trim()) return 0;
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let added = 0;
+
+    for (const line of lines) {
+      const cols = line.includes('\t') ? line.split('\t') : line.split(',');
+      if (cols.length === 0) continue;
+
+      const desc = (cols[0] || '').trim();
+      if (/description|item|particulars|name/i.test(desc) && added === 0) continue;
+
+      let hsn = '';
+      let qty = 1;
+      let unit = DEFAULT_UNIT;
+      let rate = 0;
+      let gst = 18;
+
+      if (cols.length === 1) {
+        // Just description
+      } else if (cols.length === 2) {
+        rate = parseFloat(cols[1].replace(/[^0-9.]/g, '')) || 0;
+      } else if (cols.length === 3) {
+        qty = parseFloat(cols[1].replace(/[^0-9.]/g, '')) || 1;
+        rate = parseFloat(cols[2].replace(/[^0-9.]/g, '')) || 0;
+      } else if (cols.length >= 4) {
+        const col1 = cols[1].trim();
+        const isCol1Hsn = /^\d{2,8}$/.test(col1);
+        if (isCol1Hsn) {
+          hsn = col1;
+          qty = parseFloat(cols[2]?.replace(/[^0-9.]/g, '')) || 1;
+          if (cols.length >= 6) {
+            unit = cols[3]?.trim() || DEFAULT_UNIT;
+            rate = parseFloat(cols[4]?.replace(/[^0-9.]/g, '')) || 0;
+            gst = parseFloat(cols[5]?.replace(/[^0-9.]/g, '')) || 18;
+          } else {
+            rate = parseFloat(cols[3]?.replace(/[^0-9.]/g, '')) || 0;
+            gst = parseFloat(cols[4]?.replace(/[^0-9.]/g, '')) || 18;
+          }
+        } else {
+          qty = parseFloat(cols[1]?.replace(/[^0-9.]/g, '')) || 1;
+          rate = parseFloat(cols[2]?.replace(/[^0-9.]/g, '')) || 0;
+          gst = parseFloat(cols[3]?.replace(/[^0-9.]/g, '')) || 18;
+        }
+      }
+
+      addItem({
+        description: desc || `Item ${items.length + added + 1}`,
+        hsn,
+        quantity: Math.max(1, qty),
+        unit,
+        rate: Math.max(0, rate),
+        gstPercent: [0, 5, 12, 18, 28].includes(gst) ? gst : 18,
+      });
+      added++;
+    }
+    return added;
+  };
+
+  const handleTableGridPaste = (e) => {
+    const pasteData = e.clipboardData?.getData('text');
+    if (pasteData && (pasteData.includes('\t') || pasteData.includes('\n'))) {
+      e.preventDefault();
+      const count = parseAndAddExcelRows(pasteData);
+      if (count > 0) {
+        alert(`✓ Successfully pasted ${count} rows directly from Excel!`);
+      }
+    }
+  };
+
+  const handleCellKeyDown = (e, rowIndex) => {
+    if (e.key === 'Enter') {
+      if (rowIndex === items.length - 1 || e.ctrlKey) {
+        e.preventDefault();
+        addItem({
+          description: '',
+          hsn: '',
+          quantity: 1,
+          unit: DEFAULT_UNIT,
+          rate: 0,
+          gstPercent: 18,
+        });
+      }
     }
   };
 
@@ -373,7 +496,7 @@ function InvoiceEditor({
                 placeholder="Pick or type saved customer"
                 list="saved-customers-list"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => handleCustomerNameChange(e.target.value)}
                 required
               />
               <datalist id="saved-customers-list">
@@ -457,21 +580,66 @@ function InvoiceEditor({
                 onChange={(e) => setCustomerAddress(e.target.value)}
               />
             </div>
+
+            {/* Linked Party Master Summary Banner */}
+            {matchedCustomer && (
+              <div className="col-12">
+                <div className="p-2 px-3 rounded-2 border bg-light-subtle d-flex align-items-center justify-content-between flex-wrap gap-2 animate-fade-in">
+                  <div className="d-flex align-items-center gap-2 flex-wrap small">
+                    <span className="badge bg-success text-white fw-bold">
+                      ✓ Master Record Linked
+                    </span>
+                    {matchedCustomer.groupName && (
+                      <span className="badge bg-secondary-subtle text-secondary border">
+                        📁 {matchedCustomer.groupName}
+                      </span>
+                    )}
+                    {matchedCustomer.gstin && (
+                      <span className="badge bg-primary-subtle text-primary border font-monospace">
+                        🏛️ GSTIN: {matchedCustomer.gstin}
+                      </span>
+                    )}
+                    {matchedCustomer.phone && (
+                      <span className="text-secondary fw-semibold">📞 {matchedCustomer.phone}</span>
+                    )}
+                    {matchedCustomer.address && (
+                      <span className="text-muted text-truncate" style={{ maxWidth: '350px' }} title={matchedCustomer.address}>
+                        📍 {matchedCustomer.address}
+                      </span>
+                    )}
+                    {matchedCustomer.openingBalance && (
+                      <span className="badge bg-warning-subtle text-dark border border-warning fw-bold">
+                        💰 Bal: {matchedCustomer.openingBalance}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted small">
+                    Autofilled from Chart of Accounts
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Invoice Items Card */}
-      <div className="card shadow-sm border-0 mb-4">
-        <div className="card-header bg-white py-3 d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2">
-          <div>
-            <h2 className="h5 mb-0 fw-bold">📦 Invoice Line Items</h2>
-            <small className="text-muted">Add items via popup dialog, inline table rows, or voice assistant.</small>
+      {/* Excel Spreadsheet Line Items Card */}
+      <div className="excel-spreadsheet-card mb-4">
+        {/* Excel Green Ribbon Header Bar */}
+        <div className="excel-ribbon-bar">
+          <div className="d-flex align-items-center gap-2">
+            <span className="fs-5">📊</span>
+            <div>
+              <span className="fw-bold fs-6">Sheet 1 — Invoice Line Items</span>
+              <span className="badge bg-white text-dark ms-2 fw-semibold" style={{ fontSize: '0.72rem' }}>
+                Excel Grid Mode
+              </span>
+            </div>
           </div>
-          <div className="d-flex gap-2">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
             <button
               type="button"
-              className="btn btn-outline-primary btn-sm"
+              className="excel-ribbon-btn"
               onClick={() => {
                 addItem({
                   description: '',
@@ -482,192 +650,293 @@ function InvoiceEditor({
                   gstPercent: 18,
                 });
               }}
-              title="Add a blank row directly to the table"
+              title="Insert a blank row (Enter)"
             >
-              ＋ Quick Blank Row
+              <span>＋</span> Insert Row
             </button>
             <button
               type="button"
-              className="btn btn-primary btn-sm"
-              onClick={() => setShowAddItemModal(true)}
-              title="Open full item addition popup dialog"
+              className="excel-ribbon-btn"
+              onClick={() => setShowExcelPasteModal(true)}
+              title="Paste range from Excel / Google Sheets"
             >
-              ＋ Add Item (Dialog)
+              <span>📋</span> Paste from Excel
             </button>
+            <button
+              type="button"
+              className="excel-ribbon-btn"
+              onClick={() => setShowAddItemModal(true)}
+              title="Add item from catalog / inventory dialog"
+            >
+              <span>📦</span> Stock Catalog
+            </button>
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="excel-ribbon-btn bg-danger-subtle text-danger border-0"
+                onClick={() => removeItem(items[items.length - 1].id)}
+                title="Delete the last row"
+              >
+                <span>🗑️</span> Delete Row
+              </button>
+            )}
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="excel-ribbon-btn"
+                onClick={() => {
+                  if (window.confirm('Clear all line items from this invoice sheet?')) {
+                    items.forEach((it) => removeItem(it.id));
+                  }
+                }}
+                title="Clear all rows"
+              >
+                <span>⚡</span> Clear Grid
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="card-body p-0">
-          <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <table className="table table-bordered table-hover align-middle mb-0" style={{ minWidth: '780px' }}>
-              <thead className="table-light">
-                <tr>
-                  <th style={{ width: '28%' }}>Description</th>
-                  <th style={{ width: '10%' }}>HSN / SAC</th>
-                  <th style={{ width: '8%' }} className="text-end">Qty</th>
-                  <th style={{ width: '9%' }}>Unit</th>
-                  <th style={{ width: '12%' }} className="text-end">Rate (₹)</th>
-                  <th style={{ width: '9%' }} className="text-end">GST %</th>
-                  <th style={{ width: '11%' }} className="text-end">
-                    {invoiceType === 'central' ? 'IGST Tax (₹)' : 'GST Split (₹)'}
-                  </th>
-                  <th style={{ width: '10%' }} className="text-end">Total (₹)</th>
-                  <th style={{ width: '5%' }} className="text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => {
-                  const qty = Number(item.quantity || 1);
-                  const rate = Number(item.rate || 0);
-                  const gstPercent = Number(item.gstPercent || 0);
-                  const amount = qty * rate;
-                  const gstAmount = (amount * gstPercent) / 100;
-                  const lineTotal = amount + gstAmount;
+        {/* Excel Formula Bar */}
+        <div className="excel-formula-bar">
+          <span className="excel-fx-icon">fx</span>
+          <span className="badge bg-white text-secondary border font-monospace me-1 px-2 py-1">
+            H{items.length || 1}
+          </span>
+          <div className="excel-formula-content d-flex align-items-center justify-content-between gap-3 w-100">
+            <span className="text-muted">
+              =SUM(H1:H{items.length || 1}) &nbsp;|&nbsp; Formula: (Qty × Rate) + GST &nbsp;|&nbsp; {items.length} {items.length === 1 ? 'Row' : 'Rows'}
+            </span>
+            <div className="d-flex align-items-center gap-3 font-monospace small">
+              <span className="text-secondary">Subtotal: <strong>₹{totals.subtotal.toFixed(2)}</strong></span>
+              <span className="text-primary">Tax: <strong>₹{totals.totalGst.toFixed(2)}</strong></span>
+              <span className="text-success fw-bold">Total: <strong>₹{totals.total.toFixed(2)}</strong></span>
+            </div>
+          </div>
+        </div>
 
-                  const hsnCheck = item.hsn ? validateHSN(item.hsn) : null;
+        {/* Excel Spreadsheet Table */}
+        <div
+          className="table-responsive"
+          style={{ WebkitOverflowScrolling: 'touch', minHeight: '180px' }}
+          onPaste={handleTableGridPaste}
+        >
+          <table className="excel-grid-table" style={{ minWidth: '820px' }}>
+            <thead>
+              <tr>
+                <th className="excel-col-head excel-row-num" style={{ width: '42px' }}>
+                  <span className="excel-col-letter">#</span>
+                </th>
+                <th className="excel-col-head text-start ps-3" style={{ width: '36%' }}>
+                  <span className="excel-col-letter">A</span>
+                  Particulars / Description
+                </th>
+                <th className="excel-col-head text-end pe-3" style={{ width: '9%' }}>
+                  <span className="excel-col-letter">B</span>
+                  Qty
+                </th>
+                <th className="excel-col-head" style={{ width: '9%' }}>
+                  <span className="excel-col-letter">C</span>
+                  Unit
+                </th>
+                <th className="excel-col-head text-end pe-3" style={{ width: '13%' }}>
+                  <span className="excel-col-letter">D</span>
+                  Rate (₹)
+                </th>
+                <th className="excel-col-head text-end pe-2" style={{ width: '9%' }}>
+                  <span className="excel-col-letter">E</span>
+                  GST %
+                </th>
+                <th className="excel-col-head text-end pe-2" style={{ width: '11%' }}>
+                  <span className="excel-col-letter">F</span>
+                  {invoiceType === 'central' ? 'IGST (₹)' : 'GST Split (₹)'}
+                </th>
+                <th className="excel-col-head text-end pe-3" style={{ width: '12%' }}>
+                  <span className="excel-col-letter">G</span>
+                  Total (₹)
+                </th>
+                <th className="excel-col-head" style={{ width: '40px' }}>
+                  <span className="excel-col-letter">✕</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => {
+                const qty = Number(item.quantity || 1);
+                const rate = Number(item.rate || 0);
+                const gstPercent = Number(item.gstPercent || 0);
+                const amount = qty * rate;
+                const gstAmount = (amount * gstPercent) / 100;
+                const lineTotal = amount + gstAmount;
 
-                  return (
-                    <tr key={item.id}>
-                      <td>
-                        <input
-                          className="form-control form-control-sm"
-                          value={item.description}
-                          onChange={(e) => handleDescriptionChange(item.id, e.target.value)}
-                          placeholder="Item Name / Description"
-                          list="stock-items-catalog"
-                          autoFocus={!item.description}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="text"
-                          className={`form-control form-control-sm font-monospace text-center ${
-                            hsnCheck ? (hsnCheck.isValid ? 'is-valid' : 'is-invalid') : ''
-                          }`}
-                          placeholder="e.g. 8471"
-                          maxLength={8}
-                          value={item.hsn || ''}
-                          onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
-                          list="hsn-datalist-catalog"
-                          title={
-                            hsnCheck
-                              ? hsnCheck.isValid
-                                ? `✓ Valid ${hsnCheck.type}: ${hsnCheck.description}`
-                                : `⚠️ ${hsnCheck.errorMessage}`
-                              : 'Enter 2, 4, 6, or 8-digit HSN/SAC Code'
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="1"
-                          className="form-control form-control-sm text-end"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className="form-select form-select-sm"
-                          value={item.unit || DEFAULT_UNIT}
-                          onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                          title="Unit of Measurement (UOM)"
-                        >
-                          {GST_UNITS.map((u) => (
-                            <option key={u.code} value={u.code}>
-                              {u.code} ({u.name})
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          className="form-control form-control-sm text-end"
-                          value={item.rate}
-                          onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className="form-select form-select-sm text-end"
-                          value={item.gstPercent}
-                          onChange={(e) => updateItem(item.id, 'gstPercent', e.target.value)}
-                        >
-                          <option value="0">0%</option>
-                          <option value="5">5%</option>
-                          <option value="12">12%</option>
-                          <option value="18">18%</option>
-                          <option value="28">28%</option>
-                        </select>
-                      </td>
-                      <td className="text-end small">
+                return (
+                  <tr key={item.id}>
+                    {/* Excel Row Number */}
+                    <td className="excel-row-num">{idx + 1}</td>
+
+                    {/* Column A: Item Description (HSN automatically attached from item master) */}
+                    <td>
+                      <input
+                        className="excel-cell-input fw-semibold"
+                        value={item.description}
+                        onChange={(e) => handleDescriptionChange(item.id, e.target.value)}
+                        onKeyDown={(e) => handleCellKeyDown(e, idx)}
+                        placeholder="Type item or search stock catalog..."
+                        list="stock-items-catalog"
+                        autoFocus={idx === items.length - 1 && !item.description}
+                      />
+                      {item.hsn && (
+                        <div className="px-2 pb-1" style={{ marginTop: '-4px' }}>
+                          <span
+                            className="badge bg-light text-secondary border font-monospace"
+                            style={{ fontSize: '0.68rem', fontWeight: 500 }}
+                            title={`Tax Compliance: HSN/SAC ${item.hsn} auto-linked to this item`}
+                          >
+                            HSN: {item.hsn}
+                          </span>
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Column B: Quantity */}
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        className="excel-cell-input font-monospace text-end"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                        onKeyDown={(e) => handleCellKeyDown(e, idx)}
+                      />
+                    </td>
+
+                    {/* Column C: Unit */}
+                    <td>
+                      <select
+                        className="excel-cell-select"
+                        value={item.unit || DEFAULT_UNIT}
+                        onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                        title="Unit of Measurement (UOM)"
+                      >
+                        {GST_UNITS.map((u) => (
+                          <option key={u.code} value={u.code}>
+                            {u.code}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+
+                    {/* Column D: Rate */}
+                    <td>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="excel-cell-input font-monospace text-end fw-semibold"
+                        value={item.rate}
+                        onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
+                        onKeyDown={(e) => handleCellKeyDown(e, idx)}
+                      />
+                    </td>
+
+                    {/* Column E: GST % */}
+                    <td>
+                      <select
+                        className="excel-cell-select text-end font-monospace"
+                        value={item.gstPercent}
+                        onChange={(e) => updateItem(item.id, 'gstPercent', e.target.value)}
+                        onKeyDown={(e) => handleCellKeyDown(e, idx)}
+                      >
+                        <option value="0">0%</option>
+                        <option value="5">5%</option>
+                        <option value="12">12%</option>
+                        <option value="18">18%</option>
+                        <option value="28">28%</option>
+                      </select>
+                    </td>
+
+                    {/* Column F: Tax Split */}
+                    <td className="text-end">
+                      <div className="excel-cell-readonly font-monospace small">
                         {invoiceType === 'central' ? (
-                          <span className="badge bg-primary-subtle text-primary border font-monospace">
+                          <span className="text-primary">
                             ₹{gstAmount.toFixed(2)} (IGST)
                           </span>
                         ) : (
-                          <span className="badge bg-success-subtle text-success border font-monospace">
-                            ₹{(gstAmount / 2).toFixed(2)} C + ₹{(gstAmount / 2).toFixed(2)} S
+                          <span className="text-secondary">
+                            ₹{(gstAmount / 2).toFixed(2)} + ₹{(gstAmount / 2).toFixed(2)}
                           </span>
                         )}
-                      </td>
-                      <td className="text-end fw-bold">
-                        ₹{lineTotal.toFixed(2)}
-                      </td>
-                      <td className="text-center">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-outline-danger"
-                          title="Remove item"
-                          onClick={() => removeItem(item.id)}
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-
-                {items.length === 0 && (
-                  <tr>
-                    <td colSpan="9" className="text-center py-5 text-muted">
-                      <div className="fs-2 mb-2">📦</div>
-                      <p className="mb-3 fw-semibold">No items added to this invoice yet.</p>
-                      <div className="d-flex justify-content-center gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={() => setShowAddItemModal(true)}
-                        >
-                          ＋ Add Item Dialog
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline-primary"
-                          onClick={() => {
-                            addItem({
-                              description: '',
-                              hsn: '',
-                              quantity: 1,
-                              unit: DEFAULT_UNIT,
-                              rate: 0,
-                              gstPercent: 18,
-                            });
-                          }}
-                        >
-                          ＋ Quick Blank Row
-                        </button>
                       </div>
                     </td>
+
+                    {/* Column G: Line Total */}
+                    <td className="text-end">
+                      <div className="excel-cell-readonly font-monospace fw-bold text-success">
+                        ₹{lineTotal.toFixed(2)}
+                      </div>
+                    </td>
+
+                    {/* Action */}
+                    <td className="text-center">
+                      <button
+                        type="button"
+                        className="btn btn-link text-danger p-0 text-decoration-none"
+                        title="Remove row"
+                        onClick={() => removeItem(item.id)}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                );
+              })}
+
+              {items.length === 0 && (
+                <tr>
+                  <td colSpan="9" className="text-center py-5 text-muted bg-light">
+                    <div className="fs-1 mb-2">📊</div>
+                    <h3 className="h6 fw-bold mb-1">Spreadsheet is Empty</h3>
+                    <p className="small text-muted mb-3">
+                      Add rows manually, paste multi-cell data from Excel, or insert from your stock inventory.
+                    </p>
+                    <div className="d-flex justify-content-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-success btn-sm fw-bold px-3"
+                        onClick={() => {
+                          addItem({
+                            description: '',
+                            hsn: '',
+                            quantity: 1,
+                            unit: DEFAULT_UNIT,
+                            rate: 0,
+                            gstPercent: 18,
+                          });
+                        }}
+                      >
+                        ＋ Add Blank Row
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-success btn-sm fw-bold px-3"
+                        onClick={() => setShowExcelPasteModal(true)}
+                      >
+                        📋 Paste from Excel
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm"
+                        onClick={() => setShowAddItemModal(true)}
+                      >
+                        📦 Stock Catalog
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Calculation Summary Footer */}
@@ -957,14 +1226,79 @@ function InvoiceEditor({
         </div>
       )}
 
-      {/* HSN / SAC Suggestions Catalog Datalist */}
-      <datalist id="hsn-datalist-catalog">
-        {COMMON_HSN_SAC_CODES.map((c) => (
-          <option key={c.code} value={c.code}>
-            {c.code} - {c.name}
-          </option>
-        ))}
-      </datalist>
+      {/* Excel Paste Range Dialog */}
+      {showExcelPasteModal && (
+        <div
+          className="modal show d-block animate-fade-in"
+          style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1060 }}
+          tabIndex="-1"
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-success text-white py-3">
+                <div className="d-flex align-items-center gap-2">
+                  <span className="fs-4">📋</span>
+                  <div>
+                    <h5 className="modal-title fw-bold mb-0 text-white">Paste Data from Excel / Google Sheets</h5>
+                    <small className="text-white-50">Directly paste spreadsheet cells into your invoice line items</small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowExcelPasteModal(false)}
+                />
+              </div>
+              <div className="modal-body p-4">
+                <p className="text-muted small mb-2">
+                  Select rows and columns in <strong>Microsoft Excel</strong>, <strong>Google Sheets</strong>, or Busy/Tally, press <strong>Ctrl+C</strong> to copy, then paste (<strong>Ctrl+V</strong>) into the box below:
+                </p>
+                <textarea
+                  className="form-control font-monospace mb-3"
+                  rows={8}
+                  placeholder={`Description\tHSN\tQty\tUnit\tRate\tGST\nLED Panel Light 12W\t8539\t10\tPCS\t180\t18\nCopper Wiring 90m\t8544\t2\tCOIL\t1450\t18`}
+                  value={excelPastedText}
+                  onChange={(e) => setExcelPastedText(e.target.value)}
+                  autoFocus
+                />
+                <div className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-0">
+                  <span>💡</span>
+                  <div>
+                    <strong>Smart Auto-Detection:</strong> Tread automatically extracts Item Names, HSN codes, Quantities, Rates, and GST percentages from both tab-separated and comma-separated rows.
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer bg-light py-2">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowExcelPasteModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-success btn-sm fw-bold px-4 shadow-sm"
+                  onClick={() => {
+                    const count = parseAndAddExcelRows(excelPastedText);
+                    if (count > 0) {
+                      setExcelPastedText('');
+                      setShowExcelPasteModal(false);
+                      alert(`✓ Successfully added ${count} items from Excel!`);
+                    } else {
+                      alert('Please paste some Excel row data with description and rates.');
+                    }
+                  }}
+                  disabled={!excelPastedText.trim()}
+                >
+                  ＋ Insert into Invoice
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {/* Tax Invoice View & Print Modal */}
       {showTaxInvoicePreview && (

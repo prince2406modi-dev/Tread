@@ -1,23 +1,23 @@
 import { lazy } from 'react';
 
 // Lazy-loaded feature views
-const Dashboard = lazy(() => import('./Dashboard/Dashboard.jsx'));
-const InvoiceEditor = lazy(() => import('./CreateInvoice/InvoiceEditor.jsx'));
-const InvoicesList = lazy(() => import('./Invoices/InvoicesList.jsx'));
-const CompanyProfile = lazy(() => import('./Company/CompanyProfile.jsx'));
-const Reports = lazy(() => import('./Reports/Reports.jsx'));
-const UserManagement = lazy(() => import('./Administration/UserManagement.jsx'));
-const AppSettings = lazy(() => import('./Administration/AppSettings.jsx'));
-const RolesPermissions = lazy(() => import('./Administration/RolesPermissions.jsx'));
-const Housekeeping = lazy(() => import('./Housekeeping/Housekeeping.jsx'));
-const HelpCenter = lazy(() => import('./Help/HelpCenter.jsx'));
-const ManageFavourites = lazy(() => import('./Favourites/ManageFavourites.jsx'));
-const CustomersPage = lazy(() => import('./Customers/CustomersPage.jsx'));
-const StockManagement = lazy(() => import('./Stock/StockManagement.jsx'));
-const ItemCatalogApi = lazy(() => import('./Administration/ItemCatalogApi.jsx'));
-const DeviceAccessControl = lazy(() => import('./Administration/DeviceAccessControl.jsx'));
-const GstHub = lazy(() => import('./GST/GstHub.jsx'));
-import Login from './Login/Login.jsx';
+const Dashboard = lazy(() => import('./Dashboard/index.jsx'));
+const InvoiceEditor = lazy(() => import('./CreateInvoice/index.jsx'));
+const InvoicesList = lazy(() => import('./Invoices/index.jsx'));
+const CompanyProfile = lazy(() => import('./Company/index.jsx'));
+const Reports = lazy(() => import('./Reports/index.jsx'));
+const UserManagement = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.UserManagement })));
+const AppSettings = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.AppSettings })));
+const RolesPermissions = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.RolesPermissions })));
+const Housekeeping = lazy(() => import('./Housekeeping/index.jsx'));
+const HelpCenter = lazy(() => import('./Help/index.jsx'));
+const ManageFavourites = lazy(() => import('./Favourites/index.jsx'));
+const CustomersPage = lazy(() => import('./Customers/index.jsx'));
+const StockManagement = lazy(() => import('./Stock/index.jsx'));
+const ItemCatalogApi = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.ItemCatalogApi })));
+const DeviceAccessControl = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.DeviceAccessControl })));
+const GstHub = lazy(() => import('./GST/index.jsx'));
+import Login from './Login/index.jsx';
 
 export default function ViewRouter({
   activePage,

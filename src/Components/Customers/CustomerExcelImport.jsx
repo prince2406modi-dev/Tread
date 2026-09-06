@@ -6,47 +6,84 @@ import { validateGSTIN, GST_STATE_CODES } from '../../services/gstinValidator.js
 // Helper to parse HTML table directly from Busy / Tally "Chart of Accounts" exports
 function parseHtmlTableToRows(htmlString) {
   try {
-    if (typeof window === 'undefined' || !htmlString || !htmlString.includes('<')) return null;
+    if (!htmlString || typeof htmlString !== 'string' || !htmlString.includes('<')) return null;
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlString, 'text/html');
-    const table = doc.querySelector('table');
-    if (!table) return null;
+    // Decode HTML entities commonly present in ERP exports
+    const decodeEntities = (str) => {
+      if (!str) return '';
+      return str
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec));
+    };
 
-    const rows = Array.from(table.querySelectorAll('tr'));
-    if (rows.length === 0) return null;
+    // Regex-based table row and cell extraction (robust against malformed colgroup, nested font tags, and broken tbodies)
+    const trRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+    const thTdRegex = /<(?:th|td)[^>]*>([\s\S]*?)<\/(?:th|td)>/gi;
 
-    let headers = [];
-    let dataRowStartIndex = 0;
+    const rawRows = [];
+    let trMatch;
+    while ((trMatch = trRegex.exec(htmlString)) !== null) {
+      const rowHtml = trMatch[1];
+      const cells = [];
+      let cellMatch;
+      while ((cellMatch = thTdRegex.exec(rowHtml)) !== null) {
+        // Strip nested tags like <font>, <b>, <u>, etc.
+        const text = decodeEntities(cellMatch[1].replace(/<[^>]+>/g, '')).trim();
+        cells.push(text);
+      }
+      if (cells.length > 0 && cells.some((c) => c.length > 0)) {
+        rawRows.push(cells);
+      }
+    }
 
-    for (let r = 0; r < rows.length; r++) {
-      const ths = Array.from(rows[r].querySelectorAll('th, td')).map((c) => c.textContent.trim());
-      if (ths.some((t) => /name|group|gst|opening|balance|tel|alias|printname/i.test(t))) {
-        headers = ths;
-        dataRowStartIndex = r + 1;
+    // Fallback to DOMParser if regex found no rows
+    if (rawRows.length === 0 && typeof window !== 'undefined' && window.DOMParser) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(htmlString, 'text/html');
+      const trElements = Array.from(doc.querySelectorAll('tr'));
+      for (const tr of trElements) {
+        const cells = Array.from(tr.querySelectorAll('td, th')).map((c) => decodeEntities(c.textContent.trim()));
+        if (cells.length > 0 && cells.some((c) => c.length > 0)) {
+          rawRows.push(cells);
+        }
+      }
+    }
+
+    if (rawRows.length === 0) return null;
+
+    // Detect header row by matching standard accounting column keywords
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+      const row = rawRows[i];
+      if (row.some((c) => /name|party|group|gst|opening|balance|tel|phone|alias|printname/i.test(c))) {
+        headerRowIdx = i;
         break;
       }
     }
 
-    if (headers.length === 0) {
-      headers = Array.from(rows[0].querySelectorAll('td, th')).map((c) => c.textContent.trim());
-      dataRowStartIndex = 1;
-    }
+    const headers = headerRowIdx >= 0 ? rawRows[headerRowIdx] : rawRows[0];
+    const dataStart = headerRowIdx >= 0 ? headerRowIdx + 1 : 1;
 
     const result = [];
-    for (let i = dataRowStartIndex; i < rows.length; i++) {
-      const cells = Array.from(rows[i].querySelectorAll('td, th')).map((c) => c.textContent.trim());
-      if (cells.length === 0 || cells.every((c) => !c || c === '&nbsp;')) continue;
+    for (let i = dataStart; i < rawRows.length; i++) {
+      const cells = rawRows[i];
+      if (cells.length === 0 || cells.every((c) => !c)) continue;
 
       const rowObj = {};
-      headers.forEach((h, colIdx) => {
-        if (h) {
-          rowObj[h] = cells[colIdx] || '';
-        }
+      headers.forEach((h, col) => {
+        if (h) rowObj[h] = cells[col] || '';
+      });
+      // Store unmapped columns if headers count differs
+      cells.forEach((val, col) => {
+        if (!headers[col]) rowObj[`col_${col}`] = val;
       });
 
-      const partyName = rowObj['Name'] || rowObj['PrintName'] || cells[0] || '';
-      // Filter out invalid/empty rows or repeated header rows
+      const partyName = rowObj['Name'] || rowObj['PrintName'] || rowObj['Party Name'] || cells[0] || '';
       if (partyName && partyName.trim() && partyName.toLowerCase() !== 'name') {
         result.push(rowObj);
       }
@@ -251,12 +288,15 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       'prevbal',
       'balance',
     ]);
+    const prevBal = findVal(['prevbal', 'previousbalance']);
     const taxCategory = findVal(['taxcategory', 'taxcat']);
     const rawNotes = findVal(['notes', 'remarks', 'description', 'comment', 'alias']);
 
     // Compile notes
     const notesParts = [];
     if (openingBal) notesParts.push(`Opening Bal: ${openingBal}`);
+    if (prevBal && prevBal !== openingBal) notesParts.push(`Prev Bal: ${prevBal}`);
+    if (rawType) notesParts.push(`Group: ${rawType}`);
     if (taxCategory) notesParts.push(`Tax Cat: ${taxCategory}`);
     if (rawNotes) notesParts.push(rawNotes);
     const notes = notesParts.join(' | ');
@@ -310,6 +350,8 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       address: resolvedAddress || (state ? `${state}, India` : ''),
       notes: notes || '',
       openingBalance: openingBal || '',
+      groupName: rawType || '',
+      taxCategory: taxCategory || '',
       gstinValid,
       isDuplicate: existsByName || existsByGstin,
       duplicateReason: existsByGstin ? 'Duplicate GSTIN' : existsByName ? 'Duplicate Name' : null,
@@ -322,9 +364,25 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
     try {
       let json = [];
 
-      // Check if input is HTML table string
-      if (typeof bufferOrText === 'string' && bufferOrText.includes('<')) {
-        const htmlRows = parseHtmlTableToRows(bufferOrText);
+      // Check if input is HTML (either string or binary buffer from Busy/Tally .xls export)
+      let textContent = null;
+      if (typeof bufferOrText === 'string') {
+        textContent = bufferOrText;
+      } else if (bufferOrText) {
+        try {
+          const decoder = new TextDecoder('utf-8');
+          const slice = bufferOrText.slice ? bufferOrText.slice(0, 4096) : new Uint8Array(bufferOrText, 0, 4096);
+          const peek = decoder.decode(slice);
+          if (/<(?:html|table|tr|body|head|font|tbody)/i.test(peek)) {
+            textContent = decoder.decode(bufferOrText);
+          }
+        } catch {
+          // Ignore decode error and proceed to SheetJS
+        }
+      }
+
+      if (textContent && textContent.includes('<')) {
+        const htmlRows = parseHtmlTableToRows(textContent);
         if (htmlRows && htmlRows.length > 0) {
           json = htmlRows;
         }
@@ -497,6 +555,9 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
             email: row.email || finalCustomersList[existingIdx].email,
             gstin: row.gstin.toUpperCase().trim() || finalCustomersList[existingIdx].gstin,
             address: row.address || finalCustomersList[existingIdx].address,
+            openingBalance: row.openingBalance || finalCustomersList[existingIdx].openingBalance || '',
+            groupName: row.groupName || finalCustomersList[existingIdx].groupName || '',
+            taxCategory: row.taxCategory || finalCustomersList[existingIdx].taxCategory || '',
             notes: row.notes || finalCustomersList[existingIdx].notes,
             updatedAt: new Date().toISOString(),
           };
@@ -511,6 +572,9 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
             email: row.email || '',
             gstin: row.gstin.toUpperCase().trim() || '',
             address: row.address || '',
+            openingBalance: row.openingBalance || '',
+            groupName: row.groupName || '',
+            taxCategory: row.taxCategory || '',
             notes: row.notes || '',
             createdAt: new Date().toISOString(),
           });
@@ -525,6 +589,9 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
           email: row.email || '',
           gstin: row.gstin.toUpperCase().trim() || '',
           address: row.address || '',
+          openingBalance: row.openingBalance || '',
+          groupName: row.groupName || '',
+          taxCategory: row.taxCategory || '',
           notes: row.notes || '',
           createdAt: new Date().toISOString(),
         });

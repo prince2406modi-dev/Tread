@@ -4,18 +4,14 @@ import { v4 as uuidv4 } from 'uuid';
 import './index.css';
 
 // Immediate Eager Component for Fast Login Screen Paint (< 0.5s LCP)
-import Login from './Components/Login/Login.jsx';
+import Login from './Components/Login/index.jsx';
 
 // Navigation & Routing Components
-import TopNavbar from './Components/Navigation/TopNavbar.jsx';
-import SubNavbar from './Components/Navigation/SubNavbar.jsx';
-import MobileDrawer from './Components/Navigation/MobileDrawer.jsx';
-import MobileBottomBar from './Components/Navigation/MobileBottomBar.jsx';
+import { TopNavbar, SubNavbar, MobileDrawer, MobileBottomBar } from './Components/Navigation/index.jsx';
 import ViewRouter from './Components/ViewRouter.jsx';
 
 // Tread AI Assistant Components
-import TreadAICopilot from './Components/AI/TreadAICopilot.jsx';
-import FloatingAiButton from './Components/AI/FloatingAiButton.jsx';
+import { TreadAICopilot, FloatingAiButton } from './Components/AI/index.jsx';
 
 // Constants & Custom Hooks
 import { MENUS, ALL_SHORTCUTS } from './constants/navigation.js';
@@ -29,11 +25,11 @@ import { GST_STATE_CODES } from './services/gstinValidator.js';
 import { DEFAULT_UNIT } from './constants/units.js';
 
 // Lazy Loaded Dialog Modals
-const ShareInvoiceModal = lazy(() => import('./Components/Communication/ShareInvoiceModal.jsx'));
-const AboutModal = lazy(() => import('./Components/Help/AboutModal.jsx'));
-const CloudSyncModal = lazy(() => import('./Components/Communication/CloudSyncModal.jsx'));
-const ExitConfirmModal = lazy(() => import('./Components/Communication/ExitConfirmModal.jsx'));
-const AppAccessModal = lazy(() => import('./Components/Modals/AppAccessModal.jsx'));
+const ShareInvoiceModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.ShareInvoiceModal })));
+const AboutModal = lazy(() => import('./Components/Help/index.jsx').then((m) => ({ default: m.AboutModal })));
+const CloudSyncModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.CloudSyncModal })));
+const ExitConfirmModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.ExitConfirmModal })));
+const AppAccessModal = lazy(() => import('./Components/Modals/index.jsx'));
 
 // Capacitor Native Platform Support
 import { Capacitor } from '@capacitor/core';
@@ -231,6 +227,15 @@ function Index() {
     setCustomerName(customer.name || '');
     setCustomerPhone(customer.phone || '');
     setCustomerAddress(customer.address || '');
+    if (customer.gstin && customer.gstin.length >= 2 && company?.gstin && company.gstin.length >= 2) {
+      const custState = customer.gstin.slice(0, 2);
+      const compState = company.gstin.slice(0, 2);
+      setInvoiceType(custState === compState ? 'local' : 'central');
+    } else if (customer.address && company?.state) {
+      const compStateLower = company.state.toLowerCase().trim();
+      const custAddrLower = customer.address.toLowerCase().trim();
+      setInvoiceType(custAddrLower.includes(compStateLower) ? 'local' : 'central');
+    }
     setActivePage('Add Sales');
   };
 
