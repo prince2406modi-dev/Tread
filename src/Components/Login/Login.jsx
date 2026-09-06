@@ -273,17 +273,46 @@ function Login({ users = [], onLogin, onRegister }) {
   };
 
   return (
-    <div className="card shadow-lg border-0 mx-auto rounded-4 overflow-hidden" style={{ maxWidth: step === 2 ? '780px' : '520px' }}>
-      {/* Header Banner */}
-      <div className="bg-primary text-white text-center p-4">
+    <div
+      className="card border-0 mx-auto rounded-4 overflow-hidden shadow-lg position-relative"
+      style={{
+        maxWidth: step === 2 ? '840px' : '500px',
+        backgroundColor: '#ffffff',
+        border: '1px solid rgba(226, 232, 240, 0.9)',
+      }}
+    >
+      {/* Executive Luxury Header Banner */}
+      <div
+        className="text-white text-center p-4 position-relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #312e81 100%)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '-50%',
+            right: '-20%',
+            width: '280px',
+            height: '280px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }}
+        />
         <img
           src={Logo}
           alt="Tread Logo"
-          className="mb-2"
-          style={{ maxHeight: '55px', width: 'auto', filter: 'brightness(0) invert(1)' }}
+          className="mb-2 position-relative"
+          style={{ maxHeight: '52px', width: 'auto', filter: 'brightness(0) invert(1)' }}
         />
-        <h1 className="h4 fw-bold mb-1">TREAD GST BILLING SUITE</h1>
-        <div className="small opacity-75">Professional Invoicing & Inventory Platform</div>
+        <h1 className="h4 fw-bold mb-1 position-relative" style={{ letterSpacing: '-0.02em' }}>
+          TREAD GST BILLING SUITE
+        </h1>
+        <div className="small text-white-50 position-relative">
+          Executive Invoicing &amp; Enterprise Cloud Inventory Platform
+        </div>
       </div>
 
       <div className="card-body p-4 p-md-5 bg-white">
@@ -646,44 +675,61 @@ function Login({ users = [], onLogin, onRegister }) {
                 <div className="row g-3 mb-4">
                   {PLANS.map((plan) => {
                     const isSelected = selectedPlan === plan.id;
+                    const isPro = plan.id === 'pro';
                     return (
                       <div className="col-md-4" key={plan.id}>
                         <div
-                          className={`card h-100 cursor-pointer shadow-sm position-relative ${isSelected ? 'border-primary border-3 shadow' : 'border'}`}
-                          style={{ cursor: 'pointer', transition: 'all 0.2s ease' }}
+                          className={`card h-100 cursor-pointer position-relative ${isSelected ? 'border-primary border-2' : 'border'}`}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transform: isSelected ? 'translateY(-3px)' : 'none',
+                            boxShadow: isSelected ? '0 12px 28px -6px rgba(79, 70, 229, 0.25)' : 'none',
+                            borderRadius: '16px',
+                          }}
                           onClick={() => setSelectedPlan(plan.id)}
                         >
                           {plan.popular && (
-                            <span className="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-danger px-3 py-1">
-                              RECOMMENDED
+                            <span
+                              className="position-absolute top-0 start-50 translate-middle badge rounded-pill px-3 py-1 shadow-sm"
+                              style={{ background: 'var(--primary-gradient)', fontSize: '10.5px', letterSpacing: '0.05em' }}
+                            >
+                              ★ RECOMMENDED
                             </span>
                           )}
-                          <div className={`card-header text-center py-2 ${plan.headerBg}`}>
-                            <div className="fw-bold fs-6">{plan.name}</div>
+                          <div
+                            className="card-header text-center py-3"
+                            style={{
+                              background: isPro ? 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)' : '#f8fafc',
+                              color: isPro ? '#ffffff' : '#0f172a',
+                              borderTopLeftRadius: '15px',
+                              borderTopRightRadius: '15px',
+                            }}
+                          >
+                            <div className="fw-bold" style={{ fontSize: '14px', letterSpacing: '-0.01em' }}>{plan.name}</div>
                           </div>
                           <div className="card-body p-3 text-center d-flex flex-column justify-content-between">
                             <div>
-                              <div className="h3 fw-bold text-primary mb-0">
+                              <div className="h3 fw-bold mb-0 num-tabular" style={{ color: isPro ? '#4f46e5' : '#0f172a' }}>
                                 ₹{plan.price}
                               </div>
                               <div className="text-muted small mb-2">{plan.period}</div>
-                              <p className="text-secondary small mb-3" style={{ fontSize: '11.5px' }}>
+                              <p className="text-secondary small mb-3" style={{ fontSize: '12px' }}>
                                 {plan.description}
                               </p>
-                              <ul className="text-start small ps-3 mb-0" style={{ fontSize: '11px', lineHeight: '1.4' }}>
+                              <ul className="text-start small ps-3 mb-0" style={{ fontSize: '11.5px', lineHeight: '1.5' }}>
                                 {plan.features.slice(0, 3).map((f, i) => (
-                                  <li key={i} className="mb-1">{f}</li>
+                                  <li key={i} className="mb-1 text-secondary">{f}</li>
                                 ))}
                               </ul>
                             </div>
-                            <div className="mt-3">
-                              <input
-                                type="radio"
-                                name="planSelect"
-                                checked={isSelected}
-                                onChange={() => setSelectedPlan(plan.id)}
-                                className="form-check-input"
-                              />
+                            <div className="mt-3 pt-2 border-top">
+                              <span
+                                className={`badge ${isSelected ? 'bg-primary text-white' : 'bg-light text-muted border'}`}
+                                style={{ fontSize: '11px', padding: '5px 12px' }}
+                              >
+                                {isSelected ? 'Selected' : 'Select'}
+                              </span>
                             </div>
                           </div>
                         </div>

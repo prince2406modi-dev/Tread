@@ -38,36 +38,53 @@ function Dashboard({
 
   return (
     <div className="dashboard-container py-3">
-      {/* Header Banner */}
-      <div className="card shadow-sm border-0 mb-4 bg-primary text-white p-4 rounded-3 dashboard-hero-banner">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+      {/* Executive Welcome Hero Banner */}
+      <div
+        className="dashboard-hero-banner text-white p-4 p-md-5 rounded-4 mb-4 position-relative overflow-hidden shadow-luxury"
+        style={{
+          background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #312e81 100%)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: '-60px',
+            right: '-60px',
+            width: '320px',
+            height: '320px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 position-relative">
           <div>
-            <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
-              <span className="badge bg-light text-primary px-3 py-1 fw-bold">
-                {company?.name ? company.name : 'GST Enterprise Suite'}
+            <div className="d-inline-flex align-items-center gap-2 px-3 py-1 mb-2 rounded-pill bg-white bg-opacity-10 border border-white border-opacity-20" style={{ fontSize: '12px' }}>
+              <span className="badge rounded-pill bg-success" style={{ width: '8px', height: '8px', padding: 0 }} />
+              <span className="fw-semibold">
+                {company?.name || 'Tread Enterprise'}
               </span>
-              <span className="badge bg-success text-white px-2 py-1 small">
-                ✓ Active Paid License
-              </span>
+              <span className="text-white-50">• {currentUser?.subscription?.planName || 'Paid License'}</span>
             </div>
-            <h1 className="h3 fw-bold mb-1">
-              Welcome back, {currentUser?.username || 'Operator'}!
+            <h1 className="h3 fw-bold mb-1" style={{ letterSpacing: '-0.02em' }}>
+              Welcome back, {currentUser?.username || 'Executive'}
             </h1>
-            <p className="mb-0 text-white-50">
-              Overview of your GST invoices, real-time metrics, and quick accounting actions.
+            <p className="mb-0 text-white-50" style={{ fontSize: '14.5px' }}>
+              Overview of GST turnover, active tax liabilities, and real-time counter metrics.
             </p>
           </div>
           <div className="d-flex gap-2 flex-wrap">
             <button
               type="button"
-              className="btn btn-light fw-semibold shadow-sm"
+              className="btn btn-light fw-semibold shadow-sm px-3"
               onClick={() => onNavigate('Create Transaction')}
             >
               ＋ New Invoice
             </button>
             <button
               type="button"
-              className="btn btn-outline-light"
+              className="btn btn-outline-light px-3"
               onClick={onStartVoice}
             >
               🎤 Voice Billing
@@ -79,57 +96,59 @@ function Dashboard({
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card shadow-sm border-0 h-100 border-start border-4 border-primary">
-            <div className="card-body">
-              <div className="text-muted small text-uppercase fw-bold mb-1">
+          <div className="card shadow-sm border-0 h-100 position-relative overflow-hidden" style={{ borderLeft: '4px solid #4f46e5 !important' }}>
+            <div className="card-body p-4">
+              <div className="text-muted small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em', fontSize: '11px' }}>
                 Total Revenue
               </div>
-              <div className="h3 fw-bold text-dark mb-0">
+              <div className="h3 fw-bold text-dark mb-1 num-tabular" style={{ letterSpacing: '-0.02em' }}>
                 ₹{stats.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <small className="text-success fw-semibold">From {stats.totalCount} invoices</small>
+              <small className="text-success fw-semibold d-inline-flex align-items-center gap-1">
+                <span>↑</span> From {stats.totalCount} completed invoices
+              </small>
             </div>
           </div>
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card shadow-sm border-0 h-100 border-start border-4 border-success">
-            <div className="card-body">
-              <div className="text-muted small text-uppercase fw-bold mb-1">
+          <div className="card shadow-sm border-0 h-100 position-relative overflow-hidden" style={{ borderLeft: '4px solid #10b981 !important' }}>
+            <div className="card-body p-4">
+              <div className="text-muted small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em', fontSize: '11px' }}>
                 Total GST Collected
               </div>
-              <div className="h3 fw-bold text-dark mb-0">
+              <div className="h3 fw-bold text-dark mb-1 num-tabular" style={{ letterSpacing: '-0.02em', color: '#059669' }}>
                 ₹{stats.totalGst.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
-              <small className="text-muted">Item tax breakdown ready</small>
+              <small className="text-muted">Itemized tax breakdown ready</small>
             </div>
           </div>
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card shadow-sm border-0 h-100 border-start border-4 border-warning">
-            <div className="card-body">
-              <div className="text-muted small text-uppercase fw-bold mb-1">
+          <div className="card shadow-sm border-0 h-100 position-relative overflow-hidden" style={{ borderLeft: '4px solid #f59e0b !important' }}>
+            <div className="card-body p-4">
+              <div className="text-muted small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em', fontSize: '11px' }}>
                 Total Invoices
               </div>
-              <div className="h3 fw-bold text-dark mb-0">
+              <div className="h3 fw-bold text-dark mb-1 num-tabular" style={{ letterSpacing: '-0.02em' }}>
                 {stats.totalCount}
               </div>
-              <small className="text-muted">Saved in local workspace</small>
+              <small className="text-muted">Saved in cloud &amp; local cache</small>
             </div>
           </div>
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card shadow-sm border-0 h-100 border-start border-4 border-info">
-            <div className="card-body">
-              <div className="text-muted small text-uppercase fw-bold mb-1">
+          <div className="card shadow-sm border-0 h-100 position-relative overflow-hidden" style={{ borderLeft: '4px solid #06b6d4 !important' }}>
+            <div className="card-body p-4">
+              <div className="text-muted small text-uppercase fw-bold mb-1" style={{ letterSpacing: '0.05em', fontSize: '11px' }}>
                 Unique Customers
               </div>
-              <div className="h3 fw-bold text-dark mb-0">
+              <div className="h3 fw-bold text-dark mb-1 num-tabular" style={{ letterSpacing: '-0.02em' }}>
                 {stats.uniqueCustomers}
               </div>
-              <small className="text-muted">Active client database</small>
+              <small className="text-muted">Active client directory</small>
             </div>
           </div>
         </div>

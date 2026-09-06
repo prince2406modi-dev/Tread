@@ -80,7 +80,96 @@ export default function ViewRouter({
   onOpenAppAccessModal,
 }) {
   if (!activePage) {
-    return null;
+    return (
+      <div className="executive-cockpit-canvas">
+        <div className="executive-glow-orb" />
+        <div className="executive-glass-card text-center">
+          <div className="d-inline-flex align-items-center gap-2 px-3 py-1 mb-3 rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25" style={{ fontSize: '12px', fontWeight: 700, letterSpacing: '0.04em' }}>
+            <span>⚡ TREAD EXECUTIVE SUITE</span>
+            <span className="badge bg-primary text-white" style={{ fontSize: '10px' }}>v2.5</span>
+          </div>
+
+          <h1 className="h3 fw-bold text-dark mb-2" style={{ letterSpacing: '-0.02em' }}>
+            {company?.name || 'Enterprise'} • GST Billing &amp; Accounting
+          </h1>
+          <p className="text-muted mb-4 mx-auto" style={{ maxWidth: '520px', fontSize: '14.5px', lineHeight: '1.6' }}>
+            Welcome, <strong>{currentUser?.username || 'Executive'}</strong>. Your centralized, high-precision accounting platform is live and encrypted. Select an option from the menu bar above or tap a quick action below.
+          </p>
+
+          {/* Quick Cockpit Action Buttons */}
+          <div className="d-flex flex-wrap justify-content-center gap-2 mb-4">
+            <button
+              type="button"
+              className="btn btn-primary px-4 py-2"
+              onClick={() => onNavigate('Add Sales')}
+            >
+              <span className="me-1">＋</span> New Invoice
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-primary px-3 py-2"
+              onClick={() => onNavigate('Dashboard')}
+            >
+              <span>📊</span> Analytics Dashboard
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline-secondary px-3 py-2"
+              onClick={() => onNavigate('List Sales')}
+            >
+              <span>📋</span> All Invoices ({invoices?.length || 0})
+            </button>
+            {voiceSupported && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary px-3 py-2"
+                onClick={onStartVoice}
+              >
+                <span>🎤</span> Voice Billing
+              </button>
+            )}
+          </div>
+
+          {/* Keyboard Shortcuts Strip */}
+          <div className="pt-3 border-top border-light-subtle">
+            <div className="text-muted small mb-2 fw-semibold" style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              High-Velocity Keyboard Shortcuts
+            </div>
+            <div className="d-flex flex-wrap justify-content-center gap-2">
+              <span className="shortcut-chip" onClick={() => onNavigate('Add Sales')} title="Create New Invoice">
+                <kbd>Alt</kbd> + <kbd>N</kbd> New Invoice
+              </span>
+              <span className="shortcut-chip" onClick={() => onNavigate('Dashboard')} title="View Dashboard">
+                <kbd>Alt</kbd> + <kbd>D</kbd> Dashboard
+              </span>
+              <span className="shortcut-chip" onClick={() => onNavigate('List Sales')} title="Invoices Directory">
+                <kbd>Alt</kbd> + <kbd>L</kbd> Invoices
+              </span>
+              <span className="shortcut-chip" onClick={() => onNavigate('List Account')} title="Customer Directory">
+                <kbd>Alt</kbd> + <kbd>C</kbd> Customers
+              </span>
+              <span className="shortcut-chip" onClick={() => onNavigate('List Items')} title="Inventory Stock">
+                <kbd>Alt</kbd> + <kbd>I</kbd> Stock
+              </span>
+            </div>
+          </div>
+
+          {/* Live System State Indicator */}
+          <div className="mt-4 pt-3 border-top border-light-subtle d-flex align-items-center justify-content-center gap-3 text-muted" style={{ fontSize: '12px' }}>
+            <span className="d-inline-flex align-items-center gap-1">
+              <span className="badge rounded-pill bg-success" style={{ width: '8px', height: '8px', padding: 0 }} />
+              Cloud Firestore Synced
+            </span>
+            <span>•</span>
+            <span>Local Offline Cache Ready</span>
+            <span>•</span>
+            <span className="text-primary fw-medium" role="button" onClick={onOpenAppAccessModal}>
+              📱 Device Access
+            </span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // 1. Dashboard
