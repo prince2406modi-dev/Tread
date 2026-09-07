@@ -38,17 +38,8 @@ import { App as CapApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 
+// Require fresh login each time the app is opened: do not auto-login from persistent storage
 const getSavedCurrentUser = () => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const saved = window.localStorage.getItem('gst-invoice-app-current-user');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed?.username) return parsed;
-    }
-  } catch {
-    // ignore
-  }
   return null;
 };
 
@@ -57,7 +48,7 @@ function Index() {
   // USER AUTHENTICATION STATE & CLOUD SYNC
   // =========================================================
   const [users, setUsers] = useState(getLocalUsers);
-  const [currentUser, setCurrentUser] = useState(getSavedCurrentUser);
+  const [currentUser, setCurrentUser] = useState(null);
   const [cloudNotice, setCloudNotice] = useState(null);
   const [isBooting, setIsBooting] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -83,12 +74,13 @@ function Index() {
     window.localStorage.setItem('gst-invoice-app-users', JSON.stringify(users));
   }, [users]);
 
-  // Persist logged-in user in localStorage across app restarts
+  // Session-only user tracking: do not auto-restore across app launches
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (currentUser?.username) {
-      window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(currentUser));
+      window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(currentUser));
     } else {
+      window.sessionStorage.removeItem('gst-invoice-app-current-user');
       window.localStorage.removeItem('gst-invoice-app-current-user');
     }
   }, [currentUser]);
@@ -1147,7 +1139,8 @@ function Index() {
     const userInvoices = loadInvoices(username);
     const userObj = { username };
     setCurrentUser(userObj);
-    window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
+    window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
+    window.localStorage.removeItem('gst-invoice-app-current-user');
 
     let loadedCust = [];
     try {
@@ -1196,7 +1189,8 @@ function Index() {
     }
     const userObj = { username: newUser.username };
     setCurrentUser(userObj);
-    window.localStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
+    window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
+    window.localStorage.removeItem('gst-invoice-app-current-user');
     setInvoices([]);
     setCustomers([]);
     setStockItems([]);
