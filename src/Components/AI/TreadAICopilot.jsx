@@ -14,11 +14,16 @@ export default function TreadAICopilot({
   invoices = [],
   customers = [],
   stockItems = [],
+  purchaseBills = [],
   company = {},
   onLoadInvoiceToEditor,
   onSaveCustomer,
   onAddStockItem,
+  onSavePurchaseBill,
   onNavigate,
+  onTriggerCloudSync,
+  onOpenAppAccessModal,
+  onShareInvoice,
 }) {
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +65,14 @@ export default function TreadAICopilot({
     {
       id: 'welcome',
       role: 'assistant',
-      text: `👋 **Hello! I am Tread AI Copilot**, powered by local **Ollama (${aiConfig.ollamaModel || 'qwen2.5:7b'})**.\n\nI can create invoices from speech or text, register parties, inspect stock, and answer GST laws!\n\nTry clicking **🎤 Voice** to speak e.g. *"Bill 5 LED bulbs at 120 each to Sharma Traders"* or select a prompt below.`,
+      text: `👋 **Hello! I am Tread AI Copilot**, your voice-controlled ERP assistant powered by local **Ollama (${aiConfig.ollamaModel || 'qwen2.5:7b'})**.\n\n` +
+        `I understand your natural voice and thoughts to control **every part of Tread**:\n` +
+        `• 🎤 **Voice Invoicing**: *"Bill 10 LED bulbs at 150 each to Sharma Traders"*\n` +
+        `• 🧭 **App Navigation**: *"Go to Dashboard"*, *"Open GSTR-1"*, *"Show Stock items"*, *"Open Customers"*\n` +
+        `• 👥 **Parties & Vendors**: *"Add party Raj Electricals mobile 9876543210"*\n` +
+        `• 📦 **Stock Control**: *"Add stock 20W Fast Charger price 299 hsn 8504 gst 18% stock 50"*\n` +
+        `• ☁️ **Cloud & Data**: *"Sync with cloud"*, *"Check low stock"*\n\n` +
+        `Click **🎤 Voice** to speak your thought or type below!`,
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -72,6 +84,7 @@ export default function TreadAICopilot({
     () => typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition)
   );
   const [isListening, setIsListening] = useState(false);
+  const [voiceLang, setVoiceLang] = useState('en-IN'); // 'en-IN' | 'hi-IN'
   const recognitionRef = useRef(null);
 
   const [ttsSupported] = useState(() => typeof window !== 'undefined' && 'speechSynthesis' in window);
@@ -124,13 +137,14 @@ export default function TreadAICopilot({
     const cleanText = text
       .replace(/[*#_`>~]/g, '')
       .replace(/\[.*?\]\(.*?\)/g, '')
+      .replace(/https?:\/\/\S+/g, '')
       .replace(/\n+/g, ' ')
       .trim();
 
     try {
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = 'en-IN';
-      utterance.rate = 1.0;
+      utterance.lang = voiceLang === 'hi-IN' ? 'hi-IN' : 'en-IN';
+      utterance.rate = 1.05;
       utterance.pitch = 1.0;
 
       utterance.onstart = () => setIsSpeaking(true);
@@ -140,6 +154,69 @@ export default function TreadAICopilot({
       window.speechSynthesis.speak(utterance);
     } catch {
       setIsSpeaking(false);
+    }
+  };
+
+  // Action Executions
+  const executeInvoiceAction = (actionPayload) => {
+    if (onLoadInvoiceToEditor) {
+      onLoadInvoiceToEditor({
+        customerName: actionPayload.customerName,
+        items: actionPayload.items,
+        invoiceDate: new Date().toISOString().slice(0, 10),
+      });
+      if (onNavigate) onNavigate('Add Sales');
+      onClose();
+    }
+  };
+
+  const executePurchaseAction = (actionPayload) => {
+    if (onSavePurchaseBill) {
+      onSavePurchaseBill(actionPayload);
+    }
+  };
+
+  const executeShareAction = (invoice, mode = 'pdf') => {
+    if (onShareInvoice) {
+      onShareInvoice(invoice, mode);
+    }
+  };
+
+  const executeCustomerAction = (actionPayload) => {
+    if (onSaveCustomer) {
+      onSaveCustomer({
+        name: actionPayload.name,
+        phone: actionPayload.phone,
+        gstin: actionPayload.gstin,
+        type: actionPayload.type,
+      });
+    }
+  };
+
+  const executeStockAction = (actionPayload) => {
+    if (onAddStockItem) {
+      onAddStockItem(actionPayload);
+    }
+  };
+
+  const executeNavigateAction = (page) => {
+    if (onNavigate) {
+      onNavigate(page);
+      onClose();
+    }
+  };
+
+  const executeCloudSyncAction = () => {
+    if (onTriggerCloudSync) {
+      onTriggerCloudSync();
+      alert('☁️ Cloud synchronization initiated.');
+    }
+  };
+
+  const executeAppAccessAction = () => {
+    if (onOpenAppAccessModal) {
+      onOpenAppAccessModal();
+      onClose();
     }
   };
 
@@ -166,6 +243,7 @@ export default function TreadAICopilot({
         invoices,
         customers,
         stockItems,
+        purchaseBills,
       };
 
       const result = await queryTreadAI(query, context);
@@ -184,6 +262,23 @@ export default function TreadAICopilot({
       if (voiceRepliesEnabled && result.reply) {
         speakText(result.reply);
       }
+
+      // Auto-execute safe navigation or sync actions if user gave direct command
+      if (result.action) {
+        if (result.action.type === 'NAVIGATE') {
+          setTimeout(() => {
+            executeNavigateAction(result.action.payload.page);
+          }, 1400);
+        } else if (result.action.type === 'TRIGGER_CLOUD_SYNC') {
+          setTimeout(() => {
+            executeCloudSyncAction();
+          }, 1200);
+        } else if (result.action.type === 'OPEN_APP_ACCESS') {
+          setTimeout(() => {
+            executeAppAccessAction();
+          }, 1200);
+        }
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -201,7 +296,7 @@ export default function TreadAICopilot({
 
   const toggleVoiceListening = () => {
     if (!voiceSupported) {
-      alert('Voice recognition is not supported in this browser. Please use Google Chrome, Edge, or the Tread Android app.');
+      alert('Voice recognition is not supported in this browser. Please use Google Chrome, Microsoft Edge, or the Tread Android app.');
       return;
     }
 
@@ -218,7 +313,7 @@ export default function TreadAICopilot({
       const recognition = new SpeechClass();
       recognition.continuous = false;
       recognition.interimResults = true;
-      recognition.lang = 'en-IN';
+      recognition.lang = voiceLang;
 
       let finalSpeech = '';
 
@@ -268,36 +363,6 @@ export default function TreadAICopilot({
     }
   };
 
-  // Action Executions
-  const executeInvoiceAction = (actionPayload) => {
-    if (onLoadInvoiceToEditor) {
-      onLoadInvoiceToEditor({
-        customerName: actionPayload.customerName,
-        items: actionPayload.items,
-        invoiceDate: new Date().toISOString().slice(0, 10),
-      });
-      if (onNavigate) onNavigate('Add Sales');
-      onClose();
-    }
-  };
-
-  const executeCustomerAction = (actionPayload) => {
-    if (onSaveCustomer) {
-      onSaveCustomer({
-        name: actionPayload.name,
-        phone: actionPayload.phone,
-        gstin: actionPayload.gstin,
-        type: actionPayload.type,
-      });
-    }
-  };
-
-  const executeStockAction = (actionPayload) => {
-    if (onAddStockItem) {
-      onAddStockItem(actionPayload);
-    }
-  };
-
   const handleSaveSettings = () => {
     saveAiConfig(aiConfig);
     setSettingsStatus('✓ Settings saved successfully!');
@@ -320,11 +385,13 @@ export default function TreadAICopilot({
 
   const quickPrompts = [
     'Bill 10 pcs LED bulb at 150 each to Sharma Electronics',
+    'Go to Dashboard',
+    'Open GSTR-1 return',
     'Add customer Anita Traders phone 9876543210',
     'Add stock 20W Fast Charger price 350 hsn 8504 gst 18% stock 50',
-    'Summarize my total sales and revenue',
+    'Sync data with cloud',
     'Do I have any low stock items?',
-    'What is the HSN code and GST rate for computer peripherals?',
+    'What is the HSN code and GST rate for solar panels?',
   ];
 
   return (
@@ -676,6 +743,63 @@ export default function TreadAICopilot({
                     {/* Interactive Action Cards */}
                     {m.action && (
                       <div className="mt-3 pt-2 border-top border-light-subtle">
+                        {m.action.type === 'NAVIGATE' && (
+                          <div className="bg-light p-2 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1 d-flex align-items-center justify-content-between">
+                              <span>🧭 App Navigation</span>
+                              <span className="badge bg-primary text-white">Screen Switch</span>
+                            </div>
+                            <div className="small text-muted mb-2">
+                              Target Screen: <strong>{m.action.payload.label}</strong>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-xs"
+                              onClick={() => executeNavigateAction(m.action.payload.page)}
+                            >
+                              🚀 Go to {m.action.payload.label}
+                            </button>
+                          </div>
+                        )}
+
+                        {m.action.type === 'TRIGGER_CLOUD_SYNC' && (
+                          <div className="bg-light p-2 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1 d-flex align-items-center justify-content-between">
+                              <span>☁️ Cloud Firestore Sync</span>
+                              <span className="badge bg-success text-white">Live Data</span>
+                            </div>
+                            <div className="small text-muted mb-2">
+                              Synchronizes all invoices, stock, and parties across your mobile and desktop devices.
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-success btn-sm w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-xs"
+                              onClick={executeCloudSyncAction}
+                            >
+                              🔄 Sync Now
+                            </button>
+                          </div>
+                        )}
+
+                        {m.action.type === 'OPEN_APP_ACCESS' && (
+                          <div className="bg-light p-2 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1 d-flex align-items-center justify-content-between">
+                              <span>🔒 Device Security & Permissions</span>
+                              <span className="badge bg-warning text-dark">Hardware Access</span>
+                            </div>
+                            <div className="small text-muted mb-2">
+                              Configure Microphone, Push Notifications, and Persistent Storage permissions.
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-outline-dark btn-sm w-100 fw-semibold d-flex align-items-center justify-content-center gap-1 shadow-xs"
+                              onClick={executeAppAccessAction}
+                            >
+                              ⚙️ Open Permissions Panel
+                            </button>
+                          </div>
+                        )}
+
                         {m.action.type === 'CREATE_INVOICE' && (
                           <div className="bg-light p-2 rounded-3 text-dark border">
                             <div className="fw-bold small mb-1">
@@ -733,6 +857,45 @@ export default function TreadAICopilot({
                               }}
                             >
                               📦 Add to Stock Inventory
+                            </button>
+                          </div>
+                        )}
+
+                        {m.action.type === 'RECORD_PURCHASE' && (
+                          <div className="bg-light p-2 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1">
+                              📥 Purchase Entry: {m.action.payload.vendorName || 'Vendor Bill'}
+                            </div>
+                            <div className="small text-muted mb-2">
+                              Bill Amount: ₹{m.action.payload.amount || '0'} | Date: {m.action.payload.date || 'Today'}
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-warning btn-sm w-100 fw-semibold shadow-xs"
+                              onClick={() => {
+                                executePurchaseAction(m.action.payload);
+                                alert(`✓ Purchase bill recorded successfully!`);
+                              }}
+                            >
+                              📥 Record Purchase Bill
+                            </button>
+                          </div>
+                        )}
+
+                        {m.action.type === 'EXPORT_PDF' && (
+                          <div className="bg-light p-2 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1">
+                              📄 Export & Print Invoice
+                            </div>
+                            <div className="small text-muted mb-2">
+                              Generate high-resolution GST invoice PDF or print receipt.
+                            </div>
+                            <button
+                              type="button"
+                              className="btn btn-dark btn-sm w-100 fw-semibold shadow-xs"
+                              onClick={() => executeShareAction(m.action.payload.invoice, 'pdf')}
+                            >
+                              📥 Open PDF & Print View
                             </button>
                           </div>
                         )}
@@ -818,17 +981,29 @@ export default function TreadAICopilot({
             <div className="p-3 bg-white border-top">
               <div className="input-group shadow-xs">
                 {voiceSupported && (
-                  <button
-                    type="button"
-                    className={`btn ${
-                      isListening ? 'btn-danger voice-mic-btn listening' : 'btn-outline-primary voice-mic-btn'
-                    } px-3 fw-semibold`}
-                    onClick={toggleVoiceListening}
-                    title={isListening ? 'Stop recording & send' : 'Speak voice command to Tread AI'}
-                  >
-                    <span>{isListening ? '🔴' : '🎤'}</span>
-                    <span className="d-none d-sm-inline">{isListening ? 'Listening...' : 'Voice'}</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className={`btn ${
+                        isListening ? 'btn-danger voice-mic-btn listening' : 'btn-outline-primary voice-mic-btn'
+                      } px-3 fw-semibold`}
+                      onClick={toggleVoiceListening}
+                      title={isListening ? 'Stop recording & send' : 'Speak voice command to Tread AI'}
+                    >
+                      <span>{isListening ? '🔴' : '🎤'}</span>
+                      <span className="d-none d-sm-inline">{isListening ? 'Listening...' : 'Voice'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary py-1 px-2 d-none d-md-inline-flex align-items-center"
+                      style={{ fontSize: '11px' }}
+                      onClick={() => setVoiceLang((prev) => (prev === 'en-IN' ? 'hi-IN' : 'en-IN'))}
+                      title="Toggle speech recognition language"
+                    >
+                      {voiceLang === 'hi-IN' ? '🇮🇳 हिंदी' : '🌐 EN'}
+                    </button>
+                  </>
                 )}
 
                 <input

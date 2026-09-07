@@ -12,6 +12,7 @@ import ViewRouter from './Components/ViewRouter.jsx';
 
 // Tread AI Assistant Components
 import { TreadAICopilot, FloatingAiButton } from './Components/AI/index.jsx';
+import AppOpeningSequence from './Components/Common/AppOpeningSequence.jsx';
 
 // Constants & Custom Hooks
 import { MENUS, ALL_SHORTCUTS } from './constants/navigation.js';
@@ -58,6 +59,12 @@ function Index() {
   const [users, setUsers] = useState(getLocalUsers);
   const [currentUser, setCurrentUser] = useState(getSavedCurrentUser);
   const [cloudNotice, setCloudNotice] = useState(null);
+  const [isBooting, setIsBooting] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    // Check if app was already booted in this session to prevent repeated splash on soft navigation
+    const alreadyBooted = window.sessionStorage.getItem('tread-session-booted');
+    return !alreadyBooted;
+  });
   const isRemoteSyncingRef = useRef(false);
 
   // Sync users from Cloud Firestore on application startup
@@ -1253,6 +1260,19 @@ function Index() {
 
   return (
     <div className="menu-container" ref={menuRef}>
+      {/* Executive App Opening Sequence & Verified Initializer */}
+      {isBooting && (
+        <AppOpeningSequence
+          currentUser={currentUser}
+          onComplete={() => {
+            setIsBooting(false);
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem('tread-session-booted', 'true');
+            }
+          }}
+        />
+      )}
+
       {/* ================= TOP NAVIGATION BAR ================= */}
       <TopNavbar
         currentUser={currentUser}
@@ -1441,6 +1461,7 @@ function Index() {
             invoices={invoices}
             customers={customers}
             stockItems={stockItems}
+            purchaseBills={purchaseBills}
             company={company}
             onLoadInvoiceToEditor={loadInvoiceToEditor}
             onSaveCustomer={handleSaveSingleCustomer}
@@ -1457,7 +1478,15 @@ function Index() {
               };
               setStockItems((prev) => [entry, ...prev]);
             }}
+            onSavePurchaseBill={(newBill) => {
+              setPurchaseBills((prev) => [newBill, ...prev]);
+            }}
             onNavigate={setActivePage}
+            onTriggerCloudSync={handleForceCloudSync}
+            onOpenAppAccessModal={() => setAppAccessModalOpen(true)}
+            onShareInvoice={(inv, mode = 'pdf') => {
+              setShareModal({ isOpen: true, mode, targetInvoice: inv || invoices[0] });
+            }}
           />
         )}
 
