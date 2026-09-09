@@ -11,11 +11,12 @@ export default function SubNavbar({
   onOpenCloudSync,
   onOpenAiCopilot,
   onInitiateLogout,
+  isOnline = true,
 }) {
   return (
     <div className="sub-navbar">
       <div className="breadcrumb-tag">
-        <span>📁 {company?.name || 'Tread'}</span>
+        <span>📁 {currentUser ? (company?.name || 'Tread') : 'Tread'}</span>
         {currentUser && activePage && (
           <>
             <span className="text-muted">/</span>
@@ -42,6 +43,39 @@ export default function SubNavbar({
             ● Voice Active
           </span>
         )}
+
+        {/* Auto Network Status Badge — always visible, no user action needed */}
+        {isOnline ? (
+          <span
+            className="badge ms-2 py-1 px-2"
+            style={{
+              fontSize: '10px',
+              background: '#d1fae5',
+              color: '#065f46',
+              border: '1px solid #6ee7b7',
+              borderRadius: '20px',
+              fontWeight: 600,
+            }}
+            title="App is online — cloud sync active"
+          >
+            🟢 Online
+          </span>
+        ) : (
+          <span
+            className="badge ms-2 py-1 px-2"
+            style={{
+              fontSize: '10px',
+              background: '#fee2e2',
+              color: '#991b1b',
+              border: '1px solid #fca5a5',
+              borderRadius: '20px',
+              fontWeight: 600,
+            }}
+            title="No internet — working offline using local data"
+          >
+            🔴 Offline
+          </span>
+        )}
       </div>
 
       {/* Quick Favourites Pills (Desktop/Tablet) */}
@@ -65,15 +99,22 @@ export default function SubNavbar({
       <div className="d-flex align-items-center gap-2">
         {currentUser ? (
           <div className="d-flex align-items-center gap-2 flex-wrap">
-            {/* On-Demand Cloud Sync Button */}
+            {/* On-Demand Cloud Sync Button — disabled when offline */}
             <button
               type="button"
               className="btn btn-sm btn-light border py-0 px-2 d-flex align-items-center gap-1 shadow-xs"
-              style={{ fontSize: '11.5px' }}
-              onClick={onOpenCloudSync}
-              title={`On-Demand Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`}
+              style={{ fontSize: '11.5px', opacity: isOnline ? 1 : 0.5 }}
+              onClick={isOnline ? onOpenCloudSync : undefined}
+              disabled={!isOnline}
+              title={
+                !isOnline
+                  ? 'Cloud sync unavailable — no internet connection'
+                  : `On-Demand Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`
+              }
             >
-              {cloudSyncStatus === 'syncing' ? (
+              {!isOnline ? (
+                <span className="text-muted fw-medium">☁️ Offline</span>
+              ) : cloudSyncStatus === 'syncing' ? (
                 <span className="text-primary fw-semibold">⏳ Syncing...</span>
               ) : cloudSyncStatus === 'error' ? (
                 <span className="text-danger fw-semibold">⚠️ Sync Error</span>

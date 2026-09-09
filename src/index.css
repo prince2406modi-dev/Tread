@@ -1360,4 +1360,228 @@ body {
     }
 }
 
+/* =====================================================
+   TREAD LUXURY UPGRADE — PREMIUM DESIGN SYSTEM v3
+   ===================================================== */
+
+/* Gold Shimmer Brand Title in Navbar */
+.brand-nav-gold {
+  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 35%, #ffffff 55%, #d97706 80%, #fde68a 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: goldShimmer 4s linear infinite;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+@keyframes goldShimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Navbar Gold Bottom Accent Line */
+#box {
+  position: relative;
+}
+
+#box::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.5) 30%, rgba(245,158,11,0.85) 50%, rgba(245,158,11,0.5) 70%, transparent 100%);
+  pointer-events: none;
+}
+
+/* Logo Glow Ring on Hover */
+.brand-nav-logo {
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+
+.brand-nav-title:hover .brand-nav-logo {
+  filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.7)) drop-shadow(0 0 20px rgba(99, 102, 241, 0.4));
+  transform: scale(1.07);
+}
+
+/* Active Menu Button — Gold Underline Pill */
+.top-button.active {
+  background: rgba(79,70,229,0.22) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  position: relative;
+}
+
+.top-button.active::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f59e0b, transparent);
+  border-radius: 9999px;
+}
+
+/* Sub-Navbar Luxury Polish */
+.sub-navbar {
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%) !important;
+  border-bottom: 1px solid rgba(226,232,240,0.9) !important;
+  box-shadow: 0 2px 10px -3px rgba(15,23,42,0.07) !important;
+}
+
+/* Card Hover: lift + gold rim */
+.card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 16px 40px -8px rgba(15,23,42,0.12), 0 0 0 1px rgba(245,158,11,0.1) !important;
+}
+
+/* Table Row Hover — Indigo Tint */
+.table > tbody tr:hover {
+  background-color: #f5f3ff !important;
+}
+
+/* Premium Input Focus — Gold Ring */
+.form-control:focus,
+.form-select:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245,158,11,0.15) !important;
+}
+
+/* Favourite Pills — Gold Active */
+.fav-pill-btn.active {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 4px 12px rgba(245,158,11,0.35) !important;
+}
+
+.fav-pill-btn:hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%) !important;
+  border-color: transparent !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(79,70,229,0.3) !important;
+}
+
+/* App Footer Premium */
+.app-footer {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border-top: 1px solid rgba(226,232,240,0.9) !important;
+}
+
+/* Dropdown Item Gold Hover */
+.dropdown-item-custom:hover {
+  background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%) !important;
+  color: #92400e !important;
+  padding-left: 18px !important;
+}
+
+.dropdown-item-custom:hover .item-icon {
+  color: #d97706 !important;
+}
+
+/* Modal Header Luxury */
+.modal-header {
+  background: linear-gradient(135deg, #090d16 0%, #1e1b4b 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(245,158,11,0.3) !important;
+}
+
+.modal-header .btn-close {
+  filter: invert(1) !important;
+}
+
+.modal-title {
+  color: #f1f5f9 !important;
+}
+
+/* Gold Animated Card Top Accent */
+@keyframes goldBorder {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+.card-gold-accent {
+  position: relative;
+}
+
+.card-gold-accent::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #f59e0b, #fde68a, #f59e0b, transparent);
+  border-radius: 9999px;
+  animation: goldBorder 2.5s ease-in-out infinite;
+}
+
+/* Boot/Splash Screen Keyframes */
+@keyframes boot-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes boot-ring {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+@keyframes boot-logo-breathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 8px 20px rgba(99,102,241,0.4)); }
+  50% { transform: scale(1.05); filter: drop-shadow(0 14px 32px rgba(245,158,11,0.55)); }
+}
+
+@keyframes goldLineSlide {
+  0%   { transform: translateX(-110%); opacity: 0; }
+  20%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateX(110%); opacity: 0; }
+}
+
+.boot-gold-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, rgba(245,158,11,0.0) 10%, rgba(245,158,11,1) 50%, rgba(245,158,11,0.0) 90%, transparent 100%);
+  animation: goldLineSlide 2.8s ease-in-out infinite;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+/* Mobile Bottom Bar Luxury */
+.mobile-bottom-bar {
+  background: rgba(9,13,22,0.94) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border-top: 1px solid rgba(245,158,11,0.2) !important;
+  box-shadow: 0 -8px 24px -4px rgba(0,0,0,0.4) !important;
+}
+
+/* Custom Luxury Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #6366f1, #4f46e5);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+/* Page Transition */
+@keyframes pageSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.page-slide-in {
+  animation: pageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
 

@@ -31,11 +31,11 @@ export default function TopNavbar({
         <div
           className="brand-nav-title mb-0"
           onClick={onBrandClick}
-          title="Tread - Clear Screen / Menu View"
+          title="TREAD — Executive GST Billing Suite"
           style={{ cursor: 'pointer' }}
         >
           <img src={Logo} alt="Tread Logo" className="brand-nav-logo" />
-          <span>Tread</span>
+          <span className="brand-nav-gold">TREAD</span>
         </div>
       </div>
 

@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import Logo from '../../assets/Images/Logo.png';
 
 const BOOT_STEPS = [
-  { id: 1, label: 'Verifying Encrypted Local Workspace', icon: '🔐' },
-  { id: 2, label: 'Initializing Ollama & Offline GST Engine', icon: '⚡' },
-  { id: 3, label: 'Synchronizing Cloud Datastore & Security Rules', icon: '☁️' },
-  { id: 4, label: 'Loading Executive Cockpit & Catalog', icon: '🚀' },
+  { id: 1, label: 'Initializing Secure Workspace', icon: '🔐', color: '#a5b4fc' },
+  { id: 2, label: 'Loading AI & GST Engine', icon: '⚡', color: '#fde68a' },
+  { id: 3, label: 'Connecting Cloud Datastore', icon: '☁️', color: '#93c5fd' },
+  { id: 4, label: 'Launching Executive Cockpit', icon: '🚀', color: '#6ee7b7' },
 ];
 
 export default function AppOpeningSequence({ onComplete, currentUser }) {
@@ -124,6 +124,9 @@ export default function AppOpeningSequence({ onComplete, currentUser }) {
           zIndex: 1,
         }}
       >
+        {/* Gold Shimmer Line at Card Top */}
+        <div className="boot-gold-line" />
+
         {/* Brand Shield & Animated Breathing Ring */}
         <div className="position-relative d-inline-block mx-auto mb-3">
           <div
@@ -204,9 +207,9 @@ export default function AppOpeningSequence({ onComplete, currentUser }) {
               role="progressbar"
               style={{
                 width: `${progress}%`,
-                background: 'linear-gradient(90deg, #6366f1 0%, #3b82f6 50%, #10b981 100%)',
-                transition: 'width 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow: '0 0 12px rgba(99, 102, 241, 0.8)',
+                background: 'linear-gradient(90deg, #6366f1 0%, #f59e0b 60%, #10b981 100%)',
+                transition: 'width 0.38s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: '0 0 18px rgba(245, 158, 11, 0.75)',
               }}
             />
           </div>
@@ -219,7 +222,7 @@ export default function AppOpeningSequence({ onComplete, currentUser }) {
         >
           <div className="d-flex align-items-center gap-2 text-white-50">
             <span style={{ fontSize: '14px' }}>{BOOT_STEPS[currentStepIndex]?.icon}</span>
-            <span className="fw-semibold text-white" style={{ fontSize: '12.5px' }}>
+            <span className="fw-semibold" style={{ fontSize: '12.5px', color: BOOT_STEPS[currentStepIndex]?.color || '#ffffff' }}>
               {BOOT_STEPS[currentStepIndex]?.label}
             </span>
           </div>
@@ -232,10 +235,11 @@ export default function AppOpeningSequence({ onComplete, currentUser }) {
         <div
           className="d-flex items-center justify-content-center gap-2 py-2 px-3 rounded-3"
           style={{
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
+            background: 'rgba(245, 158, 11, 0.07)',
+            border: '1px solid rgba(245, 158, 11, 0.2)',
             fontSize: '11px',
-            color: '#94a3b8',
+            color: '#fde68a',
+            letterSpacing: '0.03em',
           }}
         >
           <span>⚡ Ollama AI Ready</span>

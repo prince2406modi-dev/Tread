@@ -59,7 +59,7 @@ const PLANS = [
   }
 ];
 
-function Login({ users = [], onLogin, onRegister }) {
+function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   const [mode, setMode] = useState(users.length === 0 ? 'signup' : 'login');
   const [step, setStep] = useState(1); // 1: Details, 2: Plan & Pay, 3: Success
   const [loginMethod, setLoginMethod] = useState('credentials'); // 'credentials' | 'device-passcode'
@@ -274,209 +274,416 @@ function Login({ users = [], onLogin, onRegister }) {
 
   return (
     <div
-      className="card border-0 mx-auto rounded-4 overflow-hidden shadow-lg position-relative"
+      className="login-fullwindow-view"
       style={{
-        maxWidth: step === 2 ? '840px' : '500px',
-        backgroundColor: '#ffffff',
-        border: '1px solid rgba(226, 232, 240, 0.9)',
+        width: '100vw',
+        height: '100vh',
+        minHeight: '100vh',
+        maxHeight: '100vh',
+        display: 'flex',
+        flexDirection: mode === 'signup' ? 'row-reverse' : 'row',
+        background: 'linear-gradient(135deg, #f8fafc 0%, #edf2f7 35%, #e2e8f0 70%, #f1f5f9 100%)',
+        position: 'relative',
+        overflow: 'hidden',
+        transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
-      {/* Executive Luxury Header Banner */}
+      {/* Dynamic Ambient Bright Glow Lighting */}
+      <div style={{ position:'absolute', top:'-140px', left:'15%', width:'650px', height:'650px', borderRadius:'50%', background:'radial-gradient(circle, rgba(99,102,241,0.12) 0%, rgba(219,234,254,0.4) 40%, transparent 70%)', filter:'blur(80px)', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', bottom:'-120px', right:'12%', width:'550px', height:'550px', borderRadius:'50%', background:'radial-gradient(circle, rgba(245,158,11,0.1) 0%, rgba(254,243,199,0.5) 45%, transparent 65%)', filter:'blur(70px)', pointerEvents:'none' }} />
+
+      {/* =========================================================
+          SHOWCASE PANEL (Desktop: Left for Login, Right for Create Account)
+          ========================================================= */}
       <div
-        className="text-white text-center p-4 position-relative overflow-hidden"
+        className="d-none d-lg-flex flex-column justify-content-between p-4 p-xl-5 position-relative"
         style={{
-          background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #312e81 100%)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          flex: mode === 'signup' ? (step === 2 ? '0.65' : '0.8') : (step === 2 ? '0.75' : '1.15'),
+          borderRight: mode === 'signup' ? 'none' : '1px solid rgba(226,232,240,0.95)',
+          borderLeft: mode === 'signup' ? '1px solid rgba(226,232,240,0.95)' : 'none',
+          background: 'linear-gradient(170deg, rgba(255,255,255,0.85) 0%, rgba(248,250,252,0.95) 100%)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          zIndex: 1,
+          height: '100vh',
+          maxHeight: '100vh',
+          overflow: 'hidden',
+          transition: 'all 0.3s ease',
         }}
       >
-        <div
-          style={{
-            position: 'absolute',
-            top: '-50%',
-            right: '-20%',
-            width: '280px',
-            height: '280px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          }}
-        />
-        <img
-          src={Logo}
-          alt="Tread Logo"
-          className="mb-2 position-relative"
-          style={{ maxHeight: '52px', width: 'auto', filter: 'brightness(0) invert(1)' }}
-        />
-        <h1 className="h4 fw-bold mb-1 position-relative" style={{ letterSpacing: '-0.02em' }}>
-          TREAD GST BILLING SUITE
-        </h1>
-        <div className="small text-white-50 position-relative">
-          Executive Invoicing &amp; Enterprise Cloud Inventory Platform
+        {/* Brand Header */}
+        <div className="d-flex align-items-center justify-content-between">
+          <div className="d-flex align-items-center gap-2.5">
+            <img
+              src={Logo}
+              alt="Tread Logo"
+              style={{ maxHeight: '44px', width: 'auto', filter: 'drop-shadow(0 4px 14px rgba(79,70,229,0.3))' }}
+            />
+            <div>
+              <div className="fw-bold" style={{ fontSize: '22px', letterSpacing: '0.06em', lineHeight: 1.1, background: 'linear-gradient(135deg, #1e1b4b 0%, #4338ca 60%, #b45309 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>TREAD</div>
+              <div style={{ fontSize: '10.5px', letterSpacing: '0.14em', color: '#b45309', fontWeight: 800, textTransform: 'uppercase' }}>
+                {mode === 'signup' ? 'Enterprise Onboarding' : 'Executive Billing & ERP Suite'}
+              </div>
+            </div>
+          </div>
+          <span
+            className="badge py-1.5 px-3"
+            style={{
+              fontSize: '11px',
+              background: isOnline ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)',
+              color: isOnline ? '#065f46' : '#991b1b',
+              border: `1px solid ${isOnline ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+              borderRadius: '20px',
+              fontWeight: 600,
+            }}
+          >
+            {isOnline ? '🟢 Cloud Sync Active' : '🔴 Autonomous Offline'}
+          </span>
+        </div>
+
+        {/* Center Showcase - Adapts dynamically for Login vs Signup */}
+        {mode === 'signup' ? (
+          <div className="my-auto py-2">
+            <div className="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill mb-3" style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', fontSize: '12px', fontWeight: 700 }}>
+              <span>✨ Rapid Enterprise Onboarding</span>
+            </div>
+
+            <h1 className="fw-bold mb-3" style={{ fontSize: '28px', lineHeight: 1.22, color: '#0f172a', letterSpacing: '-0.02em' }}>
+              Launch Your Business Suite in 2 Minutes
+            </h1>
+            <p className="mb-4" style={{ color: '#475569', fontSize: '13.5px', maxWidth: '480px', lineHeight: 1.6 }}>
+              Join thousands of businesses managing billing, tax invoices, and real-time inventory with bank-grade local hardware security.
+            </p>
+
+            <div className="row g-2.5" style={{ maxWidth: '480px' }}>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">🚀</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Immediate Setup</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Zero friction; start billing today</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">🛡️</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Data Autonomy</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Your data never leaves your devices</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">📊</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>100% Tax Compliant</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Full GST, HSN &amp; GSTR-1 ready</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">💳</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Instant Activation</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Immediate license unlock</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="my-auto py-2">
+            <div className="d-inline-flex align-items-center gap-2 px-3 py-1.5 rounded-pill mb-3" style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', fontSize: '12px', fontWeight: 700 }}>
+              <span>⭐ Executive Enterprise Business Suite</span>
+            </div>
+
+            <h1 className="fw-bold mb-3" style={{ fontSize: '30px', lineHeight: 1.22, color: '#0f172a', letterSpacing: '-0.02em' }}>
+              Next-Gen Enterprise Accounting &amp; GST Invoicing
+            </h1>
+            <p className="mb-4" style={{ color: '#475569', fontSize: '14px', maxWidth: '520px', lineHeight: 1.6 }}>
+              Engineered for precision accounting, retail counters, and distribution hubs with bank-grade local storage and autonomous offline reliability.
+            </p>
+
+            {/* 4 Feature Grid */}
+            <div className="row g-2.5" style={{ maxWidth: '540px' }}>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">🎙️</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Voice AI Copilot</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Dictate invoices &amp; hands-free commands</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">⚡</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Autonomous Offline</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Zero cloud lag; instant local operations</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">☁️</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Firestore Sync</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Encrypted multi-device synchronization</div>
+                </div>
+              </div>
+              <div className="col-6">
+                <div className="p-2.5 rounded-3 h-100" style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+                  <div className="fs-5 mb-0.5">📑</div>
+                  <div className="fw-bold text-dark mb-0.5" style={{ fontSize: '12.5px' }}>Complete GST Suite</div>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>GSTR-1, HSN codes, tax invoices &amp; PDF</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Left/Right Footer */}
+        <div className="d-flex align-items-center justify-content-between pt-2.5" style={{ borderTop: '1px solid #e2e8f0', fontSize: '11px', color: '#64748b' }}>
+          <span>🔒 256-Bit Encrypted Vault Storage</span>
+          <span className="fw-semibold">Tread Business v1.1</span>
         </div>
       </div>
 
-      <div className="card-body p-4 p-md-5 bg-white">
+      {/* =========================================================
+          PORTAL (Desktop: Right for Login, Left for Create Account)
+          ========================================================= */}
+      <div
+        className="d-flex flex-column justify-content-center align-items-center p-3 p-md-4 position-relative"
+        style={{
+          flex: mode === 'signup' ? (step === 2 ? '1.35' : '1.2') : (step === 2 ? '1.25' : '0.85'),
+          width: '100%',
+          height: '100vh',
+          maxHeight: '100vh',
+          overflow: 'hidden',
+          zIndex: 2,
+          transition: 'all 0.3s ease',
+        }}
+      >
+        <div
+          className="border-0 rounded-4 overflow-hidden position-relative w-100"
+          style={{
+            maxWidth: mode === 'signup' ? (step === 2 ? '900px' : '640px') : (step === 2 ? '860px' : '440px'),
+            minHeight: mode === 'signup' ? 'min(580px, 92vh)' : 'min(580px, 90vh)',
+            backgroundColor: '#ffffff',
+            border: '1px solid rgba(226,232,240,0.9)',
+            boxShadow: '0 25px 60px -12px rgba(15,23,42,0.12), 0 0 0 1px rgba(79,70,229,0.06), 0 1px 3px rgba(0,0,0,0.05)',
+            borderRadius: '24px',
+            maxHeight: '92vh',
+            display: 'flex',
+            flexDirection: 'column',
+            transition: 'max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
+        >
+          {/* Card Top Banner */}
+          <div
+            className="text-center position-relative overflow-hidden"
+            style={{
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)',
+              borderBottom: '1px solid rgba(245,158,11,0.25)',
+              padding: mode === 'signup' ? '1rem 1.5rem 0.85rem' : '1.25rem 1.5rem 1rem',
+            }}
+          >
+            {/* Top Gold Shimmer Line */}
+            <div style={{ position:'absolute', top:0, left:'5%', right:'5%', height:'2px', background:'linear-gradient(90deg, transparent, rgba(245,158,11,0.7), rgba(253,230,138,0.9), rgba(245,158,11,0.7), transparent)', borderRadius:'9999px' }} />
+            
+            <div className="d-flex align-items-center justify-content-center gap-2 mb-1">
+              <img
+                src={Logo}
+                alt="Tread Logo"
+                style={{ maxHeight: '38px', width: 'auto', filter: 'drop-shadow(0 4px 14px rgba(99,102,241,0.65)) drop-shadow(0 0 8px rgba(245,158,11,0.3))' }}
+              />
+              <span className="fw-bold brand-nav-gold" style={{ letterSpacing: '0.08em', fontSize: '20px' }}>
+                TREAD
+              </span>
+            </div>
+            <div style={{ fontSize: '10.5px', letterSpacing: '0.14em', color: 'rgba(245,158,11,0.95)', fontWeight: 700, textTransform: 'uppercase' }}>
+              {mode === 'signup' ? 'New Account Registration & Subscription' : 'Executive Authentication Portal'}
+            </div>
+            <div style={{ width: '32px', height: '2px', background: 'linear-gradient(90deg, transparent, #f59e0b, #fde68a, #f59e0b, transparent)', borderRadius: '9999px', margin: '8px auto 0' }} />
+          </div>
+
+          <div
+            className="card-body p-3.5 p-md-4"
+            style={{
+              background: '#ffffff',
+              color: '#1e293b',
+              overflowY: step === 2 ? 'auto' : 'hidden',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+            }}
+          >
         {/* =========================================================
             MODE 1: LOGIN
             ========================================================= */}
         {mode === 'login' && (
-          <div>
-            <div className="text-center mb-3">
-              <h2 className="h5 fw-bold text-dark mb-1">🔐 Sign In to Your Account</h2>
-              <p className="text-muted small mb-0">
-                Sign in securely with your credentials or an authorized 6-digit Device Passcode.
-              </p>
-            </div>
-
-            {/* 1-Click Login Method Switcher */}
-            <div className="btn-group w-100 mb-3 shadow-sm" role="group">
-              <button
-                type="button"
-                className={`btn btn-sm fw-bold ${
-                  loginMethod === 'credentials' ? 'btn-primary' : 'btn-outline-secondary bg-white'
-                }`}
-                onClick={() => {
-                  setLoginMethod('credentials');
-                  clearError();
-                }}
-              >
-                🔐 Standard Login (ID + Mobile + Pass)
-              </button>
-              <button
-                type="button"
-                className={`btn btn-sm fw-bold ${
-                  loginMethod === 'device-passcode' ? 'btn-primary' : 'btn-outline-secondary bg-white'
-                }`}
-                onClick={() => {
-                  setLoginMethod('device-passcode');
-                  clearError();
-                }}
-              >
-                🔑 Device Passcode Sign-In
-              </button>
-            </div>
-
-            {error && <div className="alert alert-danger py-2 small">{error}</div>}
-
-            {/* Method A: Standard 3-Factor Login */}
-            {loginMethod === 'credentials' && (
-              <form onSubmit={handleLoginSubmit} autoComplete="off">
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">1. User ID / Username / Email *</label>
-                  <input
-                    type="text"
-                    className="form-control font-monospace"
-                    value={username}
-                    onChange={(e) => {
-                      setUsername(e.target.value);
-                      clearError();
-                    }}
-                    placeholder="e.g. admin or your username"
-                    autoFocus
-                    required
-                  />
+          <div className="d-flex flex-column h-100 justify-content-between">
+            <div>
+              <div className="d-flex align-items-center justify-content-between mb-2.5">
+                <div>
+                  <h2 className="fw-bold mb-0" style={{ fontSize: '16px', color: '#0f172a' }}>🔐 Sign In</h2>
+                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>Authorized enterprise access</div>
                 </div>
+                <span className="badge bg-light text-dark border" style={{ fontSize: '10.5px', padding: '4px 8px' }}>v1.1</span>
+              </div>
 
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">2. Registered Mobile Number (10 Digits) *</label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    className="form-control font-monospace"
-                    value={loginMobile}
-                    onChange={(e) => {
-                      setLoginMobile(e.target.value.replace(/\D/g, ''));
-                      clearError();
-                    }}
-                    placeholder="Enter 10-digit registered mobile number"
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="form-label fw-semibold small">3. Password *</label>
-                  <input
-                    type="password"
-                    className="form-control"
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value);
-                      clearError();
-                    }}
-                    placeholder="Enter your password"
-                    required
-                  />
-                </div>
-
-                <div className="d-grid gap-2 mb-3">
-                  <button
-                    type="submit"
-                    className="btn btn-primary py-2 fw-bold shadow-sm"
-                    disabled={isAuthenticating}
-                  >
-                    {isAuthenticating ? '⏳ Verifying credentials across devices...' : '🔓 Sign In to Dashboard'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Method B: Authorized Device Passcode Login */}
-            {loginMethod === 'device-passcode' && (
-              <form onSubmit={handlePasscodeLoginSubmit} autoComplete="off">
-                <div className="alert alert-info py-2 small mb-3">
-                  💡 <strong>Logging in on another device?</strong> Enter the 6-digit Device Passcode generated by the account owner in their <em>Administration ➔ Multi-Device Access</em> panel.
-                </div>
-
-                <div className="mb-3">
-                  <label className="form-label fw-semibold small">1. Account Owner User ID / Mobile *</label>
-                  <input
-                    type="text"
-                    className="form-control font-monospace"
-                    value={passcodeAccount}
-                    onChange={(e) => {
-                      setPasscodeAccount(e.target.value);
-                      clearError();
-                    }}
-                    placeholder="e.g. admin or mobile number"
-                    autoFocus
-                    required
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="form-label fw-semibold small">2. 6-Digit Device Authorization Passcode *</label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    className="form-control font-monospace text-center fs-4 letter-spacing-2 fw-bold"
-                    value={devicePasscode}
-                    onChange={(e) => {
-                      setDevicePasscode(e.target.value.replace(/\D/g, ''));
-                      clearError();
-                    }}
-                    placeholder="••••••"
-                    required
-                  />
-                </div>
-
-                <div className="d-grid gap-2 mb-3">
-                  <button
-                    type="submit"
-                    className="btn btn-success py-2 fw-bold shadow-sm"
-                    disabled={isAuthenticating}
-                  >
-                    {isAuthenticating ? '⏳ Authorizing device...' : '🔑 Authorize Device & Sign In'}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            <div className="border-top pt-3 text-center">
-              <div className="small text-muted">
-                New user? Choose a plan & register:{' '}
+              {/* 1-Click Login Method Switcher */}
+              <div className="btn-group w-100 mb-3 shadow-xs" role="group">
                 <button
                   type="button"
-                  className="btn btn-link btn-sm p-0 fw-bold text-primary text-decoration-none"
+                  className={`btn btn-sm py-1.5 fw-bold ${
+                    loginMethod === 'credentials' ? 'btn-primary' : 'btn-outline-secondary bg-white'
+                  }`}
+                  style={{ fontSize: '11.5px', letterSpacing: '-0.01em' }}
+                  onClick={() => {
+                    setLoginMethod('credentials');
+                    clearError();
+                  }}
+                >
+                  🔐 User ID + Password
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm py-1.5 fw-bold ${
+                    loginMethod === 'device-passcode' ? 'btn-primary' : 'btn-outline-secondary bg-white'
+                  }`}
+                  style={{ fontSize: '11.5px', letterSpacing: '-0.01em' }}
+                  onClick={() => {
+                    setLoginMethod('device-passcode');
+                    clearError();
+                  }}
+                >
+                  🔑 Device Passcode
+                </button>
+              </div>
+
+              {error && <div className="py-2 px-3 small rounded-3 mb-2.5" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', fontSize: '12px', fontWeight: 600 }}>{error}</div>}
+
+              {/* Method A: Standard 3-Factor Login */}
+              {loginMethod === 'credentials' && (
+                <form onSubmit={handleLoginSubmit} autoComplete="off">
+                  <div className="mb-2.5">
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>1. User ID / Username *</label>
+                    <input
+                      type="text"
+                      className="form-control font-monospace py-2 px-3"
+                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      value={username}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        clearError();
+                      }}
+                      placeholder="e.g. admin or username"
+                      autoFocus
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-2.5">
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>2. Registered Mobile (10 Digits) *</label>
+                    <input
+                      type="tel"
+                      maxLength={10}
+                      className="form-control font-monospace py-2 px-3"
+                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      value={loginMobile}
+                      onChange={(e) => {
+                        setLoginMobile(e.target.value.replace(/\D/g, ''));
+                        clearError();
+                      }}
+                      placeholder="10-digit registered mobile"
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>3. Password *</label>
+                    <input
+                      type="password"
+                      className="form-control py-2 px-3"
+                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        clearError();
+                      }}
+                      placeholder="Enter account password"
+                      required
+                    />
+                  </div>
+
+                  <div className="d-grid gap-2 mb-2">
+                    <button
+                      type="submit"
+                      className="btn fw-bold w-100"
+                      disabled={isAuthenticating}
+                      style={{ background: isAuthenticating ? 'rgba(245,158,11,0.5)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)', color: '#1c0a00', fontSize: '13.5px', letterSpacing: '0.04em', borderRadius: '11px', border: 'none', boxShadow: '0 8px 22px rgba(245,158,11,0.3)', padding: '0.68rem 1.2rem', textTransform: 'uppercase' }}
+                    >
+                      {isAuthenticating ? '⏳ Verifying credentials...' : '🔓 Sign In to Dashboard'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Method B: Authorized Device Passcode Login */}
+              {loginMethod === 'device-passcode' && (
+                <form onSubmit={handlePasscodeLoginSubmit} autoComplete="off">
+                  <div className="alert alert-info py-2 px-3 small mb-2.5" style={{ fontSize: '11.5px', borderRadius: '8px' }}>
+                    💡 Enter the 6-digit Device Passcode generated by account owner in <em>Administration</em>.
+                  </div>
+
+                  <div className="mb-2.5">
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>1. Owner User ID / Mobile *</label>
+                    <input
+                      type="text"
+                      className="form-control font-monospace py-2 px-3"
+                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      value={passcodeAccount}
+                      onChange={(e) => {
+                        setPasscodeAccount(e.target.value);
+                        clearError();
+                      }}
+                      placeholder="e.g. admin or mobile"
+                      autoFocus
+                      required
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>2. 6-Digit Passcode *</label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      className="form-control font-monospace text-center fs-4 fw-bold py-1.5 px-2"
+                      style={{ borderRadius: '9px', letterSpacing: '5px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      value={devicePasscode}
+                      onChange={(e) => {
+                        setDevicePasscode(e.target.value.replace(/\D/g, ''));
+                        clearError();
+                      }}
+                      placeholder="••••••"
+                      required
+                    />
+                  </div>
+
+                  <div className="d-grid gap-2 mb-2">
+                    <button
+                      type="submit"
+                      className="btn fw-bold w-100"
+                      disabled={isAuthenticating}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', fontSize: '13.5px', letterSpacing: '0.04em', borderRadius: '11px', border: 'none', boxShadow: '0 8px 22px rgba(16,185,129,0.3)', padding: '0.68rem 1.2rem', textTransform: 'uppercase' }}
+                    >
+                      {isAuthenticating ? '⏳ Authorizing device...' : '🔑 Authorize Device & Sign In'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+
+            <div className="pt-3 text-center" style={{ borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '12px', color: '#64748b' }}>
+                New enterprise user?{' '}
+                <button
+                  type="button"
+                  className="btn btn-link p-0 fw-bold text-decoration-none"
+                  style={{ color: '#d97706', fontSize: '12px' }}
                   onClick={() => {
                     setMode('signup');
                     setStep(1);
@@ -546,24 +753,25 @@ function Login({ users = [], onLogin, onRegister }) {
               </div>
             </div>
 
-            {error && <div className="alert alert-danger py-2 small">{error}</div>}
+            {error && <div className="py-2 px-3 small rounded-3 mb-2" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '8px', fontSize: '12px', fontWeight: 600 }}>{error}</div>}
 
             {/* STEP 1: Account Information */}
             {step === 1 && (
               <form onSubmit={handleStep1Next} autoComplete="off">
                 <div className="text-center mb-3">
-                  <h2 className="h5 fw-bold text-dark mb-1">📝 Step 1: Create Account Details</h2>
-                  <p className="text-muted small mb-0">
+                  <h2 className="h5 fw-bold mb-1" style={{ color: '#0f172a' }}>📝 Step 1: Create Account Details</h2>
+                  <p className="small mb-0" style={{ color: '#64748b' }}>
                     Enter your business and security credentials to get started.
                   </p>
                 </div>
 
                 <div className="row g-3 mb-3">
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">User ID / Username *</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>User ID / Username *</label>
                     <input
                       type="text"
                       className="form-control"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value);
@@ -575,21 +783,23 @@ function Login({ users = [], onLogin, onRegister }) {
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Company / Business Name</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Company / Business Name</label>
                     <input
                       type="text"
                       className="form-control"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       placeholder="e.g. My Business / Firm Name"
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Mobile Number (10 Digits) *</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Mobile Number (10 Digits) *</label>
                     <input
                       type="tel"
                       maxLength={10}
                       className="form-control font-monospace"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value.replace(/\D/g, ''));
@@ -600,20 +810,22 @@ function Login({ users = [], onLogin, onRegister }) {
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Email Address</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Email Address</label>
                     <input
                       type="email"
                       className="form-control"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. name@company.com"
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Password *</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Password *</label>
                     <input
                       type="password"
                       className="form-control"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
@@ -624,10 +836,11 @@ function Login({ users = [], onLogin, onRegister }) {
                     />
                   </div>
                   <div className="col-md-6">
-                    <label className="form-label fw-semibold small">Confirm Password *</label>
+                    <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Confirm Password *</label>
                     <input
                       type="password"
                       className="form-control"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
@@ -640,16 +853,17 @@ function Login({ users = [], onLogin, onRegister }) {
                 </div>
 
                 <div className="d-grid gap-2 mb-3">
-                  <button type="submit" className="btn btn-primary py-2 fw-bold shadow-sm">
+                  <button type="submit" className="btn fw-bold w-100" style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '14px', letterSpacing: '0.04em', borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(245,158,11,0.28)', padding: '0.75rem 1.5rem', textTransform: 'uppercase' }}>
                     Next: Select Plan & Proceed to Payment →
                   </button>
                 </div>
 
-                <div className="text-center small text-muted">
+                <div className="text-center small" style={{ color: '#64748b' }}>
                   Already have an account?{' '}
                   <button
                     type="button"
                     className="btn btn-link btn-sm p-0 fw-semibold text-decoration-none"
+                    style={{ color: '#d97706' }}
                     onClick={() => {
                       setMode('login');
                       clearError();
@@ -665,7 +879,7 @@ function Login({ users = [], onLogin, onRegister }) {
             {step === 2 && (
               <form onSubmit={handleProcessPayment}>
                 <div className="text-center mb-3">
-                  <h2 className="h5 fw-bold text-dark mb-1">💳 Step 2: Choose Subscription & Pay</h2>
+                  <h2 className="h5 fw-bold mb-1" style={{ color: '#0f172a' }}>💳 Step 2: Choose Subscription & Pay</h2>
                   <p className="text-muted small mb-0">
                     A paid license is required to activate and operate your Tread billing suite.
                   </p>
@@ -922,7 +1136,8 @@ function Login({ users = [], onLogin, onRegister }) {
         )}
       </div>
     </div>
-  );
+    </div>
+    </div>
+);
 }
-
 export default Login;

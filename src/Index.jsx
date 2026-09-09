@@ -24,6 +24,7 @@ import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
 import { syncUserDataToCloud, fetchUserDataFromCloud, subscribeUserDataFromCloud } from './services/firebase.js';
 import { GST_STATE_CODES } from './services/gstinValidator.js';
 import { DEFAULT_UNIT } from './constants/units.js';
+import { useNetworkStatus } from './services/networkStatus.js';
 
 // Lazy Loaded Dialog Modals
 const ShareInvoiceModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.ShareInvoiceModal })));
@@ -58,8 +59,12 @@ function Index() {
   });
   const isRemoteSyncingRef = useRef(false);
 
-  // Sync users from Cloud Firestore on application startup
+  // Auto-detect network status — no manual toggle needed
+  const isOnline = useNetworkStatus();
+
+  // Sync users from Cloud Firestore on application startup (only when online)
   useEffect(() => {
+    if (!isOnline) return;
     syncAllUsersFromCloud()
       .then((cloudUsers) => {
         if (Array.isArray(cloudUsers) && cloudUsers.length > 0) {
@@ -67,7 +72,8 @@ function Index() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [isOnline]);
+
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1252,6 +1258,31 @@ function Index() {
     downloadPDF(inv, company);
   };
 
+  // When not authenticated, render the full-window executive login experience (zero scroll, edge-to-edge)
+  if (!currentUser) {
+    return (
+      <div className="login-window-fullscreen" style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        {isBooting && (
+          <AppOpeningSequence
+            currentUser={currentUser}
+            onComplete={() => {
+              setIsBooting(false);
+              if (typeof window !== 'undefined') {
+                window.sessionStorage.setItem('tread-session-booted', 'true');
+              }
+            }}
+          />
+        )}
+        <Login
+          users={users}
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          isOnline={isOnline}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="menu-container" ref={menuRef}>
       {/* Executive App Opening Sequence & Verified Initializer */}
@@ -1316,6 +1347,7 @@ function Index() {
         onOpenCloudSync={() => setCloudSyncModalOpen(true)}
         onOpenAiCopilot={() => setAiCopilotOpen(true)}
         onInitiateLogout={initiateLogout}
+        isOnline={isOnline}
       />
 
       {/* ================= MAIN PAGE VIEWPORT ================= */}
@@ -1429,7 +1461,7 @@ function Index() {
 
       {/* ================= FOOTER ================= */}
       <footer className="app-footer text-center py-2 text-muted small border-top bg-white">
-        Â© {new Date().getFullYear()} {company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
+        © {new Date().getFullYear()} {currentUser && company?.name ? `${company.name} | ` : ''}Tread GST Invoicing &amp; Accounting
       </footer>
 
       {/* ================= FIXED MOBILE BOTTOM APP BAR ================= */}

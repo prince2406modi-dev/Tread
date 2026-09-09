@@ -1,0 +1,154 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy - Tread Business & GST Invoicing</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 820px;
+      margin: 40px auto;
+      padding: 32px 28px;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+    h1 {
+      font-size: 28px;
+      color: var(--primary);
+      margin: 0 0 8px;
+    }
+    .meta {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    h2 {
+      font-size: 20px;
+      color: #0f172a;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--primary);
+      padding-left: 10px;
+    }
+    p, li {
+      color: #334155;
+      font-size: 15px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 8px;
+    }
+    .highlight-box {
+      background: #eef2ff;
+      border-left: 4px solid var(--primary);
+      padding: 14px 18px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-size: 14.5px;
+    }
+    footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Privacy Policy for Tread</h1>
+      <div class="meta">
+        <strong>Application:</strong> Tread - GST Invoicing & Business ERP &bull;
+        <strong>Last Updated:</strong> September 2026
+      </div>
+    </header>
+
+    <div class="highlight-box">
+      <strong>Summary:</strong> Tread is designed with a privacy-first, offline-first philosophy. Your business financial data, invoices, customer directories, and stock balances are saved locally on your device. Cloud synchronization to Firebase is secure and only occurs if internet connectivity is available.
+    </div>
+
+    <h2>1. Overview</h2>
+    <p>
+      This Privacy Policy explains how Tread ("we", "our", or "the app") collects, protects, uses, and discloses information when you use our Android mobile application and web application.
+    </p>
+
+    <h2>2. Data Collection and Usage</h2>
+    <p>Tread processes the following types of information to provide invoicing and inventory management services:</p>
+    <ul>
+      <li><strong>Business Profile:</strong> Trade name, GSTIN, PAN, address, contact email, phone number, and bank details needed to format GST compliant tax invoices.</li>
+      <li><strong>Invoices & Financial Records:</strong> Customer details, items, quantities, tax rates (CGST, SGST, IGST, HSN/SAC codes), payment status, and totals.</li>
+      <li><strong>Inventory & Stock Data:</strong> Product names, units, stock quantities, and pricing.</li>
+      <li><strong>Account Credentials:</strong> User ID, mobile number, and encrypted password used to authenticate and prevent unauthorized device access.</li>
+    </ul>
+
+    <h2>3. Offline-First & Storage Architecture</h2>
+    <p>
+      Tread functions autonomously in offline environments. All records are stored securely within your device's local application sandbox (IndexedDB / Local Storage). If you choose to enable cloud features, data is synchronized to our encrypted Firebase Cloud Datastore over TLS/HTTPS.
+    </p>
+
+    <h2>4. Device Permissions</h2>
+    <p>To provide core functionality, the app may request the following permissions:</p>
+    <ul>
+      <li><strong>Network Access (INTERNET, ACCESS_NETWORK_STATE):</strong> Used to automatically detect internet availability, sync data to cloud when online, and verify software integrity.</li>
+      <li><strong>Microphone (RECORD_AUDIO):</strong> Used exclusively when you explicitly activate the Tread AI Voice Assistant / Copilot to dictate invoices or voice search. Audio streams are processed locally in real-time and are never recorded or stored on remote servers.</li>
+      <li><strong>Notifications (POST_NOTIFICATIONS):</strong> Used optionally to inform you about pending invoice reminders or backup completions.</li>
+    </ul>
+
+    <h2>5. Third-Party Services</h2>
+    <p>We utilize industry-standard, compliant infrastructure partners:</p>
+    <ul>
+      <li><strong>Google Firebase / Google Cloud Platform:</strong> For encrypted cloud datastore and authentication services.</li>
+    </ul>
+    <p>We do not sell, rent, or monetize your business or financial data to any advertisers or third-party brokers.</p>
+
+    <h2>6. Data Security</h2>
+    <p>
+      We enforce strict security protocols including TLS 1.3 transport encryption, role-based authorization rules in cloud datastores, and local session protection.
+    </p>
+
+    <h2>7. Data Deletion & User Rights</h2>
+    <p>
+      You maintain complete ownership of your data. You may at any time export your complete accounting records to Excel / PDF, clear your local application cache, or request full deletion of any synchronized cloud account records.
+    </p>
+
+    <h2>8. Contact Us</h2>
+    <p>
+      If you have questions or suggestions regarding this Privacy Policy, please contact our support team at:
+      <br />
+      <strong>Email:</strong> support@tread.business / admin@tread.local
+    </p>
+
+    <footer>
+      &copy; 2026 Tread. All rights reserved. Compliant with Google Play Developer Policy.
+    </footer>
+  </div>
+</body>
+</html>

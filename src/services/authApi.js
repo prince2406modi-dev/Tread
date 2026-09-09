@@ -129,7 +129,9 @@ export async function cloudAuthenticateUser(usernameOrEmail, mobileNumber, passw
   }
 
   // 2. Try Cloud Firestore (Cross-Device Database - IP Independent)
-  if (isFirebaseConfigured()) {
+  //    Skip entirely when the device is offline to avoid hanging network calls.
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  if (isOnline && isFirebaseConfigured()) {
     try {
       const db = getFirestoreDb();
       if (db) {
@@ -223,6 +225,7 @@ export async function cloudAuthenticateUser(usernameOrEmail, mobileNumber, passw
   }
 
   // 3. Fallback to Local Storage Cache
+
   const localUsers = getLocalUsers();
   const localAccount = localUsers.find(
     (u) =>
@@ -339,7 +342,9 @@ export async function syncAllUsersFromCloud() {
     userMap.set(u.username.toLowerCase(), u);
   });
 
-  if (isFirebaseConfigured()) {
+  // Skip cloud fetch when device is offline
+  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  if (isOnline && isFirebaseConfigured()) {
     try {
       const db = getFirestoreDb();
       if (db) {
@@ -358,6 +363,7 @@ export async function syncAllUsersFromCloud() {
       console.warn('Could not sync all users from cloud:', err);
     }
   }
+
 
   const merged = Array.from(userMap.values());
   saveLocalUsers(merged);
