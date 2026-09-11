@@ -1,6 +1,14 @@
 import { useState, useMemo } from 'react';
 import Logo from '../../assets/Images/Logo.png';
-import { cloudAuthenticateUser, cloudRegisterUser, verifyDeviceAuthCode } from '../../services/authApi.js';
+import {
+  cloudAuthenticateUser,
+  cloudRegisterUser,
+  verifyDeviceAuthCode,
+  INDIAN_STATES,
+  STATE_TO_GST_CODE,
+  generateLocationLicenseId,
+  lookupCustomerLicense,
+} from '../../services/authApi.js';
 
 const PLANS = [
   {
@@ -74,6 +82,9 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   const [companyName, setCompanyName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [userState, setUserState] = useState('Gujarat');
+  const [locality, setLocality] = useState('');
+  const [pincode, setPincode] = useState('');
 
   // Payment states
   const [selectedPlan, setSelectedPlan] = useState('pro');
@@ -95,6 +106,54 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
     () => PLANS.find((p) => p.id === selectedPlan) || PLANS[1],
     [selectedPlan]
   );
+
+  // License Lookup & Direct Renewal state
+  const [lookupOpen, setLookupOpen] = useState(false);
+  const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupResult, setLookupResult] = useState(null);
+  const [isSearchingLicense, setIsSearchingLicense] = useState(false);
+  const [lookupError, setLookupError] = useState('');
+  const [copiedLookup, setCopiedLookup] = useState(false);
+
+  // Real-time location license preview for signup
+  const licensePreview = useMemo(() => {
+    const stateCode = STATE_TO_GST_CODE[userState] || '24';
+    let localityCode = '100';
+    if (pincode.length >= 3) {
+      localityCode = pincode.slice(-3);
+    } else if (locality.trim()) {
+      let hash = 0;
+      for (let i = 0; i < locality.trim().length; i++) {
+        hash = (hash * 37 + locality.trim().charCodeAt(i)) % 899;
+      }
+      localityCode = String(100 + Math.abs(hash)).padStart(3, '0').slice(-3);
+    }
+    return `91-${stateCode}-${localityCode}-••••••`;
+  }, [userState, locality, pincode]);
+
+  const handlePerformLookup = async (e) => {
+    e?.preventDefault();
+    const q = lookupQuery.trim();
+    if (!q) {
+      setLookupError('Please enter your Mobile Number, User ID, or License ID.');
+      return;
+    }
+    setIsSearchingLicense(true);
+    setLookupError('');
+    setLookupResult(null);
+    try {
+      const res = await lookupCustomerLicense(q);
+      if (res.found) {
+        setLookupResult(res);
+      } else {
+        setLookupError(res.message);
+      }
+    } catch (err) {
+      setLookupError(err.message || 'Lookup failed.');
+    } finally {
+      setIsSearchingLicense(false);
+    }
+  };
 
   // Handle Standard 3-Factor Login (ID + Mobile + Password)
   const handleLoginSubmit = async (e) => {
@@ -124,7 +183,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
     try {
       const authResult = await cloudAuthenticateUser(trimmedUser, trimmedMobile, trimmedPass);
       if (authResult.success) {
-        onLogin(authResult.user.username);
+        onLogin(authResult.user.username, authResult.user);
       } else {
         setError(authResult.message);
       }
@@ -157,7 +216,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
     try {
       const authResult = await verifyDeviceAuthCode(trimmedAcc, trimmedPin);
       if (authResult.success) {
-        onLogin(authResult.user.username);
+        onLogin(authResult.user.username, authResult.user);
       } else {
         setError(authResult.message);
       }
@@ -236,13 +295,25 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
       setIsProcessingPayment(false);
 
       const txnId = `TXN-${Math.floor(100000 + Math.random() * 900000)}-${Date.now().toString().slice(-4)}`;
+      const generatedLicenseId = generateLocationLicenseId({
+        country: '91',
+        state: userState,
+        locality: locality.trim(),
+        pincode: pincode.trim(),
+        seed: username.trim(),
+      });
       const registrationData = {
         username: username.trim(),
         password: password.trim(),
         companyName: companyName.trim() || 'My Business Enterprise',
         phone: phone.trim(),
         email: email.trim(),
+        state: userState,
+        locality: locality.trim(),
+        pincode: pincode.trim(),
+        country: '91',
         role: 'Admin',
+        licenseId: generatedLicenseId,
         subscription: {
           planId: currentPlan.id,
           planName: currentPlan.name,
@@ -268,7 +339,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   // Complete and enter dashboard
   const handleEnterDashboard = () => {
     if (paymentSuccessData) {
-      onLogin(paymentSuccessData.username);
+      onLogin(paymentSuccessData.username, paymentSuccessData);
     }
   };
 
@@ -531,26 +602,39 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                   className={`btn btn-sm py-1.5 fw-bold ${
                     loginMethod === 'credentials' ? 'btn-primary' : 'btn-outline-secondary bg-white'
                   }`}
-                  style={{ fontSize: '11.5px', letterSpacing: '-0.01em' }}
+                  style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
                   onClick={() => {
                     setLoginMethod('credentials');
                     clearError();
                   }}
                 >
-                  🔐 User ID + Password
+                  🔐 User / License ID
                 </button>
                 <button
                   type="button"
                   className={`btn btn-sm py-1.5 fw-bold ${
                     loginMethod === 'device-passcode' ? 'btn-primary' : 'btn-outline-secondary bg-white'
                   }`}
-                  style={{ fontSize: '11.5px', letterSpacing: '-0.01em' }}
+                  style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
                   onClick={() => {
                     setLoginMethod('device-passcode');
                     clearError();
                   }}
                 >
-                  🔑 Device Passcode
+                  🔑 Passcode
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm py-1.5 fw-bold ${
+                    loginMethod === 'lookup' ? 'btn-primary' : 'btn-outline-secondary bg-white'
+                  }`}
+                  style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
+                  onClick={() => {
+                    setLoginMethod('lookup');
+                    clearError();
+                  }}
+                >
+                  🔍 Find License ID
                 </button>
               </div>
 
@@ -560,20 +644,35 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
               {loginMethod === 'credentials' && (
                 <form onSubmit={handleLoginSubmit} autoComplete="off">
                   <div className="mb-2.5">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>1. User ID / Username *</label>
+                    <div className="d-flex align-items-center justify-content-between mb-1">
+                      <label className="form-label fw-semibold mb-0" style={{ fontSize: '11.5px', color: '#334155' }}>
+                        1. User ID / Customer License ID *
+                      </label>
+                      <button
+                        type="button"
+                        className="btn btn-link p-0 text-decoration-none"
+                        style={{ fontSize: '10.5px', color: '#d97706' }}
+                        onClick={() => setLoginMethod('lookup')}
+                      >
+                        Forgot License ID?
+                      </button>
+                    </div>
                     <input
                       type="text"
                       className="form-control font-monospace py-2 px-3"
-                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      style={{ fontSize: '13px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value);
                         clearError();
                       }}
-                      placeholder="e.g. admin or username"
+                      placeholder="e.g. admin or 91-24-380-749216"
                       autoFocus
                       required
                     />
+                    <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
+                      💡 Accepts User ID or 13-digit numeric License ID
+                    </div>
                   </div>
 
                   <div className="mb-2.5">
@@ -674,6 +773,121 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     </button>
                   </div>
                 </form>
+              )}
+
+              {/* Method C: Customer License Lookup & Direct Company Renewal */}
+              {loginMethod === 'lookup' && (
+                <div>
+                  <div className="p-3 rounded-3 mb-2" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <div className="fw-bold text-dark mb-1" style={{ fontSize: '13px' }}>
+                      🔍 Find Your Unique License ID
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px' }}>
+                      Enter your 10-digit mobile number or User ID to retrieve your un-guessable 13-digit Unique Customer License ID to quote to our company for renewals.
+                    </div>
+
+                    <form onSubmit={handlePerformLookup}>
+                      <div className="input-group mb-2">
+                        <input
+                          type="text"
+                          className="form-control font-monospace"
+                          style={{ fontSize: '12.5px', borderColor: '#cbd5e1' }}
+                          placeholder="e.g. 9876543210 or username"
+                          value={lookupQuery}
+                          onChange={(e) => {
+                            setLookupQuery(e.target.value);
+                            setLookupError('');
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          className="btn fw-bold px-3"
+                          disabled={isSearchingLicense}
+                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '12px' }}
+                        >
+                          {isSearchingLicense ? '⏳' : 'Search'}
+                        </button>
+                      </div>
+                    </form>
+
+                    {lookupError && (
+                      <div className="alert alert-danger py-1.5 px-2 small mb-0" style={{ fontSize: '11px' }}>
+                        {lookupError}
+                      </div>
+                    )}
+
+                    {lookupResult && (
+                      <div className="mt-2 p-2.5 rounded-3 bg-white border" style={{ borderColor: '#cbd5e1' }}>
+                        <div className="d-flex align-items-center justify-content-between mb-1">
+                          <span className="badge bg-success-subtle text-success border" style={{ fontSize: '10px' }}>
+                            ✓ License Verified
+                          </span>
+                          <span className="text-muted font-monospace" style={{ fontSize: '11px' }}>
+                            {lookupResult.username}
+                          </span>
+                        </div>
+
+                        <div className="text-muted fw-semibold" style={{ fontSize: '10.5px' }}>
+                          YOUR UNIQUE CUSTOMER LICENSE ID:
+                        </div>
+                        <div className="d-flex align-items-center justify-content-between my-1 p-2 rounded-2" style={{ background: '#f1f5f9', border: '1px dashed #cbd5e1' }}>
+                          <span className="font-monospace fw-bold fs-6" style={{ color: '#4f46e5', letterSpacing: '0.04em' }}>
+                            {lookupResult.licenseId}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold"
+                            style={{ fontSize: '10.5px' }}
+                            onClick={() => {
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(lookupResult.licenseId);
+                                setCopiedLookup(true);
+                                setTimeout(() => setCopiedLookup(false), 2000);
+                              }
+                            }}
+                          >
+                            {copiedLookup ? '✓ Copied' : '📋 Copy'}
+                          </button>
+                        </div>
+
+                        <div className="text-muted mb-2" style={{ fontSize: '10.5px' }}>
+                          📍 Jurisdiction: <strong>{lookupResult.state}</strong> • <strong>{lookupResult.locality}</strong> • {lookupResult.country}
+                        </div>
+
+                        <div className="d-flex align-items-center justify-content-between border-top pt-2 mt-1">
+                          <span style={{ fontSize: '11px' }}>
+                            Status: <strong className={lookupResult.isExpired ? 'text-danger' : 'text-success'}>
+                              {lookupResult.isExpired ? 'Expired' : 'Active'}
+                            </strong>
+                          </span>
+                          <a
+                            href={`https://wa.me/?text=${encodeURIComponent(`Hello! I want to renew my Tread Subscription.\nLicense ID: ${lookupResult.licenseId}\nUser ID: ${lookupResult.username}\nCompany: ${lookupResult.companyName}`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm btn-success fw-bold py-1 px-2 d-flex align-items-center gap-1"
+                            style={{ fontSize: '11px' }}
+                          >
+                            <span>💬</span> WhatsApp Renewal
+                          </a>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 w-100 mt-2 text-primary text-decoration-none fw-semibold"
+                          style={{ fontSize: '11px' }}
+                          onClick={() => {
+                            setUsername(lookupResult.licenseId);
+                            if (lookupResult.phone) setLoginMobile(lookupResult.phone.slice(-10));
+                            setLoginMethod('credentials');
+                          }}
+                        >
+                          → Fill into Login Form &amp; Sign In
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
 
@@ -849,6 +1063,64 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                       placeholder="Re-enter password"
                       required
                     />
+                  </div>
+
+                  {/* Location Details for Unique Customer License ID */}
+                  <div className="col-12 mt-2">
+                    <div className="p-2 rounded-3" style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px dashed rgba(99, 102, 241, 0.3)' }}>
+                      <div className="fw-semibold text-primary small mb-2 d-flex align-items-center gap-1">
+                        <span>📍 Business Location &amp; License Jurisdiction</span>
+                        <span className="badge bg-primary-subtle text-primary ms-auto" style={{ fontSize: '10px' }}>Encodes Your Unique License ID</span>
+                      </div>
+                      <div className="row g-2">
+                        <div className="col-md-5">
+                          <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>State / Union Territory *</label>
+                          <select
+                            className="form-select form-select-sm"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            value={userState}
+                            onChange={(e) => setUserState(e.target.value)}
+                            required
+                          >
+                            {INDIAN_STATES.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="col-md-4">
+                          <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>City / Locality</label>
+                          <input
+                            type="text"
+                            className="form-control form-control-sm"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            value={locality}
+                            onChange={(e) => setLocality(e.target.value)}
+                            placeholder="e.g. Surat, Andheri..."
+                          />
+                        </div>
+                        <div className="col-md-3">
+                          <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>PIN Code</label>
+                          <input
+                            type="text"
+                            maxLength={6}
+                            className="form-control form-control-sm font-monospace"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            value={pincode}
+                            onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                            placeholder="395001"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-2 pt-2 border-top d-flex align-items-center justify-content-between" style={{ borderColor: 'rgba(99,102,241,0.2)' }}>
+                        <span style={{ fontSize: '11px', color: '#475569' }}>
+                          ⚡ Generated Location License ID:
+                        </span>
+                        <span className="font-monospace fw-bold" style={{ fontSize: '12.5px', color: '#4f46e5', letterSpacing: '0.04em' }}>
+                          {licensePreview}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1117,9 +1389,13 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <span className="text-muted">Amount Paid:</span>
                     <span className="fw-bold text-success">₹{paymentSuccessData.subscription.amountPaid}.00</span>
                   </div>
-                  <div className="d-flex justify-content-between">
+                  <div className="d-flex justify-content-between mb-1">
                     <span className="text-muted">License Valid Until:</span>
                     <span className="fw-bold">{paymentSuccessData.subscription.validUntil}</span>
+                  </div>
+                  <div className="d-flex justify-content-between pt-1 mt-1 border-top">
+                    <span className="text-muted fw-semibold">Unique License ID:</span>
+                    <span className="fw-bold text-primary font-monospace">{paymentSuccessData.licenseId}</span>
                   </div>
                 </div>
 

@@ -4,10 +4,12 @@ function Dashboard({
   invoices = [],
   company,
   currentUser,
+  subscriptionStatus,
+  onOpenRenewalModal,
   onNavigate,
   onLoadInvoice,
   onDownloadPDF,
-  onStartVoice
+  onStartVoice,
 }) {
   const stats = useMemo(() => {
     let totalRevenue = 0;
@@ -88,6 +90,104 @@ function Dashboard({
               onClick={onStartVoice}
             >
               🎤 Voice Billing
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Executive Customer License & Expiry Card */}
+      <div
+        className="card border-0 rounded-4 shadow-sm mb-4 p-3 px-md-4 text-dark"
+        style={{
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          border: '1px solid rgba(226, 232, 240, 0.9)',
+        }}
+      >
+        <div className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3">
+          <div className="d-flex align-items-center gap-3">
+            <div
+              className="rounded-3 d-flex align-items-center justify-content-center"
+              style={{
+                width: '46px',
+                height: '46px',
+                background: subscriptionStatus?.isExpired
+                  ? 'rgba(239, 68, 68, 0.12)'
+                  : subscriptionStatus?.isExpiringSoon
+                  ? 'rgba(245, 158, 11, 0.15)'
+                  : 'rgba(99, 102, 241, 0.12)',
+                fontSize: '22px',
+              }}
+            >
+              {subscriptionStatus?.isExpired ? '🚨' : subscriptionStatus?.isExpiringSoon ? '⚠️' : '👑'}
+            </div>
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <span className="fw-bold text-dark fs-6">
+                  {subscriptionStatus?.planName || currentUser?.subscription?.planName || 'Enterprise Suite'}
+                </span>
+                <span
+                  className={`badge ${
+                    subscriptionStatus?.isAdmin
+                      ? 'bg-dark text-white'
+                      : subscriptionStatus?.isExpired
+                      ? 'bg-danger text-white'
+                      : subscriptionStatus?.isExpiringSoon
+                      ? 'bg-warning text-dark'
+                      : 'bg-success text-white'
+                  }`}
+                  style={{ fontSize: '11px' }}
+                >
+                  {subscriptionStatus?.isAdmin
+                    ? 'Master License'
+                    : subscriptionStatus?.isExpired
+                    ? 'Expired'
+                    : subscriptionStatus?.isExpiringSoon
+                    ? `Expires in ${subscriptionStatus?.daysRemaining}d`
+                    : 'Active License'}
+                </span>
+              </div>
+              <div className="text-muted small mt-1">
+                Unique Customer License ID:{' '}
+                <span className="font-monospace fw-bold text-primary px-1">
+                  {subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000'}
+                </span>{' '}
+                &bull; Valid Until:{' '}
+                <span className="fw-semibold">
+                  {subscriptionStatus?.validUntil || '2099-12-31'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-secondary fw-semibold px-2.5 py-1.5 shadow-xs"
+              onClick={() => {
+                const id = subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000';
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(id);
+                }
+              }}
+              title="Copy License ID to clipboard"
+            >
+              📋 Copy ID
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Hello! I want to renew my Tread Subscription.\nLicense ID: ${subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000'}\nUser ID: ${currentUser?.username || ''}${company?.name ? `\nCompany: ${company.name}` : ''}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-sm btn-outline-success fw-semibold px-2.5 py-1.5 shadow-xs d-flex align-items-center gap-1"
+              title="Send License ID directly via WhatsApp"
+            >
+              <span>💬</span> WhatsApp ID
+            </a>
+            <button
+              type="button"
+              className="btn btn-sm btn-outline-primary fw-semibold px-3 py-1.5 shadow-xs"
+              onClick={onOpenRenewalModal}
+            >
+              ⚡ Manage / Renew
             </button>
           </div>
         </div>

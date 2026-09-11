@@ -7,6 +7,8 @@ function createWindow() {
         height: 800,
         minWidth: 900,
         minHeight: 600,
+        title: "Tread",
+        icon: path.join(__dirname, "../src/assets/Images/Logo.png"),
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true

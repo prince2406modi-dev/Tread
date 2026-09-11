@@ -12,6 +12,8 @@ export default function SubNavbar({
   onOpenAiCopilot,
   onInitiateLogout,
   isOnline = true,
+  subscriptionStatus,
+  onOpenRenewalModal,
 }) {
   return (
     <div className="sub-navbar">
@@ -139,6 +141,32 @@ export default function SubNavbar({
             >
               <span>✨</span>
               <span>Ask AI</span>
+            </button>
+
+            {/* Customer License ID & Expiry Pill */}
+            <button
+              type="button"
+              className={`btn btn-sm py-0 px-2 fw-semibold d-flex align-items-center gap-1 shadow-xs border ${
+                subscriptionStatus?.isExpired
+                  ? 'btn-danger text-white'
+                  : subscriptionStatus?.isExpiringSoon
+                  ? 'btn-warning text-dark'
+                  : 'btn-light text-dark'
+              }`}
+              style={{ fontSize: '11px', borderRadius: '20px' }}
+              onClick={onOpenRenewalModal}
+              title={`Unique Customer License ID: ${subscriptionStatus?.licenseId || currentUser?.licenseId || 'N/A'}. Click to view license & renewal options.`}
+            >
+              <span>{subscriptionStatus?.isExpired ? '🚨' : subscriptionStatus?.isExpiringSoon ? '⚠️' : '👑'}</span>
+              <span className="font-monospace fw-bold">{subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000'}</span>
+              <span className="text-muted">•</span>
+              <span>
+                {subscriptionStatus?.isAdmin
+                  ? 'Master'
+                  : subscriptionStatus?.isExpired
+                  ? 'Expired'
+                  : `${subscriptionStatus?.daysRemaining ?? 365}d`}
+              </span>
             </button>
 
             <span className="badge bg-primary text-white py-1 px-2 fw-semibold">

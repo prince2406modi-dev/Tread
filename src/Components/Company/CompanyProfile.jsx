@@ -28,6 +28,17 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
+  const [copiedLicense, setCopiedLicense] = useState(false);
+
+  const sessionUser = (() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      return JSON.parse(window.sessionStorage.getItem('gst-invoice-app-current-user') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  const userLicenseId = sessionUser.licenseId || '91-00-000-000000';
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -140,6 +151,77 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
           ✓ Company profile and logo branding saved successfully! PDF templates and invoice headers updated.
         </div>
       )}
+
+      {/* Executive Customer License Card */}
+      <div
+        className="card mb-4 border-0 shadow-sm rounded-4 overflow-hidden position-relative"
+        style={{
+          background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #172554 100%)',
+          color: '#ffffff',
+          border: '1px solid rgba(245,158,11,0.35)',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: '5%',
+            right: '5%',
+            height: '2px',
+            background: 'linear-gradient(90deg, transparent, #f59e0b, #fde68a, #f59e0b, transparent)',
+          }}
+        />
+        <div className="card-body p-3.5 p-md-4 d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span
+                className="badge"
+                style={{
+                  background: 'rgba(245,158,11,0.2)',
+                  color: '#fde68a',
+                  border: '1px solid rgba(245,158,11,0.4)',
+                  fontSize: '10.5px',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                OFFICIAL CUSTOMER LICENSE ID
+              </span>
+              <span className="text-white-50 small">
+                • {sessionUser.role === 'Admin' && sessionUser.username === 'admin' ? 'Master Admin' : 'Registered Business'}
+              </span>
+            </div>
+            <div className="h4 fw-bold font-monospace mb-1" style={{ color: '#fde68a', letterSpacing: '0.06em' }}>
+              {userLicenseId}
+            </div>
+            <div className="text-white-50 small">
+              This un-guessable 13-digit numeric License ID encodes your country, state, and locality. Quote it to renew your account directly with our company.
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline-warning btn-sm fw-bold px-3 py-2 rounded-3"
+              onClick={() => {
+                if (navigator.clipboard) {
+                  navigator.clipboard.writeText(userLicenseId);
+                  setCopiedLicense(true);
+                  setTimeout(() => setCopiedLicense(false), 2000);
+                }
+              }}
+            >
+              {copiedLicense ? '✓ Copied to Clipboard!' : '📋 Copy License ID'}
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(`Hello! I want to renew my Tread Subscription.\nLicense ID: ${userLicenseId}\nUser ID: ${sessionUser.username || ''}\nCompany: ${formData.name || ''}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-success btn-sm fw-bold px-3 py-2 rounded-3 d-flex align-items-center gap-1.5"
+            >
+              <span>💬</span> WhatsApp Renewal
+            </a>
+          </div>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit}>
         <div className="row g-4">

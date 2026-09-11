@@ -20,7 +20,15 @@ import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
 
 // Services
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
-import { syncAllUsersFromCloud, getLocalUsers } from './services/authApi.js';
+import {
+  syncAllUsersFromCloud,
+  getLocalUsers,
+  evaluateSubscriptionStatus,
+  renewUserSubscription,
+  generateLicenseId,
+  ensureValidLicenseId,
+  syncUserLicenseStatus,
+} from './services/authApi.js';
 import { syncUserDataToCloud, fetchUserDataFromCloud, subscribeUserDataFromCloud } from './services/firebase.js';
 import { GST_STATE_CODES } from './services/gstinValidator.js';
 import { DEFAULT_UNIT } from './constants/units.js';
@@ -31,7 +39,8 @@ const ShareInvoiceModal = lazy(() => import('./Components/Communication/index.js
 const AboutModal = lazy(() => import('./Components/Help/index.jsx').then((m) => ({ default: m.AboutModal })));
 const CloudSyncModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.CloudSyncModal })));
 const ExitConfirmModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.ExitConfirmModal })));
-const AppAccessModal = lazy(() => import('./Components/Modals/index.jsx'));
+const AppAccessModal = lazy(() => import('./Components/Modals/AppAccessModal.jsx'));
+import LicenseRenewalModal from './Components/Modals/LicenseRenewalModal.jsx';
 
 // Capacitor Native Platform Support
 import { Capacitor } from '@capacitor/core';
@@ -51,6 +60,14 @@ function Index() {
   const [users, setUsers] = useState(getLocalUsers);
   const [currentUser, setCurrentUser] = useState(null);
   const [cloudNotice, setCloudNotice] = useState(null);
+  const [renewalModalOpen, setRenewalModalOpen] = useState(false);
+  const [isCheckingLicense, setIsCheckingLicense] = useState(false);
+
+  // Evaluate real-time license and subscription validity
+  const subscriptionStatus = useMemo(() => {
+    return evaluateSubscriptionStatus(currentUser);
+  }, [currentUser]);
+
   const [isBooting, setIsBooting] = useState(() => {
     if (typeof window === 'undefined') return false;
     // Check if app was already booted in this session to prevent repeated splash on soft navigation
@@ -1140,10 +1157,22 @@ function Index() {
   };
 
   // Auth Handlers
-  const handleLogin = async (rawUsername) => {
-    const username = (rawUsername || 'admin').toLowerCase().trim();
+  const handleLogin = async (rawUsername, fullUser = null) => {
+    const username = (typeof rawUsername === 'string' ? rawUsername : rawUsername?.username || 'admin').toLowerCase().trim();
     const userInvoices = loadInvoices(username);
-    const userObj = { username };
+
+    // Resolve complete user object with subscription and unique license ID
+    const foundUser = fullUser || users.find((u) => u.username.toLowerCase() === username);
+    const userObj = foundUser
+      ? {
+          ...foundUser,
+          licenseId: ensureValidLicenseId(foundUser),
+        }
+      : {
+          username,
+          licenseId: username === 'admin' ? '91-00-000-000000' : ensureValidLicenseId({ username }),
+        };
+
     setCurrentUser(userObj);
     window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
     window.localStorage.removeItem('gst-invoice-app-current-user');
@@ -1179,23 +1208,36 @@ function Index() {
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
     setActivePage(null);
 
+    // If user has saved company details in their profile, update company state
+    if (userObj.companyName) {
+      setCompany((prev) => ({
+        ...prev,
+        name: userObj.companyName,
+        phone: userObj.phone || prev.phone,
+        email: userObj.email || prev.email,
+      }));
+    }
+
     // Immediately extract user's data from Cloud Firestore on login!
     extractUserDataFromCloud(username);
   };
 
   const handleRegister = (newUser) => {
-    setUsers((current) => [...current, newUser]);
-    if (newUser.companyName) {
+    const preparedUser = {
+      ...newUser,
+      licenseId: newUser.licenseId || generateLicenseId(newUser.username),
+    };
+    setUsers((current) => [...current, preparedUser]);
+    if (preparedUser.companyName) {
       setCompany((prev) => ({
         ...prev,
-        name: newUser.companyName,
-        phone: newUser.phone || prev.phone,
-        email: newUser.email || prev.email,
+        name: preparedUser.companyName,
+        phone: preparedUser.phone || prev.phone,
+        email: preparedUser.email || prev.email,
       }));
     }
-    const userObj = { username: newUser.username };
-    setCurrentUser(userObj);
-    window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(userObj));
+    setCurrentUser(preparedUser);
+    window.sessionStorage.setItem('gst-invoice-app-current-user', JSON.stringify(preparedUser));
     window.localStorage.removeItem('gst-invoice-app-current-user');
     setInvoices([]);
     setCustomers([]);
@@ -1205,7 +1247,51 @@ function Index() {
     setActivePage(null);
 
     // Extract cloud data
-    extractUserDataFromCloud(newUser.username);
+    extractUserDataFromCloud(preparedUser.username);
+  };
+
+  // License & Subscription Renewal Handlers
+  const handleRenewSubscription = async (renewData) => {
+    if (!currentUser?.username) return { success: false, message: 'No active user session' };
+    const res = await renewUserSubscription(currentUser.username, renewData);
+    if (res?.success && res.user) {
+      setCurrentUser(res.user);
+      setUsers((prev) => {
+        const remaining = prev.filter((u) => u.username.toLowerCase() !== res.user.username.toLowerCase());
+        return [res.user, ...remaining];
+      });
+      setCloudNotice({
+        type: 'success',
+        message: `✓ License extended successfully! Valid until ${res.user.subscription?.validUntil}.`,
+      });
+    }
+    return res;
+  };
+
+  const handleCheckLicenseStatus = async () => {
+    if (!currentUser?.username) return null;
+    setIsCheckingLicense(true);
+    try {
+      const updated = await syncUserLicenseStatus(currentUser.username);
+      if (updated) {
+        setCurrentUser(updated);
+        setUsers((prev) => {
+          const remaining = prev.filter((u) => u.username.toLowerCase() !== updated.username.toLowerCase());
+          return [updated, ...remaining];
+        });
+        const evalRes = evaluateSubscriptionStatus(updated);
+        if (!evalRes.isExpired) {
+          setCloudNotice({
+            type: 'success',
+            message: `✓ Active license confirmed! Valid until ${updated.subscription?.validUntil}.`,
+          });
+        }
+        return updated;
+      }
+    } finally {
+      setIsCheckingLicense(false);
+    }
+    return null;
   };
 
   const executeLogout = () => {
@@ -1313,6 +1399,8 @@ function Index() {
           setActivePage(null);
           setActiveMenu(null);
         }}
+        subscriptionStatus={subscriptionStatus}
+        onOpenRenewalModal={() => setRenewalModalOpen(true)}
       />
 
       {/* ================= MOBILE SLIDE-DOWN ACCORDION MENU ================= */}
@@ -1348,6 +1436,8 @@ function Index() {
         onOpenAiCopilot={() => setAiCopilotOpen(true)}
         onInitiateLogout={initiateLogout}
         isOnline={isOnline}
+        subscriptionStatus={subscriptionStatus}
+        onOpenRenewalModal={() => setRenewalModalOpen(true)}
       />
 
       {/* ================= MAIN PAGE VIEWPORT ================= */}
@@ -1372,6 +1462,46 @@ function Index() {
             </div>
           </div>
         )}
+
+        {/* 7-Day Subscription Expiry Warning Banner */}
+        {subscriptionStatus.isExpiringSoon && !subscriptionStatus.isAdmin && (
+          <div className="container-fluid px-3 pt-2">
+            <div
+              className="alert py-2 px-3 d-flex flex-wrap align-items-center justify-content-between mb-2 shadow-xs border"
+              style={{
+                fontSize: '13px',
+                borderRadius: '10px',
+                background: 'linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%)',
+                borderColor: '#f59e0b',
+                color: '#92400e',
+              }}
+              role="alert"
+            >
+              <div className="d-flex align-items-center gap-2">
+                <span style={{ fontSize: '18px' }}>⚠️</span>
+                <span>
+                  <strong>Subscription Notice:</strong> Your license expires in{' '}
+                  <span className="badge bg-warning text-dark px-2 py-1 fw-bold">
+                    {subscriptionStatus.daysRemaining} {subscriptionStatus.daysRemaining === 1 ? 'day' : 'days'}
+                  </span>{' '}
+                  (valid until {subscriptionStatus.validUntil}). Your Unique License ID:{' '}
+                  <span className="badge bg-dark font-monospace text-warning px-2 py-1">
+                    {subscriptionStatus.licenseId}
+                  </span>
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-sm btn-warning text-dark fw-bold px-3 py-1 shadow-xs mt-2 mt-md-0"
+                style={{ borderRadius: '8px', fontSize: '12px' }}
+                onClick={() => setRenewalModalOpen(true)}
+              >
+                ⚡ Renew License
+              </button>
+            </div>
+          </div>
+        )}
+
         <Suspense
           fallback={
             <div className="text-center py-5">
@@ -1382,7 +1512,126 @@ function Index() {
             </div>
           }
         >
-          {currentUser ? (
+          {subscriptionStatus.isExpired && !subscriptionStatus.isAdmin ? (
+            /* Dedicated Expired Lockout Screen */
+            <div className="container py-5">
+              <div
+                className="card border-0 rounded-4 shadow-luxury mx-auto overflow-hidden text-center p-4 p-md-5"
+                style={{
+                  maxWidth: '680px',
+                  background: 'linear-gradient(170deg, #ffffff 0%, #f8fafc 100%)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                <div
+                  className="mx-auto rounded-circle d-flex align-items-center justify-content-center mb-3"
+                  style={{
+                    width: '80px',
+                    height: '80px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    color: '#dc2626',
+                    fontSize: '36px',
+                  }}
+                >
+                  🔒
+                </div>
+                <span
+                  className="badge bg-danger text-white mx-auto px-3 py-1 mb-2 fw-bold text-uppercase"
+                  style={{ letterSpacing: '0.06em' }}
+                >
+                  Subscription License Expired
+                </span>
+                <h2 className="h4 fw-bold text-dark mb-2">Your Tread License Has Ended</h2>
+                <p className="text-muted small mb-4 px-md-3">
+                  Your business subscription expired on{' '}
+                  <strong>{subscriptionStatus.validUntil || 'Recent Date'}</strong>. To continue creating GST invoices, managing inventory, and syncing across devices, please renew your account.
+                </p>
+
+                {/* Unique Customer License ID Box */}
+                <div
+                  className="card border-0 rounded-3 p-3 mb-4 text-white text-start shadow-sm mx-auto w-100"
+                  style={{
+                    background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 100%)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                  }}
+                >
+                  <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                    <div>
+                      <div className="text-white-50 small text-uppercase" style={{ fontSize: '11px', letterSpacing: '0.05em' }}>
+                        Your Unique Customer License ID
+                      </div>
+                      <div className="font-monospace fw-bold fs-4 text-warning mt-1">
+                        {subscriptionStatus.licenseId}
+                      </div>
+                      <div className="text-white-50 small">
+                        Account: <strong>{currentUser?.username}</strong> &bull; Plan: {currentUser?.subscription?.planName || 'Standard'}
+                      </div>
+                    </div>
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-light px-3 py-2 fw-semibold"
+                        onClick={() => {
+                          if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                            navigator.clipboard.writeText(subscriptionStatus.licenseId);
+                            setCloudNotice({ type: 'success', message: '✓ License ID copied to clipboard!' });
+                          }
+                        }}
+                      >
+                        📋 Copy ID
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-warning px-3 py-2 fw-semibold"
+                        onClick={handleCheckLicenseStatus}
+                        disabled={isCheckingLicense}
+                      >
+                        {isCheckingLicense ? '⏳ Checking...' : '🔄 Check Cloud Status'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Direct Action Buttons */}
+                <div className="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                  <button
+                    type="button"
+                    className="btn btn-success fw-bold px-4 py-2 d-flex align-items-center gap-2 shadow-sm"
+                    onClick={() => {
+                      const text = encodeURIComponent(
+                        `Hello! I want to renew my Tread Subscription.\nLicense ID: ${subscriptionStatus.licenseId}\nUser ID: ${currentUser?.username || ''}\nCompany: ${company?.name || ''}`
+                      );
+                      window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    <span>💬</span>
+                    <span>WhatsApp Us to Renew</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary fw-bold px-4 py-2 d-flex align-items-center gap-2 shadow-sm"
+                    onClick={() => setRenewalModalOpen(true)}
+                  >
+                    <span>⚡</span>
+                    <span>Instant Direct Renewal</span>
+                  </button>
+                </div>
+
+                <div className="border-top pt-3 mt-2 d-flex justify-content-between align-items-center">
+                  <span className="small text-muted">
+                    Need help? Quote License ID <strong>{subscriptionStatus.licenseId}</strong>
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link text-danger text-decoration-none fw-semibold p-0"
+                    onClick={initiateLogout}
+                  >
+                    Sign Out &rarr;
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : currentUser ? (
             <ViewRouter
               activePage={activePage}
               onNavigate={setActivePage}
@@ -1442,6 +1691,9 @@ function Index() {
                 setRecognitionActive(true);
               }}
               onOpenAppAccessModal={() => setAppAccessModalOpen(true)}
+              subscriptionStatus={subscriptionStatus}
+              onOpenRenewalModal={() => setRenewalModalOpen(true)}
+              onExtendLicense={handleRenewSubscription}
             />
           ) : (
             <div className="py-4">
@@ -1572,6 +1824,19 @@ function Index() {
             onClose={() => setAppAccessModalOpen(false)}
           />
         )}
+
+        {/* License & Subscription Renewal Modal */}
+        <LicenseRenewalModal
+          isOpen={renewalModalOpen}
+          onClose={() => setRenewalModalOpen(false)}
+          currentUser={currentUser}
+          company={company}
+          subscriptionStatus={subscriptionStatus}
+          companyPhone={company?.phone}
+          onRenew={handleRenewSubscription}
+          onCheckStatus={handleCheckLicenseStatus}
+          allowClose={!subscriptionStatus.isExpired || subscriptionStatus.isAdmin}
+        />
       </Suspense>
     </div>
   );

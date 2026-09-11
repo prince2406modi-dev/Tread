@@ -4,6 +4,10 @@ import {
   cloudRegisterUser,
   syncAllUsersFromCloud,
   cloudDeleteUser,
+  evaluateSubscriptionStatus,
+  renewUserSubscription,
+  generateLicenseId,
+  ensureValidLicenseId,
 } from '../../services/authApi.js';
 import DeviceAccessControl from './DeviceAccessControl.jsx';
 
@@ -14,11 +18,19 @@ function UserManagement({
   onAddUser,
   onLogout,
   onBack,
+  onExtendLicense,
 }) {
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'add-user' | 'device-access' | 'auth-api'
   const [userList, setUserList] = useState(users);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
+
+  // Admin License Extension Modal State
+  const [renewalTarget, setRenewalTarget] = useState(null);
+  const [renewDurationDays, setRenewDurationDays] = useState(365);
+  const [renewPlanId, setRenewPlanId] = useState('pro');
+  const [isRenewingUser, setIsRenewingUser] = useState(false);
+  const [renewNotice, setRenewNotice] = useState(null);
 
   // Create User Form State
   const [newUsername, setNewUsername] = useState('');
@@ -76,6 +88,43 @@ function UserManagement({
       isMounted = false;
     };
   }, []);
+
+  const handleAdminExtendLicense = async () => {
+    if (!renewalTarget) return;
+    setIsRenewingUser(true);
+    setRenewNotice(null);
+    try {
+      const planNameMap = {
+        starter: 'Starter Plan',
+        pro: 'Professional Plan',
+        enterprise: 'Enterprise Suite',
+      };
+      const renewData = {
+        additionalDays: Number(renewDurationDays),
+        planId: renewPlanId,
+        planName: planNameMap[renewPlanId] || 'Professional Plan',
+        renewedBy: `Admin (${currentUser?.username || 'admin'})`,
+      };
+
+      const res = await renewUserSubscription(renewalTarget.username, renewData);
+
+      if (res?.success) {
+        setRenewNotice({ type: 'success', text: `✓ License extended for ${renewalTarget.username}!` });
+        const synced = await syncAllUsersFromCloud();
+        setUserList(synced);
+        setTimeout(() => {
+          setRenewalTarget(null);
+          setRenewNotice(null);
+        }, 1200);
+      } else {
+        setRenewNotice({ type: 'danger', text: res?.message || 'Renewal failed' });
+      }
+    } catch (err) {
+      setRenewNotice({ type: 'danger', text: err.message || 'Renewal failed' });
+    } finally {
+      setIsRenewingUser(false);
+    }
+  };
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
@@ -377,18 +426,20 @@ axios.post('${apiEndpoint}', {
                 <thead className="table-light">
                   <tr>
                     <th>User ID / Username</th>
+                    <th>Customer License ID</th>
                     <th>Email &amp; Phone</th>
-                    <th>Company / Store</th>
                     <th>Role</th>
-                    <th>Cross-Device Cloud Sync</th>
                     <th>Subscription Plan</th>
-                    <th className="text-center" style={{ width: '150px' }}>Actions</th>
+                    <th>Status &amp; Expiry</th>
+                    <th className="text-center" style={{ width: '180px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {userList.map((user) => {
                     const isCurrent = currentUser?.username?.toLowerCase() === user.username.toLowerCase();
                     const isMasterAdmin = user.username.toLowerCase() === 'admin';
+                    const sub = evaluateSubscriptionStatus(user);
+                    const licenseId = ensureValidLicenseId(user);
 
                     return (
                       <tr key={user.username} className={isCurrent ? 'table-primary' : ''}>
@@ -405,6 +456,15 @@ axios.post('${apiEndpoint}', {
                           )}
                         </td>
                         <td>
+                          <span
+                            className="badge bg-dark font-monospace text-warning px-2 py-1 shadow-xs"
+                            style={{ fontSize: '11.5px', letterSpacing: '0.04em' }}
+                            title="Unique Customer License ID"
+                          >
+                            {licenseId}
+                          </span>
+                        </td>
+                        <td>
                           <div className="small">{user.email || '—'}</div>
                           {user.phone && (
                             <small className="text-muted font-monospace">
@@ -412,24 +472,55 @@ axios.post('${apiEndpoint}', {
                             </small>
                           )}
                         </td>
-                        <td className="small text-muted">{user.companyName || '—'}</td>
                         <td>
                           <span className={`badge ${user.role === 'Admin' ? 'bg-primary' : 'bg-secondary'}`}>
                             {user.role || 'Operator'}
                           </span>
                         </td>
                         <td>
-                          <span className="badge bg-success-subtle text-success border">
-                            ☁️ Synced Across All Devices
+                          <span className="badge bg-light text-dark border">
+                            {sub.planName || user.subscription?.planName || 'Enterprise'}
                           </span>
                         </td>
                         <td>
-                          <span className="badge bg-light text-dark border">
-                            {user.subscription?.planName || 'Enterprise'}
-                          </span>
+                          <div>
+                            <span
+                              className={`badge ${
+                                sub.isAdmin
+                                  ? 'bg-dark text-white'
+                                  : sub.isExpired
+                                  ? 'bg-danger text-white'
+                                  : sub.isExpiringSoon
+                                  ? 'bg-warning text-dark'
+                                  : 'bg-success text-white'
+                              } me-1`}
+                            >
+                              {sub.isAdmin
+                                ? 'Master'
+                                : sub.isExpired
+                                ? '🔴 Expired'
+                                : sub.isExpiringSoon
+                                ? `⚠️ ${sub.daysRemaining}d Left`
+                                : 'Active'}
+                            </span>
+                            <small className="text-muted d-block mt-1">
+                              Until: {sub.validUntil || '—'}
+                            </small>
+                          </div>
                         </td>
                         <td className="text-center">
-                          <div className="d-flex justify-content-center gap-1">
+                          <div className="d-flex justify-content-center gap-1 flex-wrap">
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-warning py-0 px-2 fw-semibold"
+                              title="Extend / Renew Customer License"
+                              onClick={() => {
+                                setRenewalTarget(user);
+                                setRenewPlanId(user.subscription?.planId || 'pro');
+                              }}
+                            >
+                              ⚡ Extend
+                            </button>
                             {isCurrent ? (
                               <button
                                 type="button"
@@ -761,6 +852,131 @@ axios.post('${apiEndpoint}', {
                     <strong>Instant Access:</strong> Enter your registered User ID and Password. The app verifies against the Cloud API and logs you in immediately.
                   </li>
                 </ol>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin License Extension Modal */}
+      {renewalTarget && (
+        <div
+          className="modal fade show d-block"
+          tabIndex="-1"
+          style={{
+            backgroundColor: 'rgba(9, 13, 22, 0.75)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 1090,
+          }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content rounded-4 border-0 shadow-luxury overflow-hidden">
+              <div
+                className="modal-header text-white p-3 px-4"
+                style={{
+                  background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 100%)',
+                  borderBottom: '1px solid rgba(245, 158, 11, 0.3)',
+                }}
+              >
+                <div>
+                  <h6 className="modal-title fw-bold mb-0">⚡ Extend / Renew Customer License</h6>
+                  <small className="text-white-50">Direct Administrator License Provisioning</small>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => {
+                    setRenewalTarget(null);
+                    setRenewNotice(null);
+                  }}
+                  aria-label="Close"
+                />
+              </div>
+
+              <div className="modal-body p-4 bg-light">
+                {renewNotice && (
+                  <div className={`alert alert-${renewNotice.type} py-2 px-3 small rounded-3 mb-3`}>
+                    {renewNotice.text}
+                  </div>
+                )}
+
+                <div className="card p-3 rounded-3 border mb-3 bg-white">
+                  <div className="row g-2 small">
+                    <div className="col-6">
+                      <div className="text-muted">Customer Username:</div>
+                      <div className="fw-bold font-monospace text-dark">{renewalTarget.username}</div>
+                    </div>
+                    <div className="col-6">
+                      <div className="text-muted">Unique License ID:</div>
+                      <div className="fw-bold font-monospace text-primary">
+                        {ensureValidLicenseId(renewalTarget)}
+                      </div>
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted">Current Expiry:</div>
+                      <div className="fw-semibold">
+                        {renewalTarget.subscription?.validUntil || 'Not set'}
+                      </div>
+                    </div>
+                    <div className="col-6 mt-2">
+                      <div className="text-muted">Mobile / Contact:</div>
+                      <div className="fw-semibold">{renewalTarget.phone || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label small fw-bold text-dark mb-1">
+                    Extension Duration:
+                  </label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={renewDurationDays}
+                    onChange={(e) => setRenewDurationDays(Number(e.target.value))}
+                  >
+                    <option value={30}>+ 1 Month (30 Days Extension)</option>
+                    <option value={90}>+ 3 Months (90 Days Extension)</option>
+                    <option value={180}>+ 6 Months (180 Days Half-Year)</option>
+                    <option value={365}>+ 1 Year (365 Days Annual License)</option>
+                    <option value={730}>+ 2 Years (730 Days Enterprise)</option>
+                  </select>
+                </div>
+
+                <div className="mb-3">
+                  <label className="form-label small fw-bold text-dark mb-1">
+                    Subscription Tier:
+                  </label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={renewPlanId}
+                    onChange={(e) => setRenewPlanId(e.target.value)}
+                  >
+                    <option value="starter">Starter Plan (₹499/year)</option>
+                    <option value="pro">Professional Plan (₹999/year)</option>
+                    <option value="enterprise">Enterprise Suite (₹1999/year)</option>
+                  </select>
+                </div>
+
+                <div className="d-flex justify-content-end gap-2 pt-2 border-top">
+                  <button
+                    type="button"
+                    className="btn btn-outline-secondary px-3 btn-sm fw-semibold"
+                    onClick={() => {
+                      setRenewalTarget(null);
+                      setRenewNotice(null);
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-warning text-dark px-3 btn-sm fw-bold shadow-xs"
+                    onClick={handleAdminExtendLicense}
+                    disabled={isRenewingUser}
+                  >
+                    {isRenewingUser ? '⏳ Extending License...' : '✓ Confirm & Activate in Cloud'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

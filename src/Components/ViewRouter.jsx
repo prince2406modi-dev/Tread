@@ -78,6 +78,9 @@ export default function ViewRouter({
   voiceTranscript,
   onStartVoice,
   onOpenAppAccessModal,
+  subscriptionStatus,
+  onOpenRenewalModal,
+  onExtendLicense,
 }) {
   if (!activePage) {
     return (
@@ -179,6 +182,8 @@ export default function ViewRouter({
         invoices={invoices}
         company={company}
         currentUser={currentUser}
+        subscriptionStatus={subscriptionStatus}
+        onOpenRenewalModal={onOpenRenewalModal}
         onNavigate={onNavigate}
         onLoadInvoice={(inv) => {
           loadInvoiceToEditor(inv);
@@ -429,6 +434,7 @@ export default function ViewRouter({
         users={users}
         onSwitchUser={onLogin}
         onBack={() => onNavigate(null)}
+        onExtendLicense={onExtendLicense}
       />
     );
   }
