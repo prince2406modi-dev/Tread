@@ -97,7 +97,7 @@ export default function TopNavbar({
                                   key={option}
                                   type="button"
                                   className="dropdown-sub-item"
-                                  onClick={() => onOptionClick(option)}
+                                  onClick={() => onOptionClick(option, subKey, menu)}
                                 >
                                   <span className="item-icon">{getItemIcon(option)}</span>
                                   {option}

@@ -668,14 +668,24 @@ export async function cloudAuthenticateUser(usernameOrEmail, mobileNumber, passw
 
 /**
  * Quick lookup helper: Finds a customer's Unique License ID and Expiry status
- * using Mobile Number, Username, or License ID so they can quote it to renew directly with the company.
+ * using Username (with password) or existing License ID so they can quote it to renew directly with the company.
+ * SECURITY: NEVER gives or retrieves License IDs by mobile number alone!
  */
-export async function lookupCustomerLicense(query) {
+export async function lookupCustomerLicense(query, password = '') {
   const q = (query || '').trim();
-  if (!q) return { found: false, message: 'Please enter a Mobile Number, Username, or License ID.' };
+  if (!q) return { found: false, message: 'Please enter your User ID & Password, or your License ID.' };
 
   const cleanDigits = q.replace(/\D/g, '');
   const lower = q.toLowerCase();
+
+  // Security protection: NEVER return or disclose a License ID using only a mobile number!
+  if (/^\d{10}$/.test(cleanDigits) || (/^\d{10,12}$/.test(cleanDigits) && !cleanDigits.startsWith('9100000000000') && !isNumericLicenseId(q))) {
+    return {
+      found: false,
+      isBlockedMobile: true,
+      message: '🔒 For privacy and security, License IDs are never given out by mobile number alone. Please enter your User ID & Password to view your License ID, or enter your full 13-digit License ID to check status.',
+    };
+  }
 
   if (lower === 'admin' || cleanDigits === '9100000000000' || lower === '91-00-000-000000') {
     return {
@@ -693,20 +703,18 @@ export async function lookupCustomerLicense(query) {
     };
   }
 
-  // Check local storage first
+  // Check local storage first (matching by username or licenseId ONLY, never mobile)
   const localUsers = getLocalUsers();
   let matched = localUsers.find((u) => {
-    const uMobile = sanitizeMobile(u.phone);
     const uLicenseDigits = (u.licenseId || '').replace(/\D/g, '');
     return (
       (u.username && u.username.toLowerCase() === lower) ||
-      (uMobile && cleanDigits.length >= 10 && uMobile === cleanDigits.slice(-10)) ||
       (u.licenseId && u.licenseId.toLowerCase() === lower) ||
-      (uLicenseDigits && cleanDigits.length >= 10 && uLicenseDigits === cleanDigits)
+      (uLicenseDigits && cleanDigits.length >= 12 && uLicenseDigits === cleanDigits)
     );
   });
 
-  // If not found locally, query Cloud Firestore
+  // If not found locally, query Cloud Firestore (matching by username or licenseId ONLY)
   if (!matched && isFirebaseConfigured() && typeof navigator !== 'undefined' && navigator.onLine) {
     try {
       const db = getFirestoreDb();
@@ -714,13 +722,11 @@ export async function lookupCustomerLicense(query) {
         const snap = await getDocs(collection(db, 'app_users'));
         for (const d of snap.docs) {
           const u = d.data();
-          const uMobile = sanitizeMobile(u.phone);
           const uLicenseDigits = (u.licenseId || '').replace(/\D/g, '');
           if (
             (u.username && u.username.toLowerCase() === lower) ||
-            (uMobile && cleanDigits.length >= 10 && uMobile === cleanDigits.slice(-10)) ||
             (u.licenseId && u.licenseId.toLowerCase() === lower) ||
-            (uLicenseDigits && cleanDigits.length >= 10 && uLicenseDigits === cleanDigits)
+            (uLicenseDigits && cleanDigits.length >= 12 && uLicenseDigits === cleanDigits)
           ) {
             matched = u;
             break;
@@ -735,6 +741,32 @@ export async function lookupCustomerLicense(query) {
   if (matched) {
     const fullId = ensureValidLicenseId(matched);
     const sub = evaluateSubscriptionStatus({ ...matched, licenseId: fullId });
+
+    // If searched by username (not already possessing the full license ID), require password authentication before revealing License ID!
+    const isFullLicenseQuery = (matched.licenseId && matched.licenseId.toLowerCase() === lower) ||
+      ((matched.licenseId || '').replace(/\D/g, '') === cleanDigits);
+
+    if (!isFullLicenseQuery && lower !== 'admin') {
+      const trimmedPass = (password || '').trim();
+      if (!trimmedPass) {
+        return {
+          found: false,
+          requiresPassword: true,
+          username: matched.username,
+          companyName: matched.companyName || 'Registered Enterprise',
+          message: 'Please enter your account password to verify ownership and view your License ID.',
+        };
+      }
+      if (matched.password && matched.password !== trimmedPass) {
+        return {
+          found: false,
+          requiresPassword: true,
+          username: matched.username,
+          message: 'Incorrect password for this User ID. License ID cannot be revealed.',
+        };
+      }
+    }
+
     return {
       found: true,
       username: matched.username,
@@ -754,7 +786,7 @@ export async function lookupCustomerLicense(query) {
 
   return {
     found: false,
-    message: 'No registered customer found matching this User ID, Mobile Number, or License ID.',
+    message: 'No registered customer found matching this User ID or License ID. Note: License IDs cannot be searched by mobile number alone.',
   };
 }
 

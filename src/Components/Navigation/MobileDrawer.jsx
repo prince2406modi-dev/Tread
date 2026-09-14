@@ -133,7 +133,7 @@ export default function MobileDrawer({
                                       type="button"
                                       className={`mobile-sub-nav-link ${activePage === option ? 'active' : ''}`}
                                       onClick={() => {
-                                        onSelectOption(option);
+                                        onSelectOption(option, subKey, group);
                                         onClose();
                                       }}
                                     >

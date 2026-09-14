@@ -334,6 +334,152 @@ function Index() {
   };
 
   // =========================================================
+  // SALES ORDERS STATE
+  // =========================================================
+  const salesOrdersStorageKey = (username) => `gst-invoice-app-sales-orders-${username || 'default'}`;
+
+  const loadSalesOrders = (username) => {
+    if (typeof window === 'undefined' || !username) return [];
+    try {
+      const saved = window.localStorage.getItem(salesOrdersStorageKey(username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [salesOrders, setSalesOrders] = useState(() => {
+    const savedUser = getSavedCurrentUser();
+    return savedUser?.username ? loadSalesOrders(savedUser.username) : [];
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !currentUser) return;
+    window.localStorage.setItem(salesOrdersStorageKey(currentUser.username), JSON.stringify(salesOrders));
+  }, [salesOrders, currentUser]);
+
+  // =========================================================
+  // PURCHASE ORDERS STATE
+  // =========================================================
+  const purchaseOrdersStorageKey = (username) => `gst-invoice-app-purchase-orders-${username || 'default'}`;
+
+  const loadPurchaseOrders = (username) => {
+    if (typeof window === 'undefined' || !username) return [];
+    try {
+      const saved = window.localStorage.getItem(purchaseOrdersStorageKey(username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [purchaseOrders, setPurchaseOrders] = useState(() => {
+    const savedUser = getSavedCurrentUser();
+    return savedUser?.username ? loadPurchaseOrders(savedUser.username) : [];
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !currentUser) return;
+    window.localStorage.setItem(purchaseOrdersStorageKey(currentUser.username), JSON.stringify(purchaseOrders));
+  }, [purchaseOrders, currentUser]);
+
+  // =========================================================
+  // PAYMENTS & RECEIPTS STATE
+  // =========================================================
+  const paymentsStorageKey = (username) => `gst-invoice-app-payments-${username || 'default'}`;
+
+  const loadPayments = (username) => {
+    if (typeof window === 'undefined' || !username) return [];
+    try {
+      const saved = window.localStorage.getItem(paymentsStorageKey(username));
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const [payments, setPayments] = useState(() => {
+    const savedUser = getSavedCurrentUser();
+    return savedUser?.username ? loadPayments(savedUser.username) : [];
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !currentUser) return;
+    window.localStorage.setItem(paymentsStorageKey(currentUser.username), JSON.stringify(payments));
+  }, [payments, currentUser]);
+
+  // 1-Click Convert Sales Order to Invoice
+  const handleConvertSalesOrderToInvoice = (order) => {
+    if (!order) return;
+    setCustomerName(order.customerName || '');
+    setCustomerPhone(order.customerPhone || '');
+    setCustomerAddress(order.customerAddress || '');
+    setInvoiceDate(new Date().toISOString().slice(0, 10));
+    setInvoiceNumber(getNextInvoiceNumber(invoices || []));
+
+    const isInterState =
+      company?.state &&
+      order.customerState &&
+      company.state.trim().toLowerCase() !== order.customerState.trim().toLowerCase();
+    setInvoiceType(isInterState ? 'central' : 'local');
+
+    if (Array.isArray(order.items) && order.items.length > 0) {
+      setItems(
+        order.items.map((it) => ({
+          id: uuidv4(),
+          description: it.description || 'Order Item',
+          hsn: it.hsn || '',
+          unit: it.unit || 'PCS',
+          quantity: Number(it.qty) || 1,
+          rate: Number(it.rate) || 0,
+          gstPercent: Number(it.gstRate) || 18,
+        }))
+      );
+    }
+
+    setSalesOrders((prev) =>
+      prev.map((o) => (o.id === order.id ? { ...o, orderStatus: 'Converted to Invoice' } : o))
+    );
+
+    setActivePage('Add Sales');
+    alert(`✓ Sales Order ${order.orderNumber} converted to active invoice!`);
+  };
+
+  // 1-Click Convert Purchase Order to Purchase Bill
+  const handleConvertPOToPurchaseBill = (po) => {
+    if (!po) return;
+    const newBill = {
+      id: `bill_${Date.now()}`,
+      billNumber: `BILL-${po.poNumber}`,
+      billDate: new Date().toISOString().slice(0, 10),
+      vendorName: po.vendorName || '',
+      vendorGstin: po.vendorGstin || '',
+      vendorPhone: po.vendorPhone || '',
+      vendorAddress: po.vendorAddress || '',
+      items: (po.items || []).map((it) => ({
+        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        name: it.description,
+        hsn: it.hsn || '',
+        quantity: Number(it.qty) || 1,
+        purchasePrice: Number(it.rate) || 0,
+        gstRate: Number(it.gstRate) || 18,
+        unit: it.unit || 'PCS',
+      })),
+      totalAmount: po.grandTotal || 0,
+      notes: `Converted from PO #${po.poNumber}`,
+      createdAt: new Date().toISOString(),
+    };
+
+    setPurchaseBills((prev) => [newBill, ...prev]);
+    setPurchaseOrders((prev) =>
+      prev.map((p) => (p.id === po.id ? { ...p, status: 'Received / Fulfilled' } : p))
+    );
+
+    setActivePage('List Purchase');
+    alert(`✓ PO ${po.poNumber} converted to Purchase Bill successfully!`);
+  };
+
+  // =========================================================
   // ACTIVE INVOICE DRAFT STATE
   // =========================================================
   const [customerName, setCustomerName] = useState('');
@@ -730,8 +876,28 @@ function Index() {
   };
 
   // Dropdown option click handler
-  const handleOptionClick = (option) => {
+  const handleOptionClick = (rawOption, subKey, menu) => {
     setActiveMenu(null);
+
+    let option = rawOption;
+    // Map simplified sub-section actions (Add, Modify, List) to their target views
+    if (subKey) {
+      if (subKey === 'Sales') {
+        option = option === 'Add' ? 'Add Sales' : option === 'Modify' ? 'Modify Sales' : 'List Sales';
+      } else if (subKey === 'Sales Order') {
+        option = option === 'Add' ? 'Add Sales Order' : option === 'Modify' ? 'Modify Sales Order' : 'List Sales Orders';
+      } else if (subKey === 'Purchase') {
+        option = option === 'Add' ? 'Add Purchase' : option === 'Modify' ? 'Modify Purchase' : 'List Purchase';
+      } else if (subKey === 'Purchase Order') {
+        option = option === 'Add' ? 'Add Purchase Order' : option === 'Modify' ? 'Modify Purchase Order' : 'List Purchase Orders';
+      } else if (subKey === 'Payment' || subKey === 'Payments') {
+        option = option === 'Add' ? 'Add Payment' : option === 'Modify' ? 'Modify Payment' : 'List Payments';
+      } else if (subKey === 'Accounts') {
+        option = option === 'Add' ? 'Add Account' : option === 'Modify' ? 'Modify Account' : 'List Account';
+      } else if (subKey === 'Items') {
+        option = option === 'Add' ? 'Add Item' : option === 'Modify' ? 'Modify Item' : 'List Items';
+      }
+    }
 
     if (!currentUser && option !== 'Login' && option !== 'About Tread') {
       alert('Please sign in with your User ID and Password first.');
@@ -794,6 +960,62 @@ function Index() {
     // Transactions Actions
     if (option === 'Create Transaction' || option === 'Add Sales') {
       setActivePage('Add Sales');
+      return;
+    }
+    if (option === 'Modify Sales') {
+      setActivePage('Modify Sales');
+      return;
+    }
+    if (option === 'List Sales') {
+      setActivePage('List Sales');
+      return;
+    }
+    if (option === 'Add Sales Order') {
+      setActivePage('Add Sales Order');
+      return;
+    }
+    if (option === 'Modify Sales Order') {
+      setActivePage('Modify Sales Order');
+      return;
+    }
+    if (option === 'List Sales Orders' || option === 'Sales Orders' || option === 'Sales Order') {
+      setActivePage('List Sales Orders');
+      return;
+    }
+    if (option === 'Add Purchase') {
+      setActivePage('Add Purchase');
+      return;
+    }
+    if (option === 'Modify Purchase') {
+      setActivePage('Modify Purchase');
+      return;
+    }
+    if (option === 'List Purchase') {
+      setActivePage('List Purchase');
+      return;
+    }
+    if (option === 'Add Purchase Order') {
+      setActivePage('Add Purchase Order');
+      return;
+    }
+    if (option === 'Modify Purchase Order') {
+      setActivePage('Modify Purchase Order');
+      return;
+    }
+    if (option === 'List Purchase Orders' || option === 'Purchase Orders' || option === 'Purchase Order') {
+      setActivePage('List Purchase Orders');
+      return;
+    }
+    if (option === 'Add Payment' || option === 'Receive Payment (In)' || option === 'Make Payment (Out)') {
+      setActivePage('Add Payment');
+      return;
+    }
+    if (option === 'Modify Payment') {
+      setActivePage('Modify Payment');
+      return;
+    }
+    if (option === 'List Payments' || option === 'Payment Register' || option === 'Payments' || option === 'Payment') {
+      setActivePage('List Payments');
       return;
     }
     if (
@@ -960,6 +1182,42 @@ function Index() {
           (prevLocal || []).forEach((p) => map.set(p.id || p.billNumber, p));
           const merged = Array.from(map.values());
           window.localStorage.setItem(`gst-invoice-app-purchases-${targetUser}`, JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 4b. Sales Orders
+      if (Array.isArray(cloudData.salesOrders)) {
+        setSalesOrders((prevLocal) => {
+          const map = new Map();
+          cloudData.salesOrders.forEach((o) => map.set(o.id || o.orderNumber, o));
+          (prevLocal || []).forEach((o) => map.set(o.id || o.orderNumber, o));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(salesOrdersStorageKey(targetUser), JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 4c. Purchase Orders
+      if (Array.isArray(cloudData.purchaseOrders)) {
+        setPurchaseOrders((prevLocal) => {
+          const map = new Map();
+          cloudData.purchaseOrders.forEach((p) => map.set(p.id || p.poNumber, p));
+          (prevLocal || []).forEach((p) => map.set(p.id || p.poNumber, p));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(purchaseOrdersStorageKey(targetUser), JSON.stringify(merged));
+          return merged;
+        });
+      }
+
+      // 4d. Payments
+      if (Array.isArray(cloudData.payments)) {
+        setPayments((prevLocal) => {
+          const map = new Map();
+          cloudData.payments.forEach((p) => map.set(p.id || p.voucherNumber, p));
+          (prevLocal || []).forEach((p) => map.set(p.id || p.voucherNumber, p));
+          const merged = Array.from(map.values());
+          window.localStorage.setItem(paymentsStorageKey(targetUser), JSON.stringify(merged));
           return merged;
         });
       }
@@ -1203,6 +1461,9 @@ function Index() {
       loadedPurchases = [];
     }
     setPurchaseBills(loadedPurchases);
+    setSalesOrders(loadSalesOrders(username));
+    setPurchaseOrders(loadPurchaseOrders(username));
+    setPayments(loadPayments(username));
     setInvoices(userInvoices);
 
     setInvoiceNumber(getNextInvoiceNumber(userInvoices));
@@ -1243,6 +1504,9 @@ function Index() {
     setCustomers([]);
     setStockItems([]);
     setPurchaseBills([]);
+    setSalesOrders([]);
+    setPurchaseOrders([]);
+    setPayments([]);
     setInvoiceNumber('1001/2026-27');
     setActivePage(null);
 
@@ -1299,6 +1563,9 @@ function Index() {
     setCurrentUser(null);
     setInvoices([]);
     setPurchaseBills([]);
+    setSalesOrders([]);
+    setPurchaseOrders([]);
+    setPayments([]);
     window.sessionStorage.removeItem('gst-invoice-app-current-user');
     window.localStorage.removeItem('gst-invoice-app-current-user');
     setExitConfirmModal({ isOpen: false, type: 'logout' });
@@ -1679,6 +1946,14 @@ function Index() {
               onSaveStock={handleSaveStock}
               purchaseBills={purchaseBills}
               onSavePurchaseBills={handleSavePurchaseBills}
+              salesOrders={salesOrders}
+              onSaveSalesOrders={setSalesOrders}
+              onConvertSalesOrderToInvoice={handleConvertSalesOrderToInvoice}
+              purchaseOrders={purchaseOrders}
+              onSavePurchaseOrders={setPurchaseOrders}
+              onConvertPOToPurchaseBill={handleConvertPOToPurchaseBill}
+              payments={payments}
+              onSavePayments={setPayments}
               favourites={favourites}
               onToggleFavourite={toggleFavourite}
               allAvailableShortcuts={ALL_SHORTCUTS}

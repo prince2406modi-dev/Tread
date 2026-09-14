@@ -11,14 +11,29 @@ export const MENUS = {
   ],
   Transactions: {
     Sales: [
-      'Add Sales',
-      'Modify Sales',
-      'List Sales',
+      'Add',
+      'Modify',
+      'List',
+    ],
+    'Sales Order': [
+      'Add',
+      'Modify',
+      'List',
     ],
     Purchase: [
-      'Add Purchase',
-      'Modify Purchase',
-      'List Purchase',
+      'Add',
+      'Modify',
+      'List',
+    ],
+    'Purchase Order': [
+      'Add',
+      'Modify',
+      'List',
+    ],
+    Payment: [
+      'Add',
+      'Modify',
+      'List',
     ],
   },
   Administration: {
@@ -92,9 +107,15 @@ export const ALL_SHORTCUTS = [
   { name: 'Add Sales', category: 'Transactions', icon: '📝' },
   { name: 'Modify Sales', category: 'Transactions', icon: '✏️' },
   { name: 'List Sales', category: 'Transactions', icon: '📋' },
+  { name: 'Add Sales Order', category: 'Transactions', icon: '📋' },
+  { name: 'List Sales Orders', category: 'Transactions', icon: '📑' },
   { name: 'Add Purchase', category: 'Transactions', icon: '🛒' },
   { name: 'Modify Purchase', category: 'Transactions', icon: '✎' },
   { name: 'List Purchase', category: 'Transactions', icon: '📦' },
+  { name: 'Add Purchase Order', category: 'Transactions', icon: '📑' },
+  { name: 'List Purchase Orders', category: 'Transactions', icon: '📦' },
+  { name: 'Add Payment', category: 'Transactions', icon: '💵' },
+  { name: 'List Payments', category: 'Transactions', icon: '💳' },
   { name: 'Add Account', category: 'Administration', icon: '👤' },
   { name: 'Modify Account', category: 'Administration', icon: '✏️' },
   { name: 'List Account', category: 'Administration', icon: '📋' },
@@ -145,6 +166,9 @@ export const getCategoryIcon = (group) => {
 };
 
 export const getSubSectionIcon = (sub) => {
+  if (sub.includes('Sales Order')) return '📋';
+  if (sub.includes('Purchase Order')) return '📑';
+  if (sub.includes('Payment')) return '💵';
   if (sub.includes('Sales')) return '💰';
   if (sub.includes('Purchase')) return '🛒';
   if (sub.includes('Account')) return '👤';
@@ -158,9 +182,11 @@ export const getItemIcon = (item) => {
   if (item.includes('GSTR-1') || item.includes('Export')) return '📤';
   if (item.includes('Reconcile') || item.includes('GSTR-2B') || item.includes('2B')) return '⚖️';
   if (item.includes('GSTR-3B') || item.includes('3B')) return '📊';
-  if (item.includes('Add') || item.includes('Create')) return '＋';
-  if (item.includes('Modify') || item.includes('Edit')) return '✏️';
-  if (item.includes('List') || item.includes('View') || item.includes('All')) return '📋';
+  if (item === 'Add' || item.includes('Add') || item.includes('Create') || item.includes('Receive') || item.includes('Make')) return '＋';
+  if (item === 'Modify' || item.includes('Modify') || item.includes('Edit')) return '✏️';
+  if (item === 'List' || item.includes('List') || item.includes('View') || item.includes('All') || item.includes('Register')) return '📋';
+  if (item.includes('Order')) return '📑';
+  if (item.includes('Payment')) return '💵';
   if (item.includes('Delete') || item.includes('Remove')) return '✕';
   if (item.includes('Users')) return '👤';
   if (item.includes('Device') || item.includes('Permissions')) return '🛡️';

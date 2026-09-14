@@ -17,6 +17,9 @@ const StockManagement = lazy(() => import('./Stock/index.jsx'));
 const ItemCatalogApi = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.ItemCatalogApi })));
 const DeviceAccessControl = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.DeviceAccessControl })));
 const GstHub = lazy(() => import('./GST/index.jsx'));
+const SalesOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({ default: m.SalesOrderManager })));
+const PurchaseOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({ default: m.PurchaseOrderManager })));
+const PaymentManager = lazy(() => import('./Payments/index.jsx'));
 import Login from './Login/index.jsx';
 
 export default function ViewRouter({
@@ -67,6 +70,15 @@ export default function ViewRouter({
   onSaveStock,
   purchaseBills,
   onSavePurchaseBills,
+  // Orders & Payments
+  salesOrders = [],
+  onSaveSalesOrders,
+  onConvertSalesOrderToInvoice,
+  purchaseOrders = [],
+  onSavePurchaseOrders,
+  onConvertPOToPurchaseBill,
+  payments = [],
+  onSavePayments,
   // Favourites
   favourites,
   onToggleFavourite,
@@ -294,6 +306,84 @@ export default function ViewRouter({
         initialTab={purchaseTab}
         initialShowAdd={false}
         mode={purchaseMode}
+      />
+    );
+  }
+
+  // 4a. Sales Orders (Add, Modify, List Sales Orders)
+  const isAddSalesOrder = activePage === 'Add Sales Order';
+  const isModifySalesOrder = activePage === 'Modify Sales Order';
+  const isListSalesOrders =
+    activePage === 'List Sales Orders' ||
+    activePage === 'Sales Orders' ||
+    activePage === 'Sales Order';
+
+  if (isAddSalesOrder || isModifySalesOrder || isListSalesOrders) {
+    const orderMode = isAddSalesOrder ? 'add' : isModifySalesOrder ? 'modify' : 'list';
+    return (
+      <SalesOrderManager
+        key={activePage}
+        orders={salesOrders}
+        onSaveOrders={onSaveSalesOrders}
+        customers={customers}
+        stockItems={stockItems}
+        company={company}
+        onConvertToInvoice={onConvertSalesOrderToInvoice}
+        onNavigate={onNavigate}
+        initialMode={orderMode}
+      />
+    );
+  }
+
+  // 4b. Purchase Orders (Add, Modify, List Purchase Orders)
+  const isAddPurchaseOrder = activePage === 'Add Purchase Order';
+  const isModifyPurchaseOrder = activePage === 'Modify Purchase Order';
+  const isListPurchaseOrders =
+    activePage === 'List Purchase Orders' ||
+    activePage === 'Purchase Orders' ||
+    activePage === 'Purchase Order';
+
+  if (isAddPurchaseOrder || isModifyPurchaseOrder || isListPurchaseOrders) {
+    const poMode = isAddPurchaseOrder ? 'add' : isModifyPurchaseOrder ? 'modify' : 'list';
+    return (
+      <PurchaseOrderManager
+        key={activePage}
+        purchaseOrders={purchaseOrders}
+        onSavePurchaseOrders={onSavePurchaseOrders}
+        vendors={customers.filter((c) => c.type === 'Vendor' || c.type === 'Both')}
+        stockItems={stockItems}
+        company={company}
+        onConvertToPurchaseBill={onConvertPOToPurchaseBill}
+        onNavigate={onNavigate}
+        initialMode={poMode}
+      />
+    );
+  }
+
+  // 4c. Payments & Receipts (Add, Modify, List Payments)
+  const isAddPayment =
+    activePage === 'Add Payment' ||
+    activePage === 'Receive Payment (In)' ||
+    activePage === 'Make Payment (Out)';
+  const isModifyPayment = activePage === 'Modify Payment';
+  const isListPayment =
+    activePage === 'List Payments' ||
+    activePage === 'Payment Register' ||
+    activePage === 'Payments' ||
+    activePage === 'Payment';
+
+  if (isAddPayment || isModifyPayment || isListPayment) {
+    const payMode = isAddPayment ? 'add' : isModifyPayment ? 'modify' : 'list';
+    return (
+      <PaymentManager
+        key={activePage}
+        payments={payments}
+        onSavePayments={onSavePayments}
+        customers={customers}
+        invoices={invoices}
+        purchaseBills={purchaseBills}
+        company={company}
+        initialMode={payMode}
       />
     );
   }

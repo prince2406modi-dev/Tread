@@ -110,6 +110,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   // License Lookup & Direct Renewal state
   const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupQuery, setLookupQuery] = useState('');
+  const [lookupPassword, setLookupPassword] = useState('');
   const [lookupResult, setLookupResult] = useState(null);
   const [isSearchingLicense, setIsSearchingLicense] = useState(false);
   const [lookupError, setLookupError] = useState('');
@@ -135,14 +136,21 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
     e?.preventDefault();
     const q = lookupQuery.trim();
     if (!q) {
-      setLookupError('Please enter your Mobile Number, User ID, or License ID.');
+      setLookupError('Please enter your User ID or License ID.');
       return;
     }
+
+    const cleanDigits = q.replace(/\D/g, '');
+    if (/^\d{10}$/.test(cleanDigits)) {
+      setLookupError('🔒 For privacy & security, License IDs are never given out by mobile number alone. Please enter your User ID and Password, or enter your full 13-digit License ID.');
+      return;
+    }
+
     setIsSearchingLicense(true);
     setLookupError('');
     setLookupResult(null);
     try {
-      const res = await lookupCustomerLicense(q);
+      const res = await lookupCustomerLicense(q, lookupPassword);
       if (res.found) {
         setLookupResult(res);
       } else {
@@ -780,35 +788,63 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                 <div>
                   <div className="p-3 rounded-3 mb-2" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                     <div className="fw-bold text-dark mb-1" style={{ fontSize: '13px' }}>
-                      🔍 Find Your Unique License ID
+                      🔒 License Verification &amp; Expiry Lookup
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '10px' }}>
-                      Enter your 10-digit mobile number or User ID to retrieve your un-guessable 13-digit Unique Customer License ID to quote to our company for renewals.
+                    <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>
+                      Enter your <strong>User ID &amp; Password</strong> to securely view your License ID, or enter your full <strong>13-digit License ID</strong> to check status.
+                    </div>
+                    <div className="p-2 rounded-2 mb-2.5" style={{ background: '#fef3c7', border: '1px solid #fde68a', fontSize: '10.5px', color: '#92400e' }}>
+                      🛡️ <strong>Privacy Protection:</strong> License IDs are never given out by mobile number alone.
                     </div>
 
                     <form onSubmit={handlePerformLookup}>
-                      <div className="input-group mb-2">
+                      <div className="mb-2">
+                        <label className="form-label fw-semibold mb-1" style={{ fontSize: '11px', color: '#334155' }}>
+                          User ID or License ID *
+                        </label>
                         <input
                           type="text"
                           className="form-control font-monospace"
                           style={{ fontSize: '12.5px', borderColor: '#cbd5e1' }}
-                          placeholder="e.g. 9876543210 or username"
+                          placeholder="e.g. your_username or 91-24-380-749216"
                           value={lookupQuery}
                           onChange={(e) => {
                             setLookupQuery(e.target.value);
                             setLookupError('');
                           }}
                           autoFocus
+                          required
                         />
-                        <button
-                          type="submit"
-                          className="btn fw-bold px-3"
-                          disabled={isSearchingLicense}
-                          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '12px' }}
-                        >
-                          {isSearchingLicense ? '⏳' : 'Search'}
-                        </button>
                       </div>
+
+                      {/* Password input for verifying ownership when querying by username */}
+                      {!lookupQuery.includes('-') && (
+                        <div className="mb-2">
+                          <label className="form-label fw-semibold mb-1" style={{ fontSize: '11px', color: '#334155' }}>
+                            Account Password (Required to reveal License ID)
+                          </label>
+                          <input
+                            type="password"
+                            className="form-control"
+                            style={{ fontSize: '12.5px', borderColor: '#cbd5e1' }}
+                            placeholder="Enter password to verify identity"
+                            value={lookupPassword}
+                            onChange={(e) => {
+                              setLookupPassword(e.target.value);
+                              setLookupError('');
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        className="btn fw-bold w-100 py-1.5"
+                        disabled={isSearchingLicense}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '12px' }}
+                      >
+                        {isSearchingLicense ? '⏳ Verifying...' : '🔍 Check License & Expiry Status'}
+                      </button>
                     </form>
 
                     {lookupError && (
