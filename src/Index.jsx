@@ -33,6 +33,7 @@ import { syncUserDataToCloud, fetchUserDataFromCloud, subscribeUserDataFromCloud
 import { GST_STATE_CODES } from './services/gstinValidator.js';
 import { DEFAULT_UNIT } from './constants/units.js';
 import { useNetworkStatus } from './services/networkStatus.js';
+import { hasFeatureAccess } from './constants/subscriptionPlans.js';
 
 // Lazy Loaded Dialog Modals
 const ShareInvoiceModal = lazy(() => import('./Components/Communication/index.jsx').then((m) => ({ default: m.ShareInvoiceModal })));
@@ -67,6 +68,20 @@ function Index() {
   const subscriptionStatus = useMemo(() => {
     return evaluateSubscriptionStatus(currentUser);
   }, [currentUser]);
+
+  // Build a role-filtered menu: Settings is hidden from all users except Master Admin
+  const visibleMenus = useMemo(() => {
+    if (subscriptionStatus.isAdmin) return MENUS; // Master admin sees everything
+    return {
+      ...MENUS,
+      Administration: {
+        ...MENUS.Administration,
+        'System & Security': MENUS.Administration['System & Security'].filter(
+          (item) => item !== 'Settings'
+        ),
+      },
+    };
+  }, [subscriptionStatus.isAdmin]);
 
   const [isBooting, setIsBooting] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -1060,10 +1075,20 @@ function Index() {
       return;
     }
     if (option === 'Email Invoice') {
+      if (!hasFeatureAccess(currentUser, 'whatsapp_email_share')) {
+        setRenewalModalOpen(true);
+        alert('⚡ Direct Email & WhatsApp invoice dispatching requires the Enterprise Suite. You can still download high-resolution PDFs and print invoices on your current plan!');
+        return;
+      }
       setShareModal({ isOpen: true, mode: 'email', targetInvoice: null });
       return;
     }
     if (option === 'Send SMS') {
+      if (!hasFeatureAccess(currentUser, 'whatsapp_email_share')) {
+        setRenewalModalOpen(true);
+        alert('⚡ Direct SMS & WhatsApp dispatching requires the Enterprise Suite. You can still download high-resolution PDFs and print invoices on your current plan!');
+        return;
+      }
       setShareModal({ isOpen: true, mode: 'sms', targetInvoice: null });
       return;
     }
@@ -1134,7 +1159,8 @@ function Index() {
   // Apply cloud data payload into app state and localStorage
   const applyCloudData = useCallback((cloudData, username) => {
     if (!cloudData) return;
-    const targetUser = (username || 'admin').toLowerCase().trim();
+    const targetUser = (username || currentUser?.username || '').toLowerCase().trim();
+    if (!targetUser) return;
     isRemoteSyncingRef.current = true;
 
     try {
@@ -1259,7 +1285,7 @@ function Index() {
   // Extract user's complete data from Firebase Cloud Firestore
   const extractUserDataFromCloud = useCallback(
     async (explicitUser) => {
-      const targetUser = (explicitUser || currentUser?.username || 'admin').toLowerCase().trim();
+      const targetUser = (explicitUser || currentUser?.username || '').toLowerCase().trim();
       if (!targetUser) return { success: false };
 
       setCloudSyncStatus('syncing');
@@ -1380,6 +1406,16 @@ function Index() {
 
   const handlePushToCloud = async () => {
     if (!currentUser?.username) return;
+
+    if (!hasFeatureAccess(currentUser, 'cloud_sync')) {
+      setCloudNotice({
+        type: 'warning',
+        message: '⚡ Multi-Device Cloud Sync is available on the Professional Plan & Enterprise Suite. Your local data remains securely saved.',
+      });
+      setTimeout(() => setCloudNotice(null), 5000);
+      return { success: false, tierRestricted: true };
+    }
+
     setCloudSyncStatus('syncing');
     const targetUser = currentUser.username.toLowerCase();
 
@@ -1416,7 +1452,12 @@ function Index() {
 
   // Auth Handlers
   const handleLogin = async (rawUsername, fullUser = null) => {
-    const username = (typeof rawUsername === 'string' ? rawUsername : rawUsername?.username || 'admin').toLowerCase().trim();
+    const extractedName = typeof rawUsername === 'string' ? rawUsername : rawUsername?.username;
+    if (!extractedName && !fullUser) {
+      console.warn('handleLogin called without valid user');
+      return;
+    }
+    const username = (extractedName || fullUser?.username || '').toLowerCase().trim();
     const userInvoices = loadInvoices(username);
 
     // Resolve complete user object with subscription and unique license ID
@@ -1428,6 +1469,7 @@ function Index() {
         }
       : {
           username,
+          role: username === 'admin' ? 'Admin' : 'Owner',
           licenseId: username === 'admin' ? '91-00-000-000000' : ensureValidLicenseId({ username }),
         };
 
@@ -1654,7 +1696,7 @@ function Index() {
       {/* ================= TOP NAVIGATION BAR ================= */}
       <TopNavbar
         currentUser={currentUser}
-        menus={MENUS}
+        menus={visibleMenus}
         activeMenu={activeMenu}
         onMenuClick={handleMenuClick}
         onOptionClick={handleOptionClick}
@@ -1679,7 +1721,7 @@ function Index() {
         cloudSyncStatus={cloudSyncStatus}
         onOpenCloudSync={() => setCloudSyncModalOpen(true)}
         onInitiateLogout={initiateLogout}
-        menus={MENUS}
+        menus={visibleMenus}
         expandedGroups={expandedMobileGroups}
         onToggleGroup={toggleMobileGroup}
         openSubSections={openSubSections}

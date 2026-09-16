@@ -1584,4 +1584,66 @@ body {
 .page-slide-in {
   animation: pageSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* =====================================================
+   MOBILE LOGIN & ONBOARDING ENHANCEMENTS
+   ===================================================== */
+@media (max-width: 768px) {
+  .login-fullwindow-view {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 0 !important;
+    background: #090d16 !important;
+  }
+
+  .login-portal-wrapper {
+    height: auto !important;
+    min-height: 100dvh !important;
+    max-height: none !important;
+    padding: 0.75rem !important;
+    overflow-y: visible !important;
+    justify-content: flex-start !important;
+  }
+
+  .login-card-container {
+    max-height: none !important;
+    min-height: auto !important;
+    border-radius: 20px !important;
+    margin: auto 0 !important;
+    box-shadow: 0 16px 40px -10px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  .login-card-body {
+    overflow-y: visible !important;
+    padding: 1.25rem 1rem !important;
+  }
+
+  .login-tab-btn {
+    padding: 8px 6px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Touch Target Optimizations for Mobile Forms */
+  .mobile-touch-input {
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  .mobile-touch-btn {
+    min-height: 48px !important;
+    font-size: 14.5px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .mobile-plan-card {
+    margin-bottom: 0.75rem !important;
+  }
+}
+
 

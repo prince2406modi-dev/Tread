@@ -21,6 +21,8 @@ const SalesOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({
 const PurchaseOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({ default: m.PurchaseOrderManager })));
 const PaymentManager = lazy(() => import('./Payments/index.jsx'));
 import Login from './Login/index.jsx';
+import FeatureLockGate from './Common/FeatureLockGate.jsx';
+import { hasFeatureAccess } from '../constants/subscriptionPlans.js';
 
 export default function ViewRouter({
   activePage,
@@ -291,6 +293,17 @@ export default function ViewRouter({
     activePage === 'Purchase Register';
 
   if (isAddPurchase || isModifyPurchase || isListPurchase) {
+    if (!hasFeatureAccess(currentUser, 'purchase_bills')) {
+      return (
+        <FeatureLockGate
+          featureKey="purchase_bills"
+          featureTitle="Purchase Bills & Supplier Orders"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     const purchaseMode = isAddPurchase ? 'add' : isModifyPurchase ? 'modify' : 'list';
     const purchaseTab = isAddPurchase ? 'manual-bill' : 'purchase-history';
     return (
@@ -319,6 +332,17 @@ export default function ViewRouter({
     activePage === 'Sales Order';
 
   if (isAddSalesOrder || isModifySalesOrder || isListSalesOrders) {
+    if (!hasFeatureAccess(currentUser, 'sales_orders')) {
+      return (
+        <FeatureLockGate
+          featureKey="sales_orders"
+          featureTitle="Sales Orders & Bookings"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     const orderMode = isAddSalesOrder ? 'add' : isModifySalesOrder ? 'modify' : 'list';
     return (
       <SalesOrderManager
@@ -344,6 +368,17 @@ export default function ViewRouter({
     activePage === 'Purchase Order';
 
   if (isAddPurchaseOrder || isModifyPurchaseOrder || isListPurchaseOrders) {
+    if (!hasFeatureAccess(currentUser, 'purchase_orders')) {
+      return (
+        <FeatureLockGate
+          featureKey="purchase_orders"
+          featureTitle="Purchase Orders"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     const poMode = isAddPurchaseOrder ? 'add' : isModifyPurchaseOrder ? 'modify' : 'list';
     return (
       <PurchaseOrderManager
@@ -373,6 +408,17 @@ export default function ViewRouter({
     activePage === 'Payment';
 
   if (isAddPayment || isModifyPayment || isListPayment) {
+    if (!hasFeatureAccess(currentUser, 'payments')) {
+      return (
+        <FeatureLockGate
+          featureKey="payments"
+          featureTitle="Payment Register & Cash/Bank Tracking"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     const payMode = isAddPayment ? 'add' : isModifyPayment ? 'modify' : 'list';
     return (
       <PaymentManager
@@ -435,6 +481,17 @@ export default function ViewRouter({
     activePage === 'Items List';
 
   if (isAddItem || isModifyItem || isListItems) {
+    if (!hasFeatureAccess(currentUser, 'inventory_stock')) {
+      return (
+        <FeatureLockGate
+          featureKey="inventory_stock"
+          featureTitle="Stock Inventory & Product Catalog"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     const itemMode = isAddItem ? 'add' : isModifyItem ? 'modify' : 'list';
     return (
       <StockManagement
@@ -459,6 +516,17 @@ export default function ViewRouter({
     activePage === 'Master Item Catalog & API' ||
     activePage === 'Item API'
   ) {
+    if (!hasFeatureAccess(currentUser, 'item_api')) {
+      return (
+        <FeatureLockGate
+          featureKey="item_api"
+          featureTitle="Master Item Catalog & API"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     return (
       <ItemCatalogApi
         key={activePage}
@@ -476,6 +544,17 @@ export default function ViewRouter({
     activePage === 'Device Access' ||
     activePage === 'App Permissions & Access'
   ) {
+    if (!hasFeatureAccess(currentUser, 'device_access')) {
+      return (
+        <FeatureLockGate
+          featureKey="device_access"
+          featureTitle="Device Access Control & Security"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     return (
       <DeviceAccessControl
         key={activePage}
@@ -517,6 +596,17 @@ export default function ViewRouter({
 
   // 11. Users & Administration
   if (activePage === 'Users') {
+    if (!hasFeatureAccess(currentUser, 'user_management')) {
+      return (
+        <FeatureLockGate
+          featureKey="user_management"
+          featureTitle="Multi-User Management & Team Roles"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     return (
       <UserManagement
         key={activePage}
@@ -529,8 +619,11 @@ export default function ViewRouter({
     );
   }
 
-  // 12. Settings
+  // 12. Settings — Master Admin only (hides Firebase Cloud API & Database Sync from all other users)
   if (activePage === 'Settings') {
+    if (!subscriptionStatus?.isAdmin) {
+      return null; // Non-admins cannot access this page even via direct navigation
+    }
     return (
       <AppSettings
         key={activePage}
@@ -543,6 +636,17 @@ export default function ViewRouter({
 
   // 13. Roles & Permissions
   if (activePage === 'Roles & Permissions' || activePage === 'Roles') {
+    if (!hasFeatureAccess(currentUser, 'user_management')) {
+      return (
+        <FeatureLockGate
+          featureKey="user_management"
+          featureTitle="Roles & Permissions"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     return (
       <RolesPermissions
         key={activePage}
@@ -638,6 +742,17 @@ export default function ViewRouter({
     activePage === 'GSTR-3B Return Summary' ||
     activePage === 'GSTIN & HSN Directory'
   ) {
+    if (!hasFeatureAccess(currentUser, 'gst_hub')) {
+      return (
+        <FeatureLockGate
+          featureKey="gst_hub"
+          featureTitle="GST Filing Hub & Returns"
+          currentUser={currentUser}
+          onOpenRenewalModal={onOpenRenewalModal}
+          onBack={() => onNavigate(null)}
+        />
+      );
+    }
     let initialGstTab = 'importer';
     if (activePage.includes('GSTR-1')) initialGstTab = 'gstr1';
     else if (activePage.includes('GSTR-2B')) initialGstTab = 'gstr2b';

@@ -411,14 +411,24 @@ axios.post('${apiEndpoint}', {
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <div>
-              <h2 className="h5 mb-0 fw-bold">👥 System Users &amp; Operators</h2>
-              <small className="text-muted">Users can log in with their credentials on any phone, tablet, laptop, or desktop.</small>
+              <h2 className="h5 mb-0 fw-bold">👥 Global User Accounts &amp; License Provisioning</h2>
+              <small className="text-muted">
+                Manage subscription validity, tiers, and user licenses globally. Zero-Access Security ensures all user sales, bills, invoices, and parties remain 100% private to each user.
+              </small>
             </div>
             {currentUser && (
-              <span className="badge bg-success px-3 py-2">
-                Logged in as: {currentUser.username}
+              <span className="badge bg-primary px-3 py-2">
+                Master Admin: {currentUser.username}
               </span>
             )}
+          </div>
+          <div className="px-3 pt-2">
+            <div className="alert alert-info py-2 px-3 small d-flex align-items-center gap-2 mb-0" style={{ fontSize: '12px' }}>
+              <span>🛡️</span>
+              <span>
+                <strong>Privacy &amp; Data Isolation Guaranteed:</strong> As administrator, you control subscription terms, account activation, and feature availability. You do not have access to any customer’s sales invoices, inventory records, or financial ledgers.
+              </span>
+            </div>
           </div>
           <div className="card-body p-0">
             <div className="table-responsive">
@@ -521,21 +531,13 @@ axios.post('${apiEndpoint}', {
                             >
                               ⚡ Extend
                             </button>
-                            {isCurrent ? (
+                            {isCurrent && (
                               <button
                                 type="button"
                                 className="btn btn-sm btn-outline-danger py-0 px-2"
                                 onClick={onLogout}
                               >
                                 Sign Out
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-primary py-0 px-2"
-                                onClick={() => onSwitchUser(user.username)}
-                              >
-                                Switch
                               </button>
                             )}
                             {!isMasterAdmin && (
@@ -642,10 +644,17 @@ axios.post('${apiEndpoint}', {
                     value={role}
                     onChange={(e) => setRole(e.target.value)}
                   >
-                    <option value="Admin">Administrator (Full Access)</option>
-                    <option value="Operator">Operator (Invoicing &amp; Billing)</option>
-                    <option value="Viewer">Viewer (Read Only)</option>
+                    {currentUser?.username?.toLowerCase() === 'admin' && (
+                      <option value="Admin">Administrator (Global Feature &amp; License Control)</option>
+                    )}
+                    <option value="Operator">Operator (Invoicing, Billing &amp; Stock)</option>
+                    <option value="Viewer">Viewer (Read Only Access)</option>
                   </select>
+                  <div className="form-text text-muted small">
+                    {currentUser?.username?.toLowerCase() === 'admin'
+                      ? 'Note: Only you as the master administrator can grant Admin rights to another account.'
+                      : 'Operators and Viewers cannot access other accounts or global control settings.'}
+                  </div>
                 </div>
               </div>
 

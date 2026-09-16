@@ -8,6 +8,13 @@ const PLANS = [
     price: 499,
     period: '/ year',
     description: 'Up to 500 invoices/year with standard GST formats & local secure storage.',
+    features: [
+      'Up to 500 Invoices / Year',
+      'Standard GST Tax Formats',
+      'Customer Directory (Accounts)',
+      'Instant PDF Export & Print',
+      'Local Encrypted Storage',
+    ],
   },
   {
     id: 'pro',
@@ -16,6 +23,15 @@ const PLANS = [
     period: '/ year',
     popular: true,
     description: 'Unlimited invoices, inventory alerts, multi-device cloud sync access.',
+    features: [
+      'Unlimited Invoices',
+      'Stock Inventory & Low Alerts',
+      'Purchase Bills & Supplier Hub',
+      'Sales & Purchase Orders',
+      'Payment Tracking Register',
+      'GSTR-1, 2B & 3B Returns',
+      'Cross-Device Cloud Sync',
+    ],
   },
   {
     id: 'enterprise',
@@ -23,6 +39,14 @@ const PLANS = [
     price: 1999,
     period: '/ year',
     description: 'All features, multi-user roles, audit reports, priority cloud archiving.',
+    features: [
+      'All Professional Features',
+      'Multi-User Team Management',
+      'Device Access Control & Security',
+      'Master Item Catalog & API',
+      'WhatsApp & Email Direct Dispatch',
+      'Audit Trail & Financial Reports',
+    ],
   },
 ];
 
@@ -297,9 +321,17 @@ export default function LicenseRenewalModal({
                               {plan.period}
                             </span>
                           </div>
-                          <p className="small text-muted mb-0" style={{ fontSize: '11.5px' }}>
+                          <p className="small text-muted mb-2" style={{ fontSize: '11.5px' }}>
                             {plan.description}
                           </p>
+                          <ul className="list-unstyled mb-0 border-top pt-2" style={{ fontSize: '11px', color: '#475569' }}>
+                            {(plan.features || []).map((feat, fIdx) => (
+                              <li key={fIdx} className="d-flex align-items-center gap-1.5 mb-1">
+                                <span className="text-success fw-bold" style={{ fontSize: '11px' }}>✓</span>
+                                <span className="text-truncate">{feat}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
                     );

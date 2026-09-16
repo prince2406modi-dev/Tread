@@ -1,5 +1,6 @@
 import Logo from '../../assets/Images/Logo.png';
 import { getCategoryIcon, getSubSectionIcon, getItemIcon } from '../../constants/navigation.js';
+import { getNavBadgeForPage } from '../../constants/subscriptionPlans.js';
 
 export default function MobileDrawer({
   isOpen,
@@ -93,24 +94,45 @@ export default function MobileDrawer({
                   {isGroupOpen && (
                     <div className="mobile-accordion-content">
                       {Array.isArray(itemsList) ? (
-                        itemsList.map((item) => (
-                          <button
-                            key={item}
-                            type="button"
-                            className={`mobile-nav-link ${activePage === item ? 'active' : ''}`}
-                            onClick={() => {
-                              onSelectOption(item);
-                              onClose();
-                            }}
-                          >
-                            <span className="text-primary small">{getItemIcon(item)}</span>
-                            <span>{item}</span>
-                          </button>
-                        ))
+                        itemsList.map((item) => {
+                          const tierBadge = getNavBadgeForPage(item, '', group);
+                          return (
+                            <button
+                              key={item}
+                              type="button"
+                              className={`mobile-nav-link d-flex align-items-center justify-content-between ${activePage === item ? 'active' : ''}`}
+                              onClick={() => {
+                                onSelectOption(item);
+                                onClose();
+                              }}
+                            >
+                              <span className="d-flex align-items-center gap-2">
+                                <span className="text-primary small">{getItemIcon(item)}</span>
+                                <span>{item}</span>
+                              </span>
+                              {tierBadge && (
+                                <span
+                                  className="badge"
+                                  style={{
+                                    fontSize: '8.5px',
+                                    padding: '2px 5px',
+                                    background: tierBadge === 'ENT' ? 'rgba(147, 51, 234, 0.15)' : 'rgba(245, 158, 11, 0.18)',
+                                    color: tierBadge === 'ENT' ? '#c084fc' : '#f59e0b',
+                                    border: tierBadge === 'ENT' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  {tierBadge}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })
                       ) : (
                         Object.entries(itemsList).map(([subKey, subOptions]) => {
                           const mobileSubKey = `mobile_${group}_${subKey}`;
                           const isSubOpen = !!openSubSections[mobileSubKey];
+                          const subBadge = getNavBadgeForPage('', subKey, group);
                           return (
                             <div key={subKey} className={`mobile-sub-accordion-card ${isSubOpen ? 'open' : ''}`}>
                               <button
@@ -121,6 +143,21 @@ export default function MobileDrawer({
                                 <span className="d-flex align-items-center gap-2">
                                   <span>{getSubSectionIcon(subKey)}</span>
                                   <span>{subKey}</span>
+                                  {subBadge && (
+                                    <span
+                                      className="badge ms-1"
+                                      style={{
+                                        fontSize: '8px',
+                                        padding: '1px 4px',
+                                        background: 'rgba(245, 158, 11, 0.15)',
+                                        color: '#f59e0b',
+                                        border: '1px solid rgba(245, 158, 11, 0.35)',
+                                        borderRadius: '3px',
+                                      }}
+                                    >
+                                      {subBadge}
+                                    </span>
+                                  )}
                                 </span>
                                 <span className="small text-muted">{isSubOpen ? '▲' : '▶'}</span>
                               </button>

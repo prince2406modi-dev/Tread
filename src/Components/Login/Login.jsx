@@ -19,10 +19,10 @@ const PLANS = [
     description: 'Perfect for small retailers & individual proprietors.',
     features: [
       'Up to 500 Invoices / Year',
-      'Standard GST Tax Invoice Format',
-      'Customer & Party Directory',
+      'Standard GST Tax Invoice Formats',
+      'Customer & Party Directory (Accounts)',
       'Instant PDF Export & Print',
-      'Local Secure Storage'
+      'Local Secure Encrypted Storage'
     ],
     badge: 'Basic',
     color: 'border-secondary',
@@ -37,11 +37,12 @@ const PLANS = [
     description: 'Best for growing businesses with stock inventory & GST filing.',
     features: [
       'Unlimited Tax Invoices',
-      'Standard & Custom Invoice Formats',
       'Live Stock Inventory & Low Stock Alerts',
-      'GSTR-1 Monthly Reports & JSON Export',
-      'Multi-Device Cloud Sync Access',
-      'Priority Backup & Restore'
+      'Purchase Bills & Supplier Management',
+      'Sales Orders & Purchase Orders (1-Click Convert)',
+      'Payment Register (Receive & Pay Track)',
+      'GSTR-1, GSTR-2B & GSTR-3B Returns & JSON Export',
+      'Multi-Device Cloud Sync Access'
     ],
     badge: 'Most Popular',
     color: 'border-primary',
@@ -52,14 +53,14 @@ const PLANS = [
     name: 'Enterprise Suite',
     price: 1999,
     period: '/ year',
-    description: 'For wholesale distributors & multi-counter operations.',
+    description: 'For wholesale distributors, multi-counter & multi-staff teams.',
     features: [
-      'All Professional Features',
-      'Multi-User Roles & Permissions',
-      'WhatsApp & Email Direct Share',
-      'Financial & Tax Audit Reports',
-      'Dedicated 24/7 Support',
-      'Lifetime Cloud Archiving'
+      'All Professional Features Included',
+      'Multi-User Team Management & Role Permissions',
+      'Device Access Control & Security Authorization',
+      'Master Item Catalog & API Integration',
+      'WhatsApp & Email Direct Document Delivery',
+      'Financial & Tax Audit Reports'
     ],
     badge: 'Enterprise',
     color: 'border-dark',
@@ -76,6 +77,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   const [username, setUsername] = useState('');
   const [loginMobile, setLoginMobile] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [passcodeAccount, setPasscodeAccount] = useState('');
   const [devicePasscode, setDevicePasscode] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -320,7 +322,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
         locality: locality.trim(),
         pincode: pincode.trim(),
         country: '91',
-        role: 'Admin',
+        role: username.trim().toLowerCase() === 'admin' ? 'Admin' : 'Owner',
         licenseId: generatedLicenseId,
         subscription: {
           planId: currentPlan.id,
@@ -523,27 +525,23 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
           PORTAL (Desktop: Right for Login, Left for Create Account)
           ========================================================= */}
       <div
-        className="d-flex flex-column justify-content-center align-items-center p-3 p-md-4 position-relative"
+        className="login-portal-wrapper d-flex flex-column justify-content-center align-items-center p-2 p-md-4 position-relative"
         style={{
           flex: mode === 'signup' ? (step === 2 ? '1.35' : '1.2') : (step === 2 ? '1.25' : '0.85'),
           width: '100%',
-          height: '100vh',
-          maxHeight: '100vh',
-          overflow: 'hidden',
+          minHeight: '100vh',
           zIndex: 2,
           transition: 'all 0.3s ease',
         }}
       >
         <div
-          className="border-0 rounded-4 overflow-hidden position-relative w-100"
+          className="login-card-container border-0 rounded-4 overflow-hidden position-relative w-100 shadow-lg my-auto"
           style={{
             maxWidth: mode === 'signup' ? (step === 2 ? '900px' : '640px') : (step === 2 ? '860px' : '440px'),
-            minHeight: mode === 'signup' ? 'min(580px, 92vh)' : 'min(580px, 90vh)',
             backgroundColor: '#ffffff',
             border: '1px solid rgba(226,232,240,0.9)',
             boxShadow: '0 25px 60px -12px rgba(15,23,42,0.12), 0 0 0 1px rgba(79,70,229,0.06), 0 1px 3px rgba(0,0,0,0.05)',
             borderRadius: '24px',
-            maxHeight: '92vh',
             display: 'flex',
             flexDirection: 'column',
             transition: 'max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -555,7 +553,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
             style={{
               background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 55%, #312e81 100%)',
               borderBottom: '1px solid rgba(245,158,11,0.25)',
-              padding: mode === 'signup' ? '1rem 1.5rem 0.85rem' : '1.25rem 1.5rem 1rem',
+              padding: mode === 'signup' ? '1rem 1.25rem 0.85rem' : '1.25rem 1.25rem 1rem',
             }}
           >
             {/* Top Gold Shimmer Line */}
@@ -578,11 +576,10 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
           </div>
 
           <div
-            className="card-body p-3.5 p-md-4"
+            className="login-card-body card-body p-3 p-md-4"
             style={{
               background: '#ffffff',
               color: '#1e293b',
-              overflowY: step === 2 ? 'auto' : 'hidden',
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
@@ -607,7 +604,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
               <div className="btn-group w-100 mb-3 shadow-xs" role="group">
                 <button
                   type="button"
-                  className={`btn btn-sm py-1.5 fw-bold ${
+                  className={`btn btn-sm py-1.5 fw-bold login-tab-btn ${
                     loginMethod === 'credentials' ? 'btn-primary' : 'btn-outline-secondary bg-white'
                   }`}
                   style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
@@ -616,11 +613,11 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     clearError();
                   }}
                 >
-                  🔐 User / License ID
+                  🔐 User / License
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-sm py-1.5 fw-bold ${
+                  className={`btn btn-sm py-1.5 fw-bold login-tab-btn ${
                     loginMethod === 'device-passcode' ? 'btn-primary' : 'btn-outline-secondary bg-white'
                   }`}
                   style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
@@ -633,7 +630,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                 </button>
                 <button
                   type="button"
-                  className={`btn btn-sm py-1.5 fw-bold ${
+                  className={`btn btn-sm py-1.5 fw-bold login-tab-btn ${
                     loginMethod === 'lookup' ? 'btn-primary' : 'btn-outline-secondary bg-white'
                   }`}
                   style={{ fontSize: '11px', letterSpacing: '-0.01em' }}
@@ -642,7 +639,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     clearError();
                   }}
                 >
-                  🔍 Find License ID
+                  🔍 Find ID
                 </button>
               </div>
 
@@ -653,13 +650,13 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                 <form onSubmit={handleLoginSubmit} autoComplete="off">
                   <div className="mb-2.5">
                     <div className="d-flex align-items-center justify-content-between mb-1">
-                      <label className="form-label fw-semibold mb-0" style={{ fontSize: '11.5px', color: '#334155' }}>
+                      <label className="form-label fw-semibold mb-0" style={{ fontSize: '12px', color: '#334155' }}>
                         1. User ID / Customer License ID *
                       </label>
                       <button
                         type="button"
                         className="btn btn-link p-0 text-decoration-none"
-                        style={{ fontSize: '10.5px', color: '#d97706' }}
+                        style={{ fontSize: '11px', color: '#d97706' }}
                         onClick={() => setLoginMethod('lookup')}
                       >
                         Forgot License ID?
@@ -667,8 +664,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     </div>
                     <input
                       type="text"
-                      className="form-control font-monospace py-2 px-3"
-                      style={{ fontSize: '13px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control font-monospace py-2 px-3 mobile-touch-input"
+                      style={{ fontSize: '14px', borderRadius: '10px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value);
@@ -678,18 +675,20 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                       autoFocus
                       required
                     />
-                    <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
-                      💡 Accepts User ID or 13-digit numeric License ID
+                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>
+                      💡 User ID or 13-digit numeric License ID
                     </div>
                   </div>
 
                   <div className="mb-2.5">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>2. Registered Mobile (10 Digits) *</label>
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '12px', color: '#334155' }}>2. Registered Mobile (10 Digits) *</label>
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={10}
-                      className="form-control font-monospace py-2 px-3"
-                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control font-monospace py-2 px-3 mobile-touch-input"
+                      style={{ fontSize: '14px', borderRadius: '10px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={loginMobile}
                       onChange={(e) => {
                         setLoginMobile(e.target.value.replace(/\D/g, ''));
@@ -701,27 +700,39 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>3. Password *</label>
-                    <input
-                      type="password"
-                      className="form-control py-2 px-3"
-                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value);
-                        clearError();
-                      }}
-                      placeholder="Enter account password"
-                      required
-                    />
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '12px', color: '#334155' }}>3. Password *</label>
+                    <div className="position-relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        className="form-control py-2 px-3 mobile-touch-input"
+                        style={{ fontSize: '14px', borderRadius: '10px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc', paddingRight: '46px' }}
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          clearError();
+                        }}
+                        placeholder="Enter account password"
+                        required
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-link position-absolute end-0 top-50 translate-middle-y text-muted px-3"
+                        style={{ textDecoration: 'none', border: 'none', boxShadow: 'none' }}
+                        onClick={() => setShowPassword(!showPassword)}
+                        tabIndex={-1}
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? '👁️' : '🙈'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="d-grid gap-2 mb-2">
                     <button
                       type="submit"
-                      className="btn fw-bold w-100"
+                      className="btn fw-bold w-100 mobile-touch-btn"
                       disabled={isAuthenticating}
-                      style={{ background: isAuthenticating ? 'rgba(245,158,11,0.5)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)', color: '#1c0a00', fontSize: '13.5px', letterSpacing: '0.04em', borderRadius: '11px', border: 'none', boxShadow: '0 8px 22px rgba(245,158,11,0.3)', padding: '0.68rem 1.2rem', textTransform: 'uppercase' }}
+                      style={{ background: isAuthenticating ? 'rgba(245,158,11,0.5)' : 'linear-gradient(135deg, #f59e0b 0%, #d97706 55%, #b45309 100%)', color: '#1c0a00', fontSize: '14px', letterSpacing: '0.04em', borderRadius: '12px', border: 'none', boxShadow: '0 8px 22px rgba(245,158,11,0.3)', padding: '0.75rem 1.2rem', textTransform: 'uppercase' }}
                     >
                       {isAuthenticating ? '⏳ Verifying credentials...' : '🔓 Sign In to Dashboard'}
                     </button>
@@ -737,11 +748,11 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                   </div>
 
                   <div className="mb-2.5">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>1. Owner User ID / Mobile *</label>
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '12px', color: '#334155' }}>1. Owner User ID / Mobile *</label>
                     <input
                       type="text"
-                      className="form-control font-monospace py-2 px-3"
-                      style={{ fontSize: '13.5px', borderRadius: '9px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control font-monospace py-2 px-3 mobile-touch-input"
+                      style={{ fontSize: '14px', borderRadius: '10px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={passcodeAccount}
                       onChange={(e) => {
                         setPasscodeAccount(e.target.value);
@@ -754,12 +765,14 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                   </div>
 
                   <div className="mb-3">
-                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>2. 6-Digit Passcode *</label>
+                    <label className="form-label fw-semibold mb-1" style={{ fontSize: '12px', color: '#334155' }}>2. 6-Digit Passcode *</label>
                     <input
-                      type="text"
+                      type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={6}
-                      className="form-control font-monospace text-center fs-4 fw-bold py-1.5 px-2"
-                      style={{ borderRadius: '9px', letterSpacing: '5px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control font-monospace text-center fs-3 fw-bold py-2 px-2 mobile-touch-input"
+                      style={{ borderRadius: '10px', letterSpacing: '8px', borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
                       value={devicePasscode}
                       onChange={(e) => {
                         setDevicePasscode(e.target.value.replace(/\D/g, ''));
@@ -773,9 +786,9 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                   <div className="d-grid gap-2 mb-2">
                     <button
                       type="submit"
-                      className="btn fw-bold w-100"
+                      className="btn fw-bold w-100 mobile-touch-btn"
                       disabled={isAuthenticating}
-                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', fontSize: '13.5px', letterSpacing: '0.04em', borderRadius: '11px', border: 'none', boxShadow: '0 8px 22px rgba(16,185,129,0.3)', padding: '0.68rem 1.2rem', textTransform: 'uppercase' }}
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', color: '#fff', fontSize: '14px', letterSpacing: '0.04em', borderRadius: '12px', border: 'none', boxShadow: '0 8px 22px rgba(16,185,129,0.3)', padding: '0.75rem 1.2rem', textTransform: 'uppercase' }}
                     >
                       {isAuthenticating ? '⏳ Authorizing device...' : '🔑 Authorize Device & Sign In'}
                     </button>
@@ -804,8 +817,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                         </label>
                         <input
                           type="text"
-                          className="form-control font-monospace"
-                          style={{ fontSize: '12.5px', borderColor: '#cbd5e1' }}
+                          className="form-control font-monospace mobile-touch-input"
+                          style={{ fontSize: '13.5px', borderRadius: '10px', borderColor: '#cbd5e1' }}
                           placeholder="e.g. your_username or 91-24-380-749216"
                           value={lookupQuery}
                           onChange={(e) => {
@@ -819,14 +832,14 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
 
                       {/* Password input for verifying ownership when querying by username */}
                       {!lookupQuery.includes('-') && (
-                        <div className="mb-2">
-                          <label className="form-label fw-semibold mb-1" style={{ fontSize: '11px', color: '#334155' }}>
+                        <div className="mb-2.5">
+                          <label className="form-label fw-semibold mb-1" style={{ fontSize: '11.5px', color: '#334155' }}>
                             Account Password (Required to reveal License ID)
                           </label>
                           <input
                             type="password"
-                            className="form-control"
-                            style={{ fontSize: '12.5px', borderColor: '#cbd5e1' }}
+                            className="form-control mobile-touch-input"
+                            style={{ fontSize: '13.5px', borderRadius: '10px', borderColor: '#cbd5e1' }}
                             placeholder="Enter password to verify identity"
                             value={lookupPassword}
                             onChange={(e) => {
@@ -839,9 +852,9 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
 
                       <button
                         type="submit"
-                        className="btn fw-bold w-100 py-1.5"
+                        className="btn fw-bold w-100 mobile-touch-btn"
                         disabled={isSearchingLicense}
-                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '12px' }}
+                        style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', color: '#1c0a00', fontSize: '13.5px', borderRadius: '10px' }}
                       >
                         {isSearchingLicense ? '⏳ Verifying...' : '🔍 Check License & Expiry Status'}
                       </button>
@@ -1020,8 +1033,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>User ID / Username *</label>
                     <input
                       type="text"
-                      className="form-control"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={username}
                       onChange={(e) => {
                         setUsername(e.target.value);
@@ -1036,8 +1049,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Company / Business Name</label>
                     <input
                       type="text"
-                      className="form-control"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       placeholder="e.g. My Business / Firm Name"
@@ -1047,9 +1060,11 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Mobile Number (10 Digits) *</label>
                     <input
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       maxLength={10}
-                      className="form-control font-monospace"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control font-monospace mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={phone}
                       onChange={(e) => {
                         setPhone(e.target.value.replace(/\D/g, ''));
@@ -1063,8 +1078,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Email Address</label>
                     <input
                       type="email"
-                      className="form-control"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="e.g. name@company.com"
@@ -1074,8 +1089,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Password *</label>
                     <input
                       type="password"
-                      className="form-control"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
@@ -1089,8 +1104,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     <label className="form-label fw-semibold small" style={{ color: '#334155' }}>Confirm Password *</label>
                     <input
                       type="password"
-                      className="form-control"
-                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc' }}
+                      className="form-control mobile-touch-input"
+                      style={{ borderColor: '#cbd5e1', backgroundColor: '#f8fafc', borderRadius: '10px' }}
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
@@ -1103,7 +1118,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
 
                   {/* Location Details for Unique Customer License ID */}
                   <div className="col-12 mt-2">
-                    <div className="p-2 rounded-3" style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px dashed rgba(99, 102, 241, 0.3)' }}>
+                    <div className="p-2.5 rounded-3" style={{ background: 'rgba(99, 102, 241, 0.05)', border: '1px dashed rgba(99, 102, 241, 0.3)' }}>
                       <div className="fw-semibold text-primary small mb-2 d-flex align-items-center gap-1">
                         <span>📍 Business Location &amp; License Jurisdiction</span>
                         <span className="badge bg-primary-subtle text-primary ms-auto" style={{ fontSize: '10px' }}>Encodes Your Unique License ID</span>
@@ -1112,8 +1127,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                         <div className="col-md-5">
                           <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>State / Union Territory *</label>
                           <select
-                            className="form-select form-select-sm"
-                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            className="form-select mobile-touch-input"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderRadius: '8px', fontSize: '13px' }}
                             value={userState}
                             onChange={(e) => setUserState(e.target.value)}
                             required
@@ -1127,8 +1142,8 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                           <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>City / Locality</label>
                           <input
                             type="text"
-                            className="form-control form-control-sm"
-                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            className="form-control mobile-touch-input"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderRadius: '8px', fontSize: '13px' }}
                             value={locality}
                             onChange={(e) => setLocality(e.target.value)}
                             placeholder="e.g. Surat, Andheri..."
@@ -1137,10 +1152,12 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                         <div className="col-md-3">
                           <label className="form-label fw-semibold" style={{ fontSize: '11px', color: '#475569' }}>PIN Code</label>
                           <input
-                            type="text"
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             maxLength={6}
-                            className="form-control form-control-sm font-monospace"
-                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff' }}
+                            className="form-control font-monospace mobile-touch-input"
+                            style={{ borderColor: '#cbd5e1', backgroundColor: '#ffffff', borderRadius: '8px', fontSize: '13px' }}
                             value={pincode}
                             onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
                             placeholder="395001"
@@ -1199,7 +1216,7 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                     const isSelected = selectedPlan === plan.id;
                     const isPro = plan.id === 'pro';
                     return (
-                      <div className="col-md-4" key={plan.id}>
+                      <div className="col-md-4 col-12 mobile-plan-card" key={plan.id}>
                         <div
                           className={`card h-100 cursor-pointer position-relative ${isSelected ? 'border-primary border-2' : 'border'}`}
                           style={{
@@ -1372,24 +1389,26 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
                 <div className="d-flex gap-2">
                   <button
                     type="button"
-                    className="btn btn-outline-secondary"
+                    className="btn btn-outline-secondary mobile-touch-btn px-3"
                     onClick={() => setStep(1)}
                     disabled={isProcessingPayment}
+                    style={{ borderRadius: '10px' }}
                   >
                     ← Back
                   </button>
                   <button
                     type="submit"
-                    className="btn btn-success fw-bold flex-grow-1 py-2 shadow"
+                    className="btn btn-success fw-bold flex-grow-1 py-2 shadow mobile-touch-btn"
                     disabled={isProcessingPayment}
+                    style={{ borderRadius: '10px' }}
                   >
                     {isProcessingPayment ? (
                       <span>
                         <span className="spinner-border spinner-border-sm me-2" role="status" />
-                        Processing Secure Payment ₹{currentPlan.price}...
+                        Processing ₹{currentPlan.price}...
                       </span>
                     ) : (
-                      `🔒 Pay ₹${currentPlan.price} & Activate Account`
+                      `🔒 Pay ₹${currentPlan.price} & Activate`
                     )}
                   </button>
                 </div>

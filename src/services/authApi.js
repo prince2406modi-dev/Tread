@@ -479,12 +479,10 @@ export async function cloudAuthenticateUser(usernameOrEmail, mobileNumber, passw
 
   const cleanIdDigits = normalizedId.replace(/\D/g, '');
 
-  // 1. Check if default Admin Master
+  // 1. Check if default Admin Master (Strictly restricted to designated master admin)
   const isMasterAdminId =
     normalizedId === 'admin' ||
-    normalizedId === 'admin@tread.local' ||
-    normalizedId === '91-00-000-000000' ||
-    cleanIdDigits === '9100000000000';
+    normalizedId === 'admin@tread.local';
 
   if (isMasterAdminId) {
     if (rawPass === ADMIN_MASTER_USER.password) {
@@ -687,7 +685,7 @@ export async function lookupCustomerLicense(query, password = '') {
     };
   }
 
-  if (lower === 'admin' || cleanDigits === '9100000000000' || lower === '91-00-000-000000') {
+  if (lower === 'admin') {
     return {
       found: true,
       username: 'admin',
