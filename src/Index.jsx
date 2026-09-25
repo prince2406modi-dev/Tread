@@ -1066,6 +1066,14 @@ function Index() {
     }
 
     // Print / Email / SMS Actions
+    if (
+      option === 'Company Profile PDF' ||
+      option === 'Download Company Details PDF' ||
+      option === 'Company Details PDF'
+    ) {
+      setShareModal({ isOpen: true, mode: 'company', targetInvoice: null });
+      return;
+    }
     if (option === 'Download PDF') {
       setShareModal({ isOpen: true, mode: 'pdf', targetInvoice: null });
       return;
@@ -2090,6 +2098,7 @@ function Index() {
             invoices={invoices}
             invoice={shareModal.targetInvoice || invoices[0]}
             company={company}
+            currentUser={currentUser}
             defaultMode={shareModal.mode}
             onDownloadPDF={handleDownloadPDF}
             onClose={() => setShareModal({ isOpen: false, mode: 'pdf', targetInvoice: null })}

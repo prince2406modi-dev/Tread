@@ -9,6 +9,8 @@ import {
   searchHSNCatalog,
 } from '../../services/hsnValidator.js';
 
+
+
 const EMPTY_STOCK_ITEM = {
   name: '',
   hsn: '',
@@ -16,6 +18,7 @@ const EMPTY_STOCK_ITEM = {
   rate: 0,
   gst: 18,
   unit: DEFAULT_UNIT,
+  category: '',
 };
 
 function StockManagement({
@@ -34,6 +37,7 @@ function StockManagement({
   const [items, setItems] = useState(stockItems);
   const [search, setSearch] = useState('');
   const [filterLowStock, setFilterLowStock] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
   const [showAddModal, setShowAddModal] = useState(initialShowAdd);
   const [editingStockId, setEditingStockId] = useState(null);
   const [stockForm, setStockForm] = useState(EMPTY_STOCK_ITEM);
@@ -84,6 +88,12 @@ function StockManagement({
     [purchaseBills]
   );
 
+  // Derive unique categories from actual item data (user-defined)
+  const usedCategories = useMemo(() => {
+    const cats = items.map((i) => i.category).filter(Boolean);
+    return [...new Set(cats)].sort();
+  }, [items]);
+
   // Filtered Stock
   const filteredStock = useMemo(() => {
     return items.filter((item) => {
@@ -93,9 +103,11 @@ function StockManagement({
         item.name.toLowerCase().includes(q) ||
         (item.hsn && item.hsn.toLowerCase().includes(q));
       const matchesLow = filterLowStock ? Number(item.stock) <= 5 : true;
-      return matchesSearch && matchesLow;
+      const matchesCategory = !filterCategory || item.category === filterCategory;
+      return matchesSearch && matchesLow && matchesCategory;
     });
-  }, [items, deferredSearch, filterLowStock]);
+  }, [items, deferredSearch, filterLowStock, filterCategory]);
+
 
   // Handler for Saving a Purchase Bill (Manual Entry)
   const handleSavePurchaseBill = (billData) => {
@@ -297,6 +309,7 @@ function StockManagement({
               rate: Math.max(0, Number(stockForm.rate) || 0),
               gst: Number(stockForm.gst) || 18,
               unit: stockForm.unit || 'PCS',
+              category: stockForm.category || '',
             }
           : i
       );
@@ -310,10 +323,12 @@ function StockManagement({
         rate: Math.max(0, Number(stockForm.rate) || 0),
         gst: Number(stockForm.gst) || 18,
         unit: stockForm.unit || 'PCS',
+        category: stockForm.category || '',
         createdAt: new Date().toISOString(),
       };
       updateStock([newItem, ...items]);
     }
+
 
     setShowAddModal(false);
     setEditingStockId(null);
@@ -534,6 +549,34 @@ function StockManagement({
                 </button>
               </div>
             </div>
+
+            {/* Category Filter Pills */}
+            <div className="card-footer bg-light py-2 px-3 d-flex flex-wrap gap-2 align-items-center">
+              <small className="text-muted fw-semibold me-1">📂 Filter by Category:</small>
+              <button
+                type="button"
+                className={`btn btn-sm py-0 px-2 fw-semibold ${filterCategory === '' ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => setFilterCategory('')}
+              >
+                All ({items.length})
+              </button>
+              {usedCategories.map((cat) => {
+                const count = items.filter((i) => i.category === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`btn btn-sm py-0 px-2 fw-semibold ${filterCategory === cat ? 'btn-primary' : 'btn-outline-secondary'}`}
+                    onClick={() => setFilterCategory(cat)}
+                  >
+                    📂 {cat} ({count})
+                  </button>
+                );
+              })}
+              {usedCategories.length === 0 && (
+                <small className="text-muted fst-italic">No categories added yet — type a category name when adding/editing items</small>
+              )}
+            </div>
           </div>
 
           <div className="card shadow-sm border-0">
@@ -590,6 +633,15 @@ function StockManagement({
                             <td>
                               <div className="fw-semibold text-dark">{item.name}</div>
                               <small className="text-muted">Unit: {item.unit || 'PCS'}</small>
+                              {item.category && (
+                                <span
+                                  className="badge ms-1"
+                                  style={{ fontSize: '0.68rem', background: '#e0e7ff', color: '#3730a3' }}
+                                >
+                                  📂 {item.category}
+                                </span>
+                              )}
+
                             </td>
                             <td>
                               {item.hsn ? <code>{item.hsn}</code> : <span className="text-muted">—</span>}
@@ -637,6 +689,7 @@ function StockManagement({
                                       rate: item.rate,
                                       gst: item.gst || 18,
                                       unit: item.unit || 'PCS',
+                                      category: item.category || '',
                                     });
                                     setEditingStockId(item.id);
                                     setShowAddModal(true);
@@ -937,6 +990,28 @@ function StockManagement({
                       autoFocus
                       required
                     />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold">Product Category <span className="text-muted fw-normal">(optional — type your own)</span></label>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="e.g. Electronics, Grocery, Raw Material, Services..."
+                      value={stockForm.category || ''}
+                      onChange={(e) =>
+                        setStockForm((f) => ({ ...f, category: e.target.value }))
+                      }
+                      list="stock-category-suggestions"
+                    />
+                    <datalist id="stock-category-suggestions">
+                      {usedCategories.map((cat) => (
+                        <option key={cat} value={cat} />
+                      ))}
+                    </datalist>
+                    {usedCategories.length > 0 && (
+                      <small className="text-muted">Suggestions from your existing items — or type a new one</small>
+                    )}
                   </div>
 
                   <div className="row g-3 mb-3">

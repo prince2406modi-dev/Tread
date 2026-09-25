@@ -1,15 +1,24 @@
 import { useState } from 'react';
+import { downloadCompanyProfilePDF } from '../../services/companyPdfGenerator.js';
+import { TaxInvoiceModal } from '../Invoices/index.jsx';
+import CompanyPreviewModal from '../Company/CompanyPreviewModal.jsx';
 
 function ShareInvoiceModal({
   invoice,
   invoices = [],
   company,
-  defaultMode = 'pdf', // 'pdf', 'email', 'sms', 'print'
+  currentUser,
+  defaultMode = 'pdf', // 'pdf', 'email', 'sms', 'print', 'company'
   onDownloadPDF,
   onClose
 }) {
+  const [activeTab, setActiveTab] = useState(defaultMode === 'company' ? 'company' : 'invoice');
+  const [invoiceMode, setInvoiceMode] = useState(defaultMode === 'company' ? 'pdf' : defaultMode);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState(invoice?.id || (invoices[0]?.id ?? ''));
   const [copied, setCopied] = useState(false);
+  const [copiedCompany, setCopiedCompany] = useState(false);
+  const [showCompanyPreview, setShowCompanyPreview] = useState(false);
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
 
   const targetInvoice = invoices.find((i) => i.id === selectedInvoiceId) || invoice || invoices[0];
 
@@ -27,155 +36,506 @@ function ShareInvoiceModal({
   const mailtoLink = `mailto:${encodeURIComponent(targetInvoice?.customerEmail || '')}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
   const whatsappLink = `https://wa.me/${customerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(smsText)}`;
 
+  const compName = (company?.name || 'Our Company').trim();
+  const compGstin = (company?.gstin || '').trim();
+  const compPan = (company?.pan || (compGstin.length >= 12 ? compGstin.slice(2, 12) : '')).trim();
+  const compPhone = (company?.phone || '').trim();
+  const compEmail = (company?.email || '').trim();
+  const compState = (company?.state || '').trim();
+  const compAddress = [company?.address, company?.cityState, company?.pincode ? `PIN: ${company?.pincode}` : ''].filter(Boolean).join(', ');
+
+  const bankDetails = [
+    company?.bankName ? `Bank: ${company.bankName}` : '',
+    company?.accountNumber ? `A/C No: ${company.accountNumber}` : '',
+    company?.ifsc ? `IFSC: ${company.ifsc}` : '',
+    company?.branch ? `Branch: ${company.branch}` : '',
+  ].filter(Boolean).join('\n');
+
+  // Official share text without any software license ID
+  const companyShareText = `*${compName} — Official Business Profile*\n\n` +
+    (compGstin ? `🏛️ *GSTIN:* ${compGstin}\n` : '') +
+    (compPan ? `💳 *PAN:* ${compPan}\n` : '') +
+    (compPhone ? `📞 *Phone:* ${compPhone}\n` : '') +
+    (compEmail ? `✉️ *Email:* ${compEmail}\n` : '') +
+    (compAddress ? `📍 *Address:* ${compAddress}\n` : '') +
+    (bankDetails ? `\n*Bank Settlement Details:*\n${bankDetails}\n` : '') +
+    `\nAttached is our official company profile.`;
+
+  const companyEmailSubject = `Official Company Profile & GST Credentials — ${compName}`;
+  const companyMailtoLink = `mailto:?subject=${encodeURIComponent(companyEmailSubject)}&body=${encodeURIComponent(companyShareText)}`;
+  const companyWhatsappLink = `https://wa.me/?text=${encodeURIComponent(companyShareText)}`;
+
   const handleCopyText = (text) => {
     navigator.clipboard?.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
-  const handlePrint = () => {
-    if (targetInvoice && onDownloadPDF) {
+  const handleCopyCompany = () => {
+    navigator.clipboard?.writeText(companyShareText);
+    setCopiedCompany(true);
+    setTimeout(() => setCopiedCompany(false), 2500);
+  };
+
+  const handlePrint = async () => {
+    if (!targetInvoice) return;
+    if (onDownloadPDF) {
       onDownloadPDF(targetInvoice);
+    } else {
+      const { default: downloadPDF } = await import('../DownloadInvoice/Invoice.jsx');
+      downloadPDF(targetInvoice, company);
     }
   };
 
+  const handleDownloadCompanyPDFDirect = () => {
+    downloadCompanyProfilePDF(company, currentUser);
+  };
+
   return (
-    <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+    <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)' }}>
       <div className="modal-dialog modal-lg modal-dialog-centered">
-        <div className="modal-content shadow-lg border-0">
-          <div className="modal-header bg-primary text-white">
-            <h5 className="modal-title">
-              {defaultMode === 'email' && '📧 Email Invoice'}
-              {defaultMode === 'sms' && '📱 Send SMS / WhatsApp Invoice'}
-              {defaultMode === 'print' && '🖨️ Print Invoice'}
-              {defaultMode === 'pdf' && '📥 Download PDF Tax Invoice'}
-            </h5>
-            <button type="button" className="btn-close btn-close-white" onClick={onClose} />
+        <div className="modal-content shadow-lg border-0 rounded-4 overflow-hidden">
+          {/* Top Modal Header */}
+          <div
+            className="modal-header text-white d-flex justify-content-between align-items-center flex-wrap gap-2"
+            style={{
+              background: 'linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #1e293b 100%)',
+              borderBottom: '1px solid rgba(245,158,11,0.3)',
+            }}
+          >
+            <div>
+              <h5 className="modal-title fw-bold mb-0 text-white">
+                {activeTab === 'company' && '🏢 Official Company Profile & Business Dossier'}
+                {activeTab === 'invoice' && invoiceMode === 'email' && '📧 Email Invoice'}
+                {activeTab === 'invoice' && invoiceMode === 'sms' && '📱 Send SMS / WhatsApp Invoice'}
+                {activeTab === 'invoice' && invoiceMode === 'print' && '🖨️ Print Invoice'}
+                {activeTab === 'invoice' && invoiceMode === 'pdf' && '📥 Download PDF Tax Invoice'}
+              </h5>
+              <small className="text-white-50" style={{ fontSize: '11.5px' }}>
+                {activeTab === 'company'
+                  ? 'Official business credentials, GST registration & bank details for clients & partners'
+                  : 'Distribute GST tax invoices and accounting documentation'}
+              </small>
+            </div>
+
+            <div className="d-flex align-items-center gap-2">
+              <div className="btn-group btn-group-sm">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${activeTab === 'company' ? 'btn-warning text-dark fw-bold shadow-xs' : 'btn-outline-light'}`}
+                  onClick={() => setActiveTab('company')}
+                >
+                  🏢 Company Profile
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${activeTab === 'invoice' ? 'btn-warning text-dark fw-bold shadow-xs' : 'btn-outline-light'}`}
+                  onClick={() => setActiveTab('invoice')}
+                >
+                  📄 Tax Invoice
+                </button>
+              </div>
+              <button type="button" className="btn-close btn-close-white ms-2" onClick={onClose} />
+            </div>
           </div>
 
           <div className="modal-body p-4">
-            {/* Invoice Selector */}
-            {invoices.length > 1 && (
-              <div className="mb-4">
-                <label className="form-label fw-semibold">Select Invoice:</label>
-                <select
-                  className="form-select"
-                  value={selectedInvoiceId}
-                  onChange={(e) => setSelectedInvoiceId(e.target.value)}
+            {/* ================= COMPANY PROFILE MODE ================= */}
+            {activeTab === 'company' ? (
+              <div>
+                {/* Header overview card - NO LICENSE ID */}
+                <div
+                  className="p-3 rounded-3 mb-3 border d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3"
+                  style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}
                 >
-                  {invoices.map((inv) => (
-                    <option key={inv.id} value={inv.id}>
-                      {inv.invoiceNumber} - {inv.customerName || 'Walk-in'} (₹{inv.totals?.total?.toFixed(2) || '0'}) - {inv.invoiceDate}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                  <div className="d-flex align-items-center gap-3">
+                    {company?.logo ? (
+                      <img
+                        src={company.logo}
+                        alt="Logo"
+                        className="rounded border bg-white p-1"
+                        style={{ height: '54px', width: '54px', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <div
+                        className="rounded-3 border border-primary p-2 text-center bg-white shadow-xs fw-bold text-primary"
+                        style={{ width: '54px', height: '54px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        {compName ? compName.slice(0, 2).toUpperCase() : 'CO'}
+                      </div>
+                    )}
+                    <div>
+                      <h4 className="h5 fw-bold text-dark mb-0">{compName}</h4>
+                      <div className="small text-muted">
+                        {compState ? `${compState} • ` : ''}Verified Business Profile
+                      </div>
+                    </div>
+                  </div>
 
-            {targetInvoice ? (
-              <>
-                <div className="p-3 bg-light rounded-3 mb-4 border">
-                  <div className="row g-2 small">
-                    <div className="col-sm-6">
-                      <strong>Invoice #:</strong> {targetInvoice.invoiceNumber}
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary fw-semibold shadow-xs d-flex align-items-center gap-1.5 px-3 py-2"
+                      onClick={() => setShowCompanyPreview(true)}
+                    >
+                      <span>👁️</span>
+                      <span>Preview Profile</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-primary fw-bold shadow-sm d-flex align-items-center gap-2 px-3 py-2"
+                      onClick={handleDownloadCompanyPDFDirect}
+                      style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #312e81 100%)', border: 'none' }}
+                    >
+                      <span>📥</span>
+                      <span>Download Company PDF</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Information preview grid */}
+                <div className="row g-3 mb-4">
+                  {/* Card 1: Legal & GST */}
+                  <div className="col-md-6">
+                    <div className="p-3 bg-white rounded-3 border h-100 shadow-xs">
+                      <div className="fw-bold text-primary small mb-2 d-flex align-items-center gap-1.5">
+                        <span>🏛️</span>
+                        <span>Legal &amp; Tax Registration</span>
+                      </div>
+                      <div className="small">
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">GSTIN:</span>
+                          <span className="fw-bold font-monospace">{compGstin || 'Not Registered / URP'}</span>
+                        </div>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">PAN Number:</span>
+                          <span className="fw-bold font-monospace">{compPan || 'N/A'}</span>
+                        </div>
+                        {company?.fssai && (
+                          <div className="d-flex justify-content-between py-1 border-bottom">
+                            <span className="text-muted">FSSAI No:</span>
+                            <span className="font-monospace">{company.fssai}</span>
+                          </div>
+                        )}
+                        <div className="d-flex justify-content-between py-1">
+                          <span className="text-muted">State:</span>
+                          <span>{compState || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="col-sm-6">
-                      <strong>Date:</strong> {targetInvoice.invoiceDate}
+                  </div>
+
+                  {/* Card 2: Contact & Office */}
+                  <div className="col-md-6">
+                    <div className="p-3 bg-white rounded-3 border h-100 shadow-xs">
+                      <div className="fw-bold text-primary small mb-2 d-flex align-items-center gap-1.5">
+                        <span>📍</span>
+                        <span>Office &amp; Contact Information</span>
+                      </div>
+                      <div className="small">
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Mobile / Phone:</span>
+                          <span className="fw-semibold">{compPhone || 'N/A'}</span>
+                        </div>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Email:</span>
+                          <span className="text-primary">{compEmail || 'N/A'}</span>
+                        </div>
+                        <div className="py-1">
+                          <span className="text-muted d-block">Registered Address:</span>
+                          <span className="text-dark">{compAddress || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="col-sm-6">
-                      <strong>Customer:</strong> {targetInvoice.customerName || 'Walk-in'}
-                    </div>
-                    <div className="col-sm-6">
-                      <strong>Grand Total:</strong> ₹{targetInvoice.totals?.total?.toFixed(2)}
+                  </div>
+
+                  {/* Card 3: Banking & Payment Settlement */}
+                  <div className="col-12">
+                    <div className="p-3 rounded-3 border shadow-xs" style={{ background: '#f5f3ff', borderColor: '#ddd6fe' }}>
+                      <div className="fw-bold text-indigo small mb-2 d-flex align-items-center justify-content-between">
+                        <span className="d-flex align-items-center gap-1.5" style={{ color: '#4f46e5' }}>
+                          <span>💳</span>
+                          <span>Banking &amp; Settlement Credentials (NEFT / RTGS / IMPS)</span>
+                        </span>
+                        <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
+                          Direct Client Payments
+                        </span>
+                      </div>
+                      <div className="row g-2 small">
+                        <div className="col-sm-6 col-md-3">
+                          <span className="text-muted d-block">Bank Name:</span>
+                          <strong>{company?.bankName || 'N/A'}</strong>
+                        </div>
+                        <div className="col-sm-6 col-md-3">
+                          <span className="text-muted d-block">Account Number:</span>
+                          <strong className="font-monospace text-dark">{company?.accountNumber || 'N/A'}</strong>
+                        </div>
+                        <div className="col-sm-6 col-md-3">
+                          <span className="text-muted d-block">IFSC Code:</span>
+                          <strong className="font-monospace text-danger">{company?.ifsc || 'N/A'}</strong>
+                        </div>
+                        <div className="col-sm-6 col-md-3">
+                          <span className="text-muted d-block">Branch:</span>
+                          <span>{company?.branch || 'N/A'}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Email Section */}
-                {defaultMode === 'email' && (
-                  <div>
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold">Subject</label>
-                      <input type="text" className="form-control" readOnly value={emailSubject} />
-                    </div>
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold">Message Body</label>
-                      <textarea className="form-control" rows="5" readOnly value={emailBody} />
-                    </div>
-                    <div className="d-flex gap-2">
-                      <a href={mailtoLink} className="btn btn-primary">
-                        🚀 Open in Mail Client
-                      </a>
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => handleCopyText(emailBody)}
-                      >
-                        {copied ? '✓ Copied!' : '📋 Copy Body'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* SMS / WhatsApp Section */}
-                {defaultMode === 'sms' && (
-                  <div>
-                    <div className="mb-3">
-                      <label className="form-label fw-semibold">Notification Text</label>
-                      <textarea className="form-control" rows="4" readOnly value={smsText} />
-                    </div>
-                    <div className="d-flex gap-2 flex-wrap">
-                      {customerPhone && (
-                        <a
-                          href={whatsappLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn-success"
-                        >
-                          💬 Send via WhatsApp
-                        </a>
-                      )}
-                      <button
-                        type="button"
-                        className="btn btn-outline-secondary"
-                        onClick={() => handleCopyText(smsText)}
-                      >
-                        {copied ? '✓ Copied!' : '📋 Copy SMS Text'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* PDF / Print Section */}
-                {(defaultMode === 'pdf' || defaultMode === 'print') && (
-                  <div className="text-center py-3">
-                    <p className="text-muted">
-                      Generate and download an official high-resolution GST tax invoice in PDF format ready for print and accounting.
-                    </p>
+                {/* Instant Share Actions */}
+                <div className="p-3 bg-light rounded-3 border">
+                  <h6 className="fw-bold mb-2 small text-uppercase text-muted">
+                    📤 1-Click Share Company Profile With Clients
+                  </h6>
+                  <div className="d-flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="btn btn-primary btn-lg px-4"
-                      onClick={handlePrint}
+                      className="btn btn-outline-primary fw-semibold d-flex align-items-center gap-1.5"
+                      onClick={() => setShowCompanyPreview(true)}
                     >
-                      📥 Generate & Download PDF
+                      <span>👁️</span>
+                      <span>Preview Dossier</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="btn btn-primary fw-semibold d-flex align-items-center gap-1.5"
+                      onClick={handleDownloadCompanyPDFDirect}
+                    >
+                      <span>📥</span>
+                      <span>Download PDF Dossier</span>
+                    </button>
+
+                    <a
+                      href={companyWhatsappLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-success fw-semibold d-flex align-items-center gap-1.5"
+                    >
+                      <span>💬</span>
+                      <span>Share on WhatsApp</span>
+                    </a>
+
+                    <a
+                      href={companyMailtoLink}
+                      className="btn btn-outline-primary fw-semibold d-flex align-items-center gap-1.5"
+                    >
+                      <span>📧</span>
+                      <span>Email Profile</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary fw-semibold d-flex align-items-center gap-1.5"
+                      onClick={handleCopyCompany}
+                    >
+                      <span>{copiedCompany ? '✓' : '📋'}</span>
+                      <span>{copiedCompany ? 'Copied to Clipboard!' : 'Copy Company Info'}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ================= INVOICE SHARING MODES ================= */
+              <div>
+                {/* Sub-mode Navigation Pill Bar */}
+                <div className="d-flex gap-2 mb-3 border-bottom pb-2 flex-wrap">
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-info text-white fw-bold d-inline-flex align-items-center gap-1 shadow-xs"
+                    onClick={() => setShowInvoicePreview(true)}
+                    disabled={!targetInvoice}
+                    title="Preview full Tax Invoice on screen"
+                  >
+                    <span>👁️</span>
+                    <span>Preview Invoice</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${invoiceMode === 'pdf' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => setInvoiceMode('pdf')}
+                  >
+                    📥 Download PDF
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${invoiceMode === 'print' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => setInvoiceMode('print')}
+                  >
+                    🖨️ Print Invoice
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${invoiceMode === 'email' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => setInvoiceMode('email')}
+                  >
+                    📧 Email Invoice
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${invoiceMode === 'sms' ? 'btn-primary fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => setInvoiceMode('sms')}
+                  >
+                    📱 WhatsApp / SMS
+                  </button>
+                </div>
+
+                {/* Invoice Selector */}
+                {invoices && invoices.length > 1 && (
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold small">Select Invoice:</label>
+                    <select
+                      className="form-select form-select-sm"
+                      value={selectedInvoiceId}
+                      onChange={(e) => setSelectedInvoiceId(e.target.value)}
+                    >
+                      {invoices.map((inv) => (
+                        <option key={inv.id} value={inv.id}>
+                          {inv.invoiceNumber} - {inv.customerName || 'Walk-in'} (₹{inv.totals?.total?.toFixed(2) || '0'}) - {inv.invoiceDate}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {targetInvoice ? (
+                  <>
+                    <div className="p-3 bg-light rounded-3 mb-3 border">
+                      <div className="row g-2 small">
+                        <div className="col-sm-6">
+                          <strong>Invoice #:</strong> <span className="font-monospace text-primary">{targetInvoice.invoiceNumber}</span>
+                        </div>
+                        <div className="col-sm-6">
+                          <strong>Date:</strong> {targetInvoice.invoiceDate}
+                        </div>
+                        <div className="col-sm-6">
+                          <strong>Customer:</strong> {targetInvoice.customerName || 'Walk-in'}
+                        </div>
+                        <div className="col-sm-6">
+                          <strong>Grand Total:</strong> <span className="fw-bold text-success">₹{targetInvoice.totals?.total?.toFixed(2) || '0.00'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Email Section */}
+                    {invoiceMode === 'email' && (
+                      <div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold small">Subject</label>
+                          <input type="text" className="form-control form-control-sm" readOnly value={emailSubject} />
+                        </div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold small">Message Body</label>
+                          <textarea className="form-control form-control-sm" rows="5" readOnly value={emailBody} />
+                        </div>
+                        <div className="d-flex gap-2">
+                          <a href={mailtoLink} className="btn btn-primary btn-sm fw-semibold">
+                            🚀 Open in Mail Client
+                          </a>
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => handleCopyText(emailBody)}
+                          >
+                            {copied ? '✓ Copied!' : '📋 Copy Body'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SMS / WhatsApp Section */}
+                    {invoiceMode === 'sms' && (
+                      <div>
+                        <div className="mb-3">
+                          <label className="form-label fw-semibold small">Notification Text</label>
+                          <textarea className="form-control form-control-sm" rows="4" readOnly value={smsText} />
+                        </div>
+                        <div className="d-flex gap-2 flex-wrap">
+                          {customerPhone ? (
+                            <a
+                              href={whatsappLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-success btn-sm fw-semibold"
+                            >
+                              💬 Send via WhatsApp
+                            </a>
+                          ) : (
+                            <span className="small text-muted align-self-center">
+                              (No phone number saved on this invoice for direct WhatsApp link)
+                            </span>
+                          )}
+                          <button
+                            type="button"
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={() => handleCopyText(smsText)}
+                          >
+                            {copied ? '✓ Copied!' : '📋 Copy Text'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PDF / Print Section */}
+                    {(invoiceMode === 'pdf' || invoiceMode === 'print') && (
+                      <div className="text-center py-3 bg-light rounded-3 border">
+                        <p className="text-muted small mb-3">
+                          Generate and download an official high-resolution GST tax invoice in PDF format ready for print and accounting.
+                        </p>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-lg px-4 shadow-sm fw-bold"
+                          onClick={handlePrint}
+                        >
+                          📥 Generate &amp; Download PDF Tax Invoice
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-center py-4 text-muted bg-light rounded-3 border">
+                    <p className="mb-2">No invoices available in your Sales Register yet.</p>
+                    <small className="d-block mb-3">Create your first invoice in Transactions → Sales → Add.</small>
+                    <button
+                      type="button"
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => setActiveTab('company')}
+                    >
+                      🏢 View &amp; Download Company Profile PDF Instead
                     </button>
                   </div>
                 )}
-              </>
-            ) : (
-              <div className="text-center py-4 text-muted">
-                No invoices available to share. Please create an invoice first.
               </div>
             )}
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={onClose}>
+          <div className="modal-footer bg-light">
+            <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
               Close
             </button>
           </div>
         </div>
       </div>
+
+      {/* Live On-Screen Previews */}
+      {showCompanyPreview && (
+        <CompanyPreviewModal
+          company={company}
+          currentUser={currentUser}
+          isOpen={showCompanyPreview}
+          onClose={() => setShowCompanyPreview(false)}
+        />
+      )}
+
+      {showInvoicePreview && targetInvoice && (
+        <TaxInvoiceModal
+          invoice={targetInvoice}
+          company={company}
+          isOpen={showInvoicePreview}
+          onClose={() => setShowInvoicePreview(false)}
+        />
+      )}
     </div>
   );
 }

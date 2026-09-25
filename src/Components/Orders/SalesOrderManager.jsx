@@ -1,4 +1,5 @@
 import { useState, useMemo, useDeferredValue } from 'react';
+import ActionFolder from '../Common/ActionFolder.jsx';
 
 export default function SalesOrderManager({
   orders = [],
@@ -492,43 +493,34 @@ export default function SalesOrderManager({
                           </span>
                         </td>
                         <td className="text-end">
-                          <div className="d-inline-flex gap-1">
-                            {/* Convert to Invoice Button */}
-                            {!isConverted && !isCancelled && (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-success py-1 px-2 fw-semibold"
-                                title="Convert directly to active GST invoice"
-                                onClick={() => handleConvertAction(order)}
-                              >
-                                ⚡ Invoiced
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary py-1 px-2"
-                              title="View / Print Slip"
-                              onClick={() => setSelectedOrderForView(order)}
-                            >
-                              👁️ View
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-secondary py-1 px-2"
-                              title="Edit Order"
-                              onClick={() => handleEditOrder(order)}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-1 px-2"
-                              title="Delete Order"
-                              onClick={() => handleDeleteOrder(order.id)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                          <ActionFolder
+                            primaryAction={{
+                              label: 'Preview',
+                              icon: '👁️',
+                              title: 'View & Print Order Slip',
+                              onClick: () => setSelectedOrderForView(order),
+                            }}
+                            actions={[
+                              !isConverted ? {
+                                label: 'Convert to Invoice',
+                                icon: '⚡',
+                                variant: 'success',
+                                onClick: () => handleConvertAction(order),
+                              } : null,
+                              {
+                                label: 'Edit Order',
+                                icon: '✏️',
+                                onClick: () => handleEditOrder(order),
+                              },
+                              { divider: true },
+                              {
+                                label: 'Delete Order',
+                                icon: '🗑️',
+                                variant: 'danger',
+                                onClick: () => handleDeleteOrder(order.id),
+                              },
+                            ].filter(Boolean)}
+                          />
                         </td>
                       </tr>
                     );
@@ -862,6 +854,25 @@ export default function SalesOrderManager({
 
             {/* Form Action Buttons */}
             <div className="d-flex justify-content-end gap-2 border-top pt-3">
+              <button
+                type="button"
+                className="btn btn-outline-primary px-3 fw-semibold d-inline-flex align-items-center gap-1.5"
+                onClick={() => {
+                  setSelectedOrderForView({
+                    ...formData,
+                    orderNumber: formData.orderNumber || 'SO-PREVIEW',
+                    subtotal: orderCalculations.subtotal,
+                    totalTax: orderCalculations.totalTax,
+                    cgst: orderCalculations.cgst,
+                    sgst: orderCalculations.sgst,
+                    igst: orderCalculations.igst,
+                    grandTotal: orderCalculations.finalAmount,
+                  });
+                }}
+              >
+                <span>👁️</span>
+                <span>Preview Order Slip</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-outline-secondary px-4 fw-semibold"

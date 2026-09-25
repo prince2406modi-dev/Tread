@@ -1,4 +1,5 @@
 import { useState, useMemo, useDeferredValue } from 'react';
+import ActionFolder from '../Common/ActionFolder.jsx';
 
 export default function PaymentManager({
   payments = [],
@@ -422,32 +423,28 @@ export default function PaymentManager({
                           {isIn ? '+' : '-'}₹{(p.amount || 0).toLocaleString('en-IN')}
                         </td>
                         <td className="text-end">
-                          <div className="d-inline-flex gap-1">
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary py-1 px-2"
-                              title="View & Print Receipt"
-                              onClick={() => setSelectedPaymentForView(p)}
-                            >
-                              👁️
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-secondary py-1 px-2"
-                              title="Edit Voucher"
-                              onClick={() => handleEdit(p)}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-1 px-2"
-                              title="Delete Voucher"
-                              onClick={() => handleDelete(p.id)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                          <ActionFolder
+                            primaryAction={{
+                              label: 'Preview',
+                              icon: '👁️',
+                              title: 'View & Print Receipt',
+                              onClick: () => setSelectedPaymentForView(p),
+                            }}
+                            actions={[
+                              {
+                                label: 'Edit Voucher',
+                                icon: '✏️',
+                                onClick: () => handleEdit(p),
+                              },
+                              { divider: true },
+                              {
+                                label: 'Delete Voucher',
+                                icon: '🗑️',
+                                variant: 'danger',
+                                onClick: () => handleDelete(p.id),
+                              },
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
@@ -660,6 +657,20 @@ export default function PaymentManager({
 
             {/* Form Actions */}
             <div className="d-flex justify-content-end gap-2 border-top pt-3">
+              <button
+                type="button"
+                className="btn btn-outline-primary px-3 fw-semibold d-inline-flex align-items-center gap-1.5"
+                onClick={() => {
+                  setSelectedPaymentForView({
+                    ...formData,
+                    id: editingPaymentId || 'pay-preview',
+                    amount: parseFloat(formData.amount) || 0,
+                  });
+                }}
+              >
+                <span>👁️</span>
+                <span>Preview Receipt</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-outline-secondary px-4 fw-semibold"

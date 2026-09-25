@@ -102,10 +102,10 @@ function PurchaseBillsList({ purchaseBills = [], onNewBill }) {
                     <td className="text-center">
                       <button
                         type="button"
-                        className="btn btn-sm btn-outline-primary py-0 px-2"
+                        className="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold"
                         onClick={() => setSelectedBill(bill)}
                       >
-                        👁️ View Bill
+                        👁️ Preview Bill
                       </button>
                     </td>
                   </tr>

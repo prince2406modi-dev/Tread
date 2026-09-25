@@ -77,6 +77,7 @@ export const MENUS = {
     'Email Invoice',
     'Send SMS',
     'Download PDF',
+    'Company Profile PDF',
   ],
   'House-Keeping': [
     'Data Backup',
@@ -132,6 +133,7 @@ export const ALL_SHORTCUTS = [
   { name: 'Company Details', category: 'Company', icon: '🏢' },
   { name: 'Users', category: 'Administration', icon: '👤' },
   { name: 'Settings', category: 'Administration', icon: '⚙️' },
+  { name: 'Company Profile PDF', category: 'Print/Email/SMS', icon: '🏢' },
   { name: 'Data Backup', category: 'House-Keeping', icon: '💾' },
   { name: 'Help Center', category: 'Help', icon: '❓' },
 ];

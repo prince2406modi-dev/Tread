@@ -1,4 +1,5 @@
 import { useState, useMemo, useDeferredValue } from 'react';
+import ActionFolder from '../Common/ActionFolder.jsx';
 
 export default function PurchaseOrderManager({
   purchaseOrders = [],
@@ -476,42 +477,34 @@ export default function PurchaseOrderManager({
                           </span>
                         </td>
                         <td className="text-end">
-                          <div className="d-inline-flex gap-1">
-                            {!isFulfilled && !isCancelled && (
-                              <button
-                                type="button"
-                                className="btn btn-sm btn-outline-success py-1 px-2 fw-semibold"
-                                title="Inward items and convert to Purchase Bill"
-                                onClick={() => handleConvertAction(po)}
-                              >
-                                📥 Inward Bill
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-primary py-1 px-2"
-                              title="View / Print PO"
-                              onClick={() => setSelectedPoForView(po)}
-                            >
-                              👁️ View
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-secondary py-1 px-2"
-                              title="Edit PO"
-                              onClick={() => handleEditPo(po)}
-                            >
-                              ✏️
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-sm btn-outline-danger py-1 px-2"
-                              title="Delete PO"
-                              onClick={() => handleDeletePo(po.id)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
+                          <ActionFolder
+                            primaryAction={{
+                              label: 'Preview',
+                              icon: '👁️',
+                              title: 'View & Print PO Slip',
+                              onClick: () => setSelectedPoForView(po),
+                            }}
+                            actions={[
+                              (!isFulfilled && !isCancelled) ? {
+                                label: 'Inward to Bill',
+                                icon: '📥',
+                                variant: 'success',
+                                onClick: () => handleConvertAction(po),
+                              } : null,
+                              {
+                                label: 'Edit PO',
+                                icon: '✏️',
+                                onClick: () => handleEditPo(po),
+                              },
+                              { divider: true },
+                              {
+                                label: 'Delete PO',
+                                icon: '🗑️',
+                                variant: 'danger',
+                                onClick: () => handleDeletePo(po.id),
+                              },
+                            ].filter(Boolean)}
+                          />
                         </td>
                       </tr>
                     );
@@ -851,6 +844,25 @@ export default function PurchaseOrderManager({
 
             {/* Action Buttons */}
             <div className="d-flex justify-content-end gap-2 border-top pt-3">
+              <button
+                type="button"
+                className="btn btn-outline-primary px-3 fw-semibold d-inline-flex align-items-center gap-1.5"
+                onClick={() => {
+                  setSelectedPoForView({
+                    ...formData,
+                    poNumber: formData.poNumber || 'PO-PREVIEW',
+                    subtotal: poCalculations.subtotal,
+                    totalTax: poCalculations.totalTax,
+                    cgst: poCalculations.cgst,
+                    sgst: poCalculations.sgst,
+                    igst: poCalculations.igst,
+                    grandTotal: poCalculations.finalAmount,
+                  });
+                }}
+              >
+                <span>👁️</span>
+                <span>Preview PO Slip</span>
+              </button>
               <button
                 type="button"
                 className="btn btn-outline-secondary px-4 fw-semibold"

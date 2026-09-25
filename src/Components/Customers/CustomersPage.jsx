@@ -4,6 +4,17 @@ import * as XLSX from 'xlsx';
 import { validateGSTIN, GST_STATE_CODES, parseGSTPortalText } from '../../services/gstinValidator.js';
 import CustomerExcelImport from './CustomerExcelImport.jsx';
 
+const BUSINESS_TYPES = [
+  { value: '', label: '— Select Business Type —' },
+  { value: 'Retailer', label: '🏪 Retailer', color: '#dcfce7', textColor: '#166534' },
+  { value: 'Wholesaler', label: '🏭 Wholesaler', color: '#dbeafe', textColor: '#1e40af' },
+  { value: 'Distributor', label: '🚚 Distributor', color: '#fef3c7', textColor: '#92400e' },
+  { value: 'Manufacturer', label: '🏗️ Manufacturer', color: '#f3e8ff', textColor: '#6b21a8' },
+  { value: 'Individual', label: '👤 Individual', color: '#f1f5f9', textColor: '#475569' },
+  { value: 'Government', label: '🏛️ Government', color: '#e0f2fe', textColor: '#075985' },
+  { value: 'Other', label: '📁 Other', color: '#f8fafc', textColor: '#64748b' },
+];
+
 const EMPTY_FORM = {
   name: '',
   type: 'Customer', // 'Customer' (Sales) | 'Vendor' (Purchase) | 'Both'
@@ -12,6 +23,11 @@ const EMPTY_FORM = {
   address: '',
   gstin: '',
   notes: '',
+  businessType: '',
+  alias: '',
+  groupName: '',
+  printName: '',
+  taxCategory: '',
 };
 
 function createEmptyForm() {
@@ -33,6 +49,7 @@ function CustomersPage({
   const [form, setForm] = useState(createEmptyForm);
   const [search, setSearch] = useState('');
   const [activeTypeTab, setActiveTypeTab] = useState('all'); // 'all' | 'Customer' | 'Vendor'
+  const [filterBusinessType, setFilterBusinessType] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const deferredSearch = useDeferredValue(search);
 
@@ -148,9 +165,12 @@ function CustomersPage({
         matchesTab = c.type === 'Vendor' || c.type === 'Both';
       }
 
-      return matchesSearch && matchesTab;
+      const matchesBizType = !filterBusinessType || c.businessType === filterBusinessType;
+
+      return matchesSearch && matchesTab && matchesBizType;
     });
-  }, [customers, deferredSearch, activeTypeTab]);
+  }, [customers, deferredSearch, activeTypeTab, filterBusinessType]);
+
 
   const openCreate = (defaultType = 'Customer') => {
     setForm({ ...EMPTY_FORM, type: defaultType });
@@ -167,6 +187,11 @@ function CustomersPage({
       address: customer.address || '',
       gstin: customer.gstin || '',
       notes: customer.notes || '',
+      businessType: customer.businessType || '',
+      alias: customer.alias || '',
+      groupName: customer.groupName || '',
+      printName: customer.printName || '',
+      taxCategory: customer.taxCategory || '',
     });
     setEditingId(customer.id);
     setShowForm(true);
@@ -601,6 +626,32 @@ function CustomersPage({
             </button>
           </div>
         </div>
+
+        {/* Business Type Filter Pills */}
+        <div className="card-footer bg-light py-2 px-3 d-flex flex-wrap gap-2 align-items-center">
+          <small className="text-muted fw-semibold me-1">🏷️ Filter by Business Type:</small>
+          <button
+            type="button"
+            className={`btn btn-sm py-0 px-2 fw-semibold ${filterBusinessType === '' ? 'btn-primary' : 'btn-outline-secondary'}`}
+            onClick={() => setFilterBusinessType('')}
+          >
+            All Types ({customers.length})
+          </button>
+          {BUSINESS_TYPES.filter((bt) => bt.value !== '').map((bt) => {
+            const count = customers.filter((c) => c.businessType === bt.value).length;
+            if (count === 0) return null;
+            return (
+              <button
+                key={bt.value}
+                type="button"
+                className={`btn btn-sm py-0 px-2 fw-semibold ${filterBusinessType === bt.value ? 'btn-primary' : 'btn-outline-secondary'}`}
+                onClick={() => setFilterBusinessType(bt.value)}
+              >
+                {bt.label.split(' ')[0]} {bt.value} ({count})
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Directory Table */}
@@ -639,13 +690,11 @@ function CustomersPage({
                   <tr>
                     <th>Party / Business Name</th>
                     <th>Type / Purpose</th>
+                    <th>Group Name</th>
                     <th>Mobile / Phone</th>
-                    <th>Email</th>
                     <th>GSTIN</th>
-                    <th>Billing Address</th>
-                    <th className="text-center" style={{ width: '160px' }}>
-                      Actions
-                    </th>
+                    <th>Tax Category</th>
+                    <th className="text-center" style={{ width: '120px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -662,6 +711,17 @@ function CustomersPage({
                               ? `Added ${new Date(customer.createdAt).toLocaleDateString('en-IN')}`
                               : 'Saved Contact'}
                           </small>
+                          {customer.businessType && (() => {
+                            const bt = BUSINESS_TYPES.find((b) => b.value === customer.businessType);
+                            return bt ? (
+                              <span
+                                className="badge d-inline-block ms-1"
+                                style={{ fontSize: '0.68rem', background: bt.color, color: bt.textColor, border: `1px solid ${bt.textColor}33` }}
+                              >
+                                {bt.label}
+                              </span>
+                            ) : null;
+                          })()}
                         </td>
                         <td>
                           {isVendor ? (
@@ -672,25 +732,31 @@ function CustomersPage({
                             <span className="badge bg-success">🛒 Sales Customer</span>
                           )}
                         </td>
+                        <td>
+                          {customer.groupName ? (
+                            <small className="text-muted fst-italic">{customer.groupName}</small>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
                         <td>{customer.phone || <span className="text-muted">—</span>}</td>
-                        <td>{customer.email || <span className="text-muted">—</span>}</td>
                         <td>
                           {customer.gstin ? (
                             <div>
                               <div className="d-flex align-items-center gap-1">
-                                <code className="fw-bold text-dark">{customer.gstin}</code>
+                                <code className="fw-bold text-dark small">{customer.gstin}</code>
                                 <a
                                   href={`https://services.gst.gov.in/services/searchtp?gstin=${customer.gstin}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-decoration-none text-primary small fw-bold"
-                                  title="Verify on Official GST Portal"
+                                  title="Verify on GST Portal"
                                 >
                                   ↗
                                 </a>
                               </div>
                               {GST_STATE_CODES[customer.gstin.slice(0, 2)] && (
-                                <span className="badge bg-light text-secondary border font-monospace mt-1" style={{ fontSize: '0.7rem' }}>
+                                <span className="badge bg-light text-secondary border font-monospace" style={{ fontSize: '0.65rem' }}>
                                   📍 {GST_STATE_CODES[customer.gstin.slice(0, 2)]}
                                 </span>
                               )}
@@ -700,7 +766,13 @@ function CustomersPage({
                           )}
                         </td>
                         <td>
-                          <small className="text-muted">{customer.address || '—'}</small>
+                          {customer.taxCategory ? (
+                            <span className="badge bg-light text-dark border" style={{ fontSize: '0.72rem' }}>{customer.taxCategory}</span>
+                          ) : customer.groupName ? (
+                            <small className="text-muted">{customer.groupName}</small>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
                         </td>
                         <td className="text-center">
                           <div className="d-flex justify-content-center gap-1">
@@ -798,6 +870,21 @@ function CustomersPage({
                       autoFocus
                       required
                     />
+                  </div>
+
+                  <div className="mb-3">
+                    <label className="form-label fw-semibold">Business Type / Category</label>
+                    <select
+                      className="form-select"
+                      value={form.businessType || ''}
+                      onChange={(e) => setForm((f) => ({ ...f, businessType: e.target.value }))}
+                    >
+                      {BUSINESS_TYPES.map((bt) => (
+                        <option key={bt.value} value={bt.value}>
+                          {bt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div className="row g-3 mb-3">
@@ -953,6 +1040,57 @@ function CustomersPage({
                       value={form.notes}
                       onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
                     />
+                  </div>
+
+                  {/* Chart of Accounts Fields */}
+                  <div className="mt-3 pt-3 border-top">
+                    <div className="text-muted small fw-bold mb-2 text-uppercase" style={{ letterSpacing: '0.05em' }}>
+                      📊 Chart of Accounts Details
+                    </div>
+                    <div className="row g-2 mb-2">
+                      <div className="col-6">
+                        <label className="form-label fw-semibold small">Alias</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Short alias name"
+                          value={form.alias || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, alias: e.target.value }))}
+                        />
+                      </div>
+                      <div className="col-6">
+                        <label className="form-label fw-semibold small">Group Name</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="e.g. Sundry Debtors, Creditors"
+                          value={form.groupName || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, groupName: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="row g-2">
+                      <div className="col-6">
+                        <label className="form-label fw-semibold small">Print Name</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Name to print on invoices"
+                          value={form.printName || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, printName: e.target.value }))}
+                        />
+                      </div>
+                      <div className="col-6">
+                        <label className="form-label fw-semibold small">Tax Category</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="e.g. Registered Dealer, Regular GST"
+                          value={form.taxCategory || ''}
+                          onChange={(e) => setForm((f) => ({ ...f, taxCategory: e.target.value }))}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 

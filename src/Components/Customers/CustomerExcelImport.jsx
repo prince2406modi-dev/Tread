@@ -339,6 +339,10 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       gstin && existingCustomers.some((c) => c.gstin && c.gstin.toUpperCase().trim() === gstin.toUpperCase().trim())
     );
 
+    // Extract Alias and PrintName
+    const alias = findVal(['alias']);
+    const printName = findVal(['printname', 'print name']);
+
     return {
       index,
       id: uuidv4(),
@@ -349,6 +353,8 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       gstin: gstin || '',
       address: resolvedAddress || (state ? `${state}, India` : ''),
       notes: notes || '',
+      alias: alias || '',
+      printName: printName || '',
       openingBalance: openingBal || '',
       groupName: rawType || '',
       taxCategory: taxCategory || '',
@@ -395,7 +401,41 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
 
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+        // Read raw rows as arrays first so we can detect the header row
+        const rawAoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+        // Detect which row is the actual header row using flexible keyword matching.
+        // Handles multi-word column names like "Group Name", "GST No.", "Tel. No.",
+        // "Tax Category", "Opening Bal.in Base Currency", and leading title rows.
+        const HEADER_CELL_KEYWORDS = /name|alias|group|gst|tel|phone|printname|tax|opening|balance|email|address|prev|currency/i;
+        let headerRowIdx = -1;
+        for (let i = 0; i < Math.min(rawAoa.length, 10); i++) {
+          const row = rawAoa[i];
+          const matchCount = row.filter((cell) =>
+            cell && HEADER_CELL_KEYWORDS.test(String(cell).trim())
+          ).length;
+          if (matchCount >= 2) {
+            headerRowIdx = i;
+            break;
+          }
+        }
+
+        // Re-parse using the detected header row
+        if (headerRowIdx >= 0) {
+          const headers = rawAoa[headerRowIdx].map((h) => String(h).trim());
+          json = rawAoa.slice(headerRowIdx + 1)
+            .filter((row) => row.some((cell) => cell !== '' && cell !== null && cell !== undefined))
+            .map((row) => {
+              const obj = {};
+              headers.forEach((h, colIdx) => {
+                if (h) obj[h] = row[colIdx] !== undefined ? String(row[colIdx]).trim() : '';
+              });
+              return obj;
+            });
+        } else {
+          json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        }
       }
 
       if (!Array.isArray(json) || json.length === 0) {
@@ -555,6 +595,8 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
             email: row.email || finalCustomersList[existingIdx].email,
             gstin: row.gstin.toUpperCase().trim() || finalCustomersList[existingIdx].gstin,
             address: row.address || finalCustomersList[existingIdx].address,
+            alias: row.alias || finalCustomersList[existingIdx].alias || '',
+            printName: row.printName || finalCustomersList[existingIdx].printName || '',
             openingBalance: row.openingBalance || finalCustomersList[existingIdx].openingBalance || '',
             groupName: row.groupName || finalCustomersList[existingIdx].groupName || '',
             taxCategory: row.taxCategory || finalCustomersList[existingIdx].taxCategory || '',
@@ -572,6 +614,8 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
             email: row.email || '',
             gstin: row.gstin.toUpperCase().trim() || '',
             address: row.address || '',
+            alias: row.alias || '',
+            printName: row.printName || '',
             openingBalance: row.openingBalance || '',
             groupName: row.groupName || '',
             taxCategory: row.taxCategory || '',
@@ -589,6 +633,8 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
           email: row.email || '',
           gstin: row.gstin.toUpperCase().trim() || '',
           address: row.address || '',
+          alias: row.alias || '',
+          printName: row.printName || '',
           openingBalance: row.openingBalance || '',
           groupName: row.groupName || '',
           taxCategory: row.taxCategory || '',
@@ -597,6 +643,7 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         });
         addedCount++;
       }
+
     });
 
     onConfirmImport(finalCustomersList);

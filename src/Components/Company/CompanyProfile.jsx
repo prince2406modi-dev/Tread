@@ -1,4 +1,6 @@
 import { useState, useRef } from 'react';
+import { downloadCompanyProfilePDF } from '../../services/companyPdfGenerator.js';
+import CompanyPreviewModal from './CompanyPreviewModal.jsx';
 
 const DEFAULT_COMPANY = {
   name: '',
@@ -19,7 +21,7 @@ const DEFAULT_COMPANY = {
   terms: '1. Payment due upon receipt of invoice.\n2. Goods once sold are not refundable.',
 };
 
-function CompanyProfile({ company, onSaveCompany, onBack }) {
+function CompanyProfile({ company, onSaveCompany, onSave, onBack }) {
   const [formData, setFormData] = useState(() => ({
     ...DEFAULT_COMPANY,
     ...(company || {}),
@@ -29,6 +31,7 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef(null);
   const [copiedLicense, setCopiedLicense] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const sessionUser = (() => {
     if (typeof window === 'undefined') return {};
@@ -123,8 +126,9 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (onSaveCompany) {
-      onSaveCompany(formData);
+    const saveFn = onSaveCompany || onSave;
+    if (saveFn) {
+      saveFn(formData);
     }
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3000);
@@ -139,11 +143,31 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
             Configure your enterprise details, logo branding, and bank information for all PDF invoices and printouts.
           </p>
         </div>
-        {onBack && (
-          <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>
-            ← Back to Dashboard
+        <div className="d-flex align-items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-outline-primary btn-sm fw-bold shadow-xs d-flex align-items-center gap-1.5"
+            onClick={() => setPreviewOpen(true)}
+            title="Preview official company dossier on screen"
+          >
+            <span>👁️</span>
+            <span>Preview Profile</span>
           </button>
-        )}
+          <button
+            type="button"
+            className="btn btn-primary btn-sm fw-bold shadow-xs d-flex align-items-center gap-1.5"
+            onClick={() => downloadCompanyProfilePDF(formData, sessionUser)}
+            title="Download official company credentials, GST & banking profile as PDF"
+          >
+            <span>📥</span>
+            <span>Download Company PDF</span>
+          </button>
+          {onBack && (
+            <button type="button" className="btn btn-outline-secondary btn-sm" onClick={onBack}>
+              ← Back to Dashboard
+            </button>
+          )}
+        </div>
       </div>
 
       {savedSuccess && (
@@ -548,6 +572,14 @@ function CompanyProfile({ company, onSaveCompany, onBack }) {
           </button>
         </div>
       </form>
+
+      {/* Official Company Profile Dossier Preview Modal */}
+      <CompanyPreviewModal
+        company={formData}
+        currentUser={sessionUser}
+        isOpen={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+      />
     </div>
   );
 }

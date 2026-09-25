@@ -1,5 +1,6 @@
 import { useState, useMemo, useDeferredValue } from 'react';
 import TaxInvoiceModal from './TaxInvoiceModal.jsx';
+import ActionFolder from '../Common/ActionFolder.jsx';
 
 function InvoicesList({
   invoices = [],
@@ -276,56 +277,46 @@ function InvoicesList({
                         <td className="text-end text-muted">₹{gst.toFixed(2)}</td>
                         <td className="text-end fw-bold text-dark fs-6">₹{total.toFixed(2)}</td>
                         <td className="text-center">
-                          <div className="btn-group btn-group-sm">
-                            <button
-                              type="button"
-                              className="btn btn-outline-info"
-                              title="View & Print Tax Invoice"
-                              onClick={() => setSelectedInvoiceForPreview(invoice)}
-                            >
-                              👁️ View
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline-secondary"
-                              title="Edit in invoice generator"
-                              onClick={() => onLoadInvoice(invoice)}
-                            >
-                              ✏️ Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline-primary"
-                              title="Download PDF"
-                              onClick={() => onDownloadPDF(invoice)}
-                            >
-                              📥 PDF
-                            </button>
-                            {onShareInvoice && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-success"
-                                title="Share via Email / SMS"
-                                onClick={() => onShareInvoice(invoice)}
-                              >
-                                ✉️ Share
-                              </button>
-                            )}
-                            {onDeleteInvoice && (
-                              <button
-                                type="button"
-                                className="btn btn-outline-danger"
-                                title="Delete this invoice"
-                                onClick={() => {
-                                  if (window.confirm(`Delete invoice ${invoice.invoiceNumber}?`)) {
-                                    onDeleteInvoice(invoice.id);
+                          <ActionFolder
+                            primaryAction={{
+                              label: 'Preview',
+                              icon: '👁️',
+                              title: 'View & Print Tax Invoice',
+                              onClick: () => setSelectedInvoiceForPreview(invoice),
+                            }}
+                            actions={[
+                              {
+                                label: 'Edit Invoice',
+                                icon: '✏️',
+                                onClick: () => onLoadInvoice(invoice),
+                              },
+                              {
+                                label: 'Download PDF',
+                                icon: '📥',
+                                onClick: () => onDownloadPDF(invoice),
+                              },
+                              onShareInvoice
+                                ? {
+                                    label: 'Share (Email/SMS)',
+                                    icon: '✉️',
+                                    onClick: () => onShareInvoice(invoice),
                                   }
-                                }}
-                              >
-                                🗑️
-                              </button>
-                            )}
-                          </div>
+                                : null,
+                              onDeleteInvoice ? { divider: true } : null,
+                              onDeleteInvoice
+                                ? {
+                                    label: 'Delete Invoice',
+                                    icon: '🗑️',
+                                    variant: 'danger',
+                                    onClick: () => {
+                                      if (window.confirm(`Delete invoice ${invoice.invoiceNumber}?`)) {
+                                        onDeleteInvoice(invoice.id);
+                                      }
+                                    },
+                                  }
+                                : null,
+                            ].filter(Boolean)}
+                          />
                         </td>
                       </tr>
                     );
