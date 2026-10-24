@@ -8,7 +8,6 @@ export default function PurchaseOrderManager({
   stockItems = [],
   company = {},
   onConvertToPurchaseBill,
-  onNavigate,
   initialMode = 'list',
 }) {
   const [activeTab, setActiveTab] = useState(initialMode === 'add' ? 'create' : 'register');
@@ -26,7 +25,7 @@ export default function PurchaseOrderManager({
   }, [purchaseOrders]);
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     poNumber: nextPoNumber,
     poDate: new Date().toISOString().slice(0, 10),
     expectedDeliveryDate: new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10),
@@ -51,7 +50,7 @@ export default function PurchaseOrderManager({
         gstRate: 18,
       },
     ],
-  });
+  }));
 
   // Handle vendor selection
   const handleSelectVendor = (name) => {
@@ -106,11 +105,12 @@ export default function PurchaseOrderManager({
 
         // Stock product lookup
         if (field === 'description') {
-          const stock = stockItems.find((s) => s.name === value);
+          const stock = stockItems.find((s) => s && s.name && s.name.trim().toLowerCase() === (value || '').trim().toLowerCase());
           if (stock) {
             updated.hsn = stock.hsn || updated.hsn;
             updated.rate = stock.purchasePrice || stock.price || updated.rate;
-            updated.gstRate = stock.gstRate !== undefined ? stock.gstRate : updated.gstRate;
+            updated.gstRate = stock.gstRate ?? stock.gst ?? stock.gstPercent ?? updated.gstRate;
+            updated.rate = stock.purchasePrice ?? stock.costPrice ?? stock.rate ?? stock.price ?? updated.rate;
             updated.unit = stock.unit || updated.unit;
           }
         }

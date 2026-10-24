@@ -137,10 +137,26 @@ export default function SubNavbar({
                 border: 'none',
               }}
               onClick={onOpenAiCopilot}
-              title="Open Tread AI Copilot"
+              title="Open Tread AI Copilot (Alt + A)"
             >
               <span>✨</span>
               <span>Ask AI</span>
+            </button>
+
+            {/* Universal Smart File AI Button */}
+            <button
+              type="button"
+              className="btn btn-sm py-0 px-2 d-flex align-items-center gap-1 shadow-xs fw-semibold text-white"
+              style={{
+                fontSize: '11.5px',
+                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                border: 'none',
+              }}
+              onClick={() => onSelectFavourite('Universal File AI')}
+              title="Universal AI File & Document Intelligence: Analyze Excel, PDF, CSV, JSON, Receipts"
+            >
+              <span>⚡</span>
+              <span>Smart File AI</span>
             </button>
 
             {/* Customer License ID & Expiry Pill */}

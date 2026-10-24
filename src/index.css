@@ -1646,4 +1646,116 @@ body {
   }
 }
 
+/* =====================================================
+   AUTHENTIC BUSY-STYLE DISPLAY MENU & HUB DESIGN
+   ===================================================== */
+.busy-display-container {
+  display: flex;
+  background: #ffffff;
+  border: 1px solid #7ba7d7;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  min-height: calc(100vh - 140px);
+  overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+}
+
+@media (max-width: 768px) {
+  .busy-display-container {
+    flex-direction: column;
+  }
+  .busy-display-sidebar {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    max-height: 280px;
+    border-right: none !important;
+    border-bottom: 1px solid #7ba7d7;
+  }
+}
+
+.busy-display-sidebar {
+  width: 250px;
+  min-width: 250px;
+  max-width: 250px;
+  background: #ffffff;
+  border-right: 1px solid #7ba7d7;
+  padding: 8px 0;
+  overflow-y: auto;
+  user-select: none;
+}
+
+.busy-display-item {
+  display: flex;
+  align-items: center;
+  padding: 3px 12px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #000000;
+  cursor: pointer;
+  line-height: 1.45;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.busy-display-item:hover {
+  background: #005a9e !important;
+  color: #ffffff !important;
+}
+
+.busy-display-item.active-item {
+  color: #0055ff !important;
+  outline: 1px dotted #000000;
+  background: #e6f0fa;
+}
+
+.busy-display-item:hover.active-item {
+  color: #ffffff !important;
+  background: #005a9e !important;
+  outline: 1px dotted #ffffff;
+}
+
+.busy-display-item .busy-chevron {
+  font-family: monospace, sans-serif;
+  font-size: 14px;
+  font-weight: bold;
+  margin-right: 8px;
+  color: #4b5563;
+  width: 10px;
+  display: inline-block;
+}
+
+.busy-display-item:hover .busy-chevron {
+  color: #ffffff !important;
+}
+
+.busy-display-item .busy-bullet {
+  font-family: monospace, sans-serif;
+  font-size: 13px;
+  font-weight: bold;
+  margin-right: 8px;
+  color: #4b5563;
+  width: 10px;
+  display: inline-block;
+}
+
+.busy-display-item:hover .busy-bullet {
+  color: #ffffff !important;
+}
+
+.busy-display-gap {
+  height: 14px;
+}
+
+.busy-display-canvas {
+  flex: 1;
+  background: #f8fafc;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+
 

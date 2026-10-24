@@ -57,7 +57,7 @@ export default function PaymentManager({
 
   // Handle party select
   const handlePartySelect = (name) => {
-    const party = customers.find((c) => c.name === name);
+    const party = customers.find((c) => c && c.name && c.name.trim().toLowerCase() === (name || '').trim().toLowerCase());
     if (party) {
       setFormData((prev) => ({
         ...prev,
@@ -200,11 +200,19 @@ export default function PaymentManager({
   // Party candidates based on type
   const partyList = useMemo(() => {
     if (formData.type === 'Payment In') {
-      // Customers
-      return customers.filter((c) => c.type !== 'Vendor');
+      // Customers / Debtors
+      return customers.filter((c) => {
+        const t = (c.type || '').toLowerCase();
+        const g = (c.groupName || '').toLowerCase();
+        return t === 'customer' || t === 'both' || !t || g.includes('debtor') || !g.includes('creditor');
+      });
     }
-    // Vendors
-    return customers.filter((c) => c.type === 'Vendor' || c.type === 'Both');
+    // Vendors / Creditors / Suppliers
+    return customers.filter((c) => {
+      const t = (c.type || '').toLowerCase();
+      const g = (c.groupName || '').toLowerCase();
+      return t === 'vendor' || t === 'both' || g.includes('creditor') || g.includes('supplier');
+    });
   }, [customers, formData.type]);
 
   // Document candidates for linking

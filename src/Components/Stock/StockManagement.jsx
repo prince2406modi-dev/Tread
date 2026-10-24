@@ -3,22 +3,25 @@ import { v4 as uuidv4 } from 'uuid';
 import PurchaseBillEntry from './PurchaseBillEntry.jsx';
 import PurchaseImportFile from './PurchaseImportFile.jsx';
 import PurchaseBillsList from './PurchaseBillsList.jsx';
+import ItemExcelImport from './ItemExcelImport.jsx';
 import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 import {
   validateHSN,
   searchHSNCatalog,
 } from '../../services/hsnValidator.js';
 
-
-
 const EMPTY_STOCK_ITEM = {
   name: '',
   hsn: '',
   stock: 10,
   rate: 0,
+  wholesalePrice: 0,
+  mrp: 0,
+  purchasePrice: 0,
   gst: 18,
   unit: DEFAULT_UNIT,
   category: '',
+  subcategory: '',
 };
 
 function StockManagement({
@@ -33,11 +36,13 @@ function StockManagement({
   initialShowAdd = false,
   mode = 'list',
 }) {
-  const [activeTab, setActiveTab] = useState(initialTab); // 'inventory' | 'manual-bill' | 'import-file' | 'purchase-history' | 'hsn-lookup'
+  const [activeTab, setActiveTab] = useState(initialTab); // 'inventory' | 'import-items' | 'manual-bill' | 'import-file' | 'purchase-history' | 'hsn-lookup'
   const [items, setItems] = useState(stockItems);
   const [search, setSearch] = useState('');
   const [filterLowStock, setFilterLowStock] = useState(false);
   const [filterCategory, setFilterCategory] = useState('');
+  const [filterSubcategory, setFilterSubcategory] = useState('');
+  const [showExcelImport, setShowExcelImport] = useState(false);
   const [showAddModal, setShowAddModal] = useState(initialShowAdd);
   const [editingStockId, setEditingStockId] = useState(null);
   const [stockForm, setStockForm] = useState(EMPTY_STOCK_ITEM);
@@ -94,6 +99,12 @@ function StockManagement({
     return [...new Set(cats)].sort();
   }, [items]);
 
+  // Derive unique subcategories from actual item data (user-defined)
+  const usedSubcategories = useMemo(() => {
+    const subcats = items.map((i) => i.subcategory).filter(Boolean);
+    return [...new Set(subcats)].sort();
+  }, [items]);
+
   // Filtered Stock
   const filteredStock = useMemo(() => {
     return items.filter((item) => {
@@ -101,12 +112,15 @@ function StockManagement({
       const matchesSearch =
         !q ||
         item.name.toLowerCase().includes(q) ||
-        (item.hsn && item.hsn.toLowerCase().includes(q));
+        (item.hsn && item.hsn.toLowerCase().includes(q)) ||
+        (item.category && item.category.toLowerCase().includes(q)) ||
+        (item.subcategory && item.subcategory.toLowerCase().includes(q));
       const matchesLow = filterLowStock ? Number(item.stock) <= 5 : true;
       const matchesCategory = !filterCategory || item.category === filterCategory;
-      return matchesSearch && matchesLow && matchesCategory;
+      const matchesSubcategory = !filterSubcategory || item.subcategory === filterSubcategory;
+      return matchesSearch && matchesLow && matchesCategory && matchesSubcategory;
     });
-  }, [items, deferredSearch, filterLowStock, filterCategory]);
+  }, [items, deferredSearch, filterLowStock, filterCategory, filterSubcategory]);
 
 
   // Handler for Saving a Purchase Bill (Manual Entry)
@@ -258,8 +272,13 @@ function StockManagement({
       [
         'Item Name',
         'HSN Code',
+        'Category',
+        'Subcategory',
         'Available Stock',
         'Unit Rate (INR)',
+        'Wholesale Price (INR)',
+        'MRP (INR)',
+        'Purchase Price (INR)',
         'GST Slab (%)',
         'Unit',
         'Total Valuation (INR)',
@@ -268,11 +287,16 @@ function StockManagement({
     items.forEach((item) => {
       const val = (Number(item.stock) || 0) * (Number(item.rate) || 0);
       rows.push([
-        `"${item.name.replace(/"/g, '""')}"`,
+        `"${(item.name || '').replace(/"/g, '""')}"`,
         `"${item.hsn || ''}"`,
-        item.stock,
-        item.rate,
-        item.gst,
+        `"${(item.category || '').replace(/"/g, '""')}"`,
+        `"${(item.subcategory || '').replace(/"/g, '""')}"`,
+        item.stock || 0,
+        item.rate || 0,
+        item.wholesalePrice || 0,
+        item.mrp || 0,
+        item.purchasePrice || 0,
+        item.gst || 18,
         item.unit || 'PCS',
         val.toFixed(2),
       ]);
@@ -307,9 +331,13 @@ function StockManagement({
               hsn: stockForm.hsn.trim(),
               stock: Math.max(0, Number(stockForm.stock) || 0),
               rate: Math.max(0, Number(stockForm.rate) || 0),
+              wholesalePrice: Math.max(0, Number(stockForm.wholesalePrice) || 0),
+              mrp: Math.max(0, Number(stockForm.mrp) || 0),
+              purchasePrice: Math.max(0, Number(stockForm.purchasePrice) || 0),
               gst: Number(stockForm.gst) || 18,
               unit: stockForm.unit || 'PCS',
               category: stockForm.category || '',
+              subcategory: stockForm.subcategory || '',
             }
           : i
       );
@@ -321,9 +349,13 @@ function StockManagement({
         hsn: stockForm.hsn.trim(),
         stock: Math.max(0, Number(stockForm.stock) || 0),
         rate: Math.max(0, Number(stockForm.rate) || 0),
+        wholesalePrice: Math.max(0, Number(stockForm.wholesalePrice) || 0),
+        mrp: Math.max(0, Number(stockForm.mrp) || 0),
+        purchasePrice: Math.max(0, Number(stockForm.purchasePrice) || 0),
         gst: Number(stockForm.gst) || 18,
         unit: stockForm.unit || 'PCS',
         category: stockForm.category || '',
+        subcategory: stockForm.subcategory || '',
         createdAt: new Date().toISOString(),
       };
       updateStock([newItem, ...items]);
@@ -379,7 +411,14 @@ function StockManagement({
           </button>
           <button
             type="button"
-            className="btn btn-outline-primary btn-sm fw-semibold"
+            className={`btn btn-sm fw-bold ${showExcelImport ? 'btn-success' : 'btn-outline-primary shadow-xs'}`}
+            onClick={() => setShowExcelImport((prev) => !prev)}
+          >
+            📊 {showExcelImport ? 'Hide Item Importer' : '📊 Import Items from Excel'}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm fw-semibold"
             onClick={() => {
               setStockForm(EMPTY_STOCK_ITEM);
               setEditingStockId(null);
@@ -390,6 +429,18 @@ function StockManagement({
           </button>
         </div>
       </div>
+
+      {/* Collapsible Excel Importer (from top button) */}
+      {showExcelImport && (
+        <ItemExcelImport
+          existingItems={items}
+          onConfirmImport={(updated) => {
+            updateStock(updated);
+            setShowExcelImport(false);
+          }}
+          onCancel={() => setShowExcelImport(false)}
+        />
+      )}
 
       {/* KPI Cards */}
       <div className="row g-3 mb-4">
@@ -449,6 +500,18 @@ function StockManagement({
         <li className="nav-item">
           <button
             type="button"
+            className={`nav-link fw-bold ${activeTab === 'import-items' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveTab('import-items');
+              setShowExcelImport(false);
+            }}
+          >
+            📊 Import Items (Excel)
+          </button>
+        </li>
+        <li className="nav-item">
+          <button
+            type="button"
             className={`nav-link fw-bold ${activeTab === 'manual-bill' ? 'active' : ''}`}
             onClick={() => setActiveTab('manual-bill')}
           >
@@ -483,6 +546,18 @@ function StockManagement({
           </button>
         </li>
       </ul>
+
+      {/* TAB: DEDICATED IMPORT ITEMS FROM EXCEL */}
+      {activeTab === 'import-items' && (
+        <ItemExcelImport
+          existingItems={items}
+          onConfirmImport={(updated) => {
+            updateStock(updated);
+            setActiveTab('inventory');
+          }}
+          onCancel={() => setActiveTab('inventory')}
+        />
+      )}
 
       {/* TAB 1: CURRENT STOCK INVENTORY */}
       {activeTab === 'inventory' && (
@@ -550,9 +625,9 @@ function StockManagement({
               </div>
             </div>
 
-            {/* Category Filter Pills */}
+            {/* Category & Subcategory Filter Pills */}
             <div className="card-footer bg-light py-2 px-3 d-flex flex-wrap gap-2 align-items-center">
-              <small className="text-muted fw-semibold me-1">📂 Filter by Category:</small>
+              <small className="text-muted fw-semibold me-1">📂 Category:</small>
               <button
                 type="button"
                 className={`btn btn-sm py-0 px-2 fw-semibold ${filterCategory === '' ? 'btn-primary' : 'btn-outline-secondary'}`}
@@ -573,8 +648,31 @@ function StockManagement({
                   </button>
                 );
               })}
-              {usedCategories.length === 0 && (
-                <small className="text-muted fst-italic">No categories added yet — type a category name when adding/editing items</small>
+              {usedSubcategories.length > 0 && (
+                <>
+                  <span className="text-muted mx-1">|</span>
+                  <small className="text-muted fw-semibold me-1">🏷️ Subcategory:</small>
+                  <button
+                    type="button"
+                    className={`btn btn-sm py-0 px-2 fw-semibold ${filterSubcategory === '' ? 'btn-secondary text-white' : 'btn-outline-secondary'}`}
+                    onClick={() => setFilterSubcategory('')}
+                  >
+                    All Subcategories
+                  </button>
+                  {usedSubcategories.map((subcat) => {
+                    const count = items.filter((i) => i.subcategory === subcat).length;
+                    return (
+                      <button
+                        key={subcat}
+                        type="button"
+                        className={`btn btn-sm py-0 px-2 fw-semibold ${filterSubcategory === subcat ? 'btn-secondary text-white' : 'btn-outline-secondary'}`}
+                        onClick={() => setFilterSubcategory(subcat)}
+                      >
+                        🏷️ {subcat} ({count})
+                      </button>
+                    );
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -586,39 +684,51 @@ function StockManagement({
                   <div className="fs-1 mb-2">📦</div>
                   <h3 className="h5 fw-bold mb-2">No stock items found.</h3>
                   <p className="text-muted small mb-3">
-                    Inward items by typing a Purchase Bill or uploading an Excel file.
+                    Add new items or bulk import your catalog from an Excel/CSV spreadsheet.
                   </p>
-                  <div className="d-flex justify-content-center gap-2">
+                  <div className="d-flex justify-content-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => setActiveTab('manual-bill')}
+                      className="btn btn-outline-success btn-sm fw-bold shadow-xs"
+                      onClick={() => setShowExcelImport(true)}
                     >
-                      ✍️ Enter Purchase Bill
+                      📊 Import Items from Excel
                     </button>
                     <button
                       type="button"
-                      className="btn btn-outline-primary btn-sm"
-                      onClick={() => setActiveTab('import-file')}
+                      className="btn btn-primary btn-sm"
+                      onClick={() => {
+                        setStockForm(EMPTY_STOCK_ITEM);
+                        setEditingStockId(null);
+                        setShowAddModal(true);
+                      }}
                     >
-                      📥 Import Excel File
+                      ＋ Add Single Product
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm"
+                      onClick={() => setActiveTab('manual-bill')}
+                    >
+                      ✍️ Enter Purchase Bill
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="table-responsive" style={{ WebkitOverflowScrolling: 'touch' }}>
-                  <table className="table table-hover table-bordered mb-0 align-middle" style={{ minWidth: '760px' }}>
+                  <table className="table table-hover table-bordered mb-0 align-middle" style={{ minWidth: '820px' }}>
                     <thead className="table-light">
                       <tr>
                         <th>Item Description</th>
-                        <th>HSN Code</th>
-                        <th className="text-end">Unit Rate (₹)</th>
-                        <th className="text-center">GST Slab</th>
-                        <th className="text-center" style={{ width: '180px' }}>
+                        <th style={{ width: '100px' }}>HSN / SAC</th>
+                        <th className="text-end" style={{ minWidth: '130px' }}>Sales Pricing (₹)</th>
+                        <th className="text-end" style={{ width: '120px' }}>Purchase (₹)</th>
+                        <th className="text-center" style={{ width: '90px' }}>GST Slab</th>
+                        <th className="text-center" style={{ width: '160px' }}>
                           Available Stock
                         </th>
-                        <th className="text-end">Total Valuation (₹)</th>
-                        <th className="text-center" style={{ width: '130px' }}>
+                        <th className="text-end" style={{ width: '120px' }}>Total Valuation (₹)</th>
+                        <th className="text-center" style={{ width: '100px' }}>
                           Actions
                         </th>
                       </tr>
@@ -641,12 +751,38 @@ function StockManagement({
                                   📂 {item.category}
                                 </span>
                               )}
-
+                              {item.subcategory && (
+                                <span
+                                  className="badge ms-1"
+                                  style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#92400e' }}
+                                >
+                                  🏷️ {item.subcategory}
+                                </span>
+                              )}
                             </td>
                             <td>
                               {item.hsn ? <code>{item.hsn}</code> : <span className="text-muted">—</span>}
                             </td>
-                            <td className="text-end fw-semibold">₹{Number(item.rate || 0).toFixed(2)}</td>
+                            <td className="text-end">
+                              <div className="fw-semibold text-primary">₹{Number(item.rate || 0).toFixed(2)}</div>
+                              {Number(item.wholesalePrice) > 0 && (
+                                <div className="text-muted" style={{ fontSize: '0.73rem' }}>
+                                  Wholesale: ₹{Number(item.wholesalePrice).toFixed(2)}
+                                </div>
+                              )}
+                              {Number(item.mrp) > 0 && (
+                                <div className="text-muted" style={{ fontSize: '0.7rem' }}>
+                                  MRP: ₹{Number(item.mrp).toFixed(2)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="text-end">
+                              {Number(item.purchasePrice) > 0 ? (
+                                <span className="text-success fw-semibold">₹{Number(item.purchasePrice).toFixed(2)}</span>
+                              ) : (
+                                <span className="text-muted">—</span>
+                              )}
+                            </td>
                             <td className="text-center">
                               <span className="badge bg-secondary">{item.gst || 18}% GST</span>
                             </td>
@@ -674,7 +810,7 @@ function StockManagement({
                               </div>
                               {isLow && <div className="text-danger small mt-1">⚠️ Low Stock</div>}
                             </td>
-                            <td className="text-end fw-bold text-primary">₹{valuation.toFixed(2)}</td>
+                            <td className="text-end fw-bold text-dark">₹{valuation.toFixed(2)}</td>
                             <td className="text-center">
                               <div className="d-flex justify-content-center gap-1">
                                 <button
@@ -687,9 +823,13 @@ function StockManagement({
                                       hsn: item.hsn || '',
                                       stock: item.stock,
                                       rate: item.rate,
+                                      wholesalePrice: item.wholesalePrice || 0,
+                                      mrp: item.mrp || 0,
+                                      purchasePrice: item.purchasePrice || 0,
                                       gst: item.gst || 18,
                                       unit: item.unit || 'PCS',
                                       category: item.category || '',
+                                      subcategory: item.subcategory || '',
                                     });
                                     setEditingStockId(item.id);
                                     setShowAddModal(true);
@@ -962,7 +1102,7 @@ function StockManagement({
           tabIndex="-1"
           style={{ backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 1200 }}
         >
-          <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content shadow-lg border-0">
               <div className="modal-header bg-primary text-white">
                 <h2 className="modal-title h5 mb-0">
@@ -982,7 +1122,7 @@ function StockManagement({
                     <input
                       type="text"
                       className="form-control"
-                      placeholder="e.g. Wireless Mouse, Laptop Adapter"
+                      placeholder="e.g. Wireless Mouse, Laptop Adapter, 50kg Sugar Bag"
                       value={stockForm.name}
                       onChange={(e) =>
                         setStockForm((f) => ({ ...f, name: e.target.value }))
@@ -992,30 +1132,58 @@ function StockManagement({
                     />
                   </div>
 
-                  <div className="mb-3">
-                    <label className="form-label fw-semibold">Product Category <span className="text-muted fw-normal">(optional — type your own)</span></label>
-                    <input
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Electronics, Grocery, Raw Material, Services..."
-                      value={stockForm.category || ''}
-                      onChange={(e) =>
-                        setStockForm((f) => ({ ...f, category: e.target.value }))
-                      }
-                      list="stock-category-suggestions"
-                    />
-                    <datalist id="stock-category-suggestions">
-                      {usedCategories.map((cat) => (
-                        <option key={cat} value={cat} />
-                      ))}
-                    </datalist>
-                    {usedCategories.length > 0 && (
-                      <small className="text-muted">Suggestions from your existing items — or type a new one</small>
-                    )}
+                  {/* Category & Subcategory Side-by-side */}
+                  <div className="row g-3 mb-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        Category <span className="text-muted fw-normal">(user-defined)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. Electronics, Grocery, Raw Material..."
+                        value={stockForm.category || ''}
+                        onChange={(e) =>
+                          setStockForm((f) => ({ ...f, category: e.target.value }))
+                        }
+                        list="stock-category-suggestions"
+                      />
+                      <datalist id="stock-category-suggestions">
+                        {usedCategories.map((cat) => (
+                          <option key={cat} value={cat} />
+                        ))}
+                      </datalist>
+                      {usedCategories.length > 0 && (
+                        <small className="text-muted d-block mt-1">Suggestions from your items — or type new</small>
+                      )}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">
+                        Subcategory <span className="text-muted fw-normal">(user-defined)</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        placeholder="e.g. Peripherals, Cables, Rice, Pulses..."
+                        value={stockForm.subcategory || ''}
+                        onChange={(e) =>
+                          setStockForm((f) => ({ ...f, subcategory: e.target.value }))
+                        }
+                        list="stock-subcategory-suggestions"
+                      />
+                      <datalist id="stock-subcategory-suggestions">
+                        {usedSubcategories.map((sub) => (
+                          <option key={sub} value={sub} />
+                        ))}
+                      </datalist>
+                      {usedSubcategories.length > 0 && (
+                        <small className="text-muted d-block mt-1">Suggestions from your items — or type new</small>
+                      )}
+                    </div>
                   </div>
 
                   <div className="row g-3 mb-3">
-                    <div className="col-6">
+                    <div className="col-md-6 col-12">
                       <label className="form-label fw-semibold">HSN / SAC Code</label>
                       <input
                         type="text"
@@ -1034,8 +1202,8 @@ function StockManagement({
                         }
                       />
                     </div>
-                    <div className="col-6">
-                      <label className="form-label fw-semibold">Unit (UOM)</label>
+                    <div className="col-md-6 col-12">
+                      <label className="form-label fw-semibold">Unit of Measure (UOM)</label>
                       <select
                         className="form-select"
                         value={stockForm.unit || DEFAULT_UNIT}
@@ -1067,9 +1235,10 @@ function StockManagement({
                     </div>
                   )}
 
+                  {/* Stock Quantity & Cost Price */}
                   <div className="row g-3 mb-3">
-                    <div className="col-6">
-                      <label className="form-label fw-semibold">Available Quantity *</label>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Opening Stock Quantity *</label>
                       <input
                         type="number"
                         className="form-control text-end"
@@ -1081,20 +1250,78 @@ function StockManagement({
                         required
                       />
                     </div>
-                    <div className="col-6">
-                      <label className="form-label fw-semibold">Unit Rate (₹) *</label>
+                    <div className="col-md-6">
+                      <label className="form-label fw-semibold">Purchase / Cost Price (₹)</label>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
                         className="form-control text-end"
                         placeholder="0.00"
-                        value={stockForm.rate}
+                        value={stockForm.purchasePrice !== undefined ? stockForm.purchasePrice : ''}
                         onChange={(e) =>
-                          setStockForm((f) => ({ ...f, rate: e.target.value }))
+                          setStockForm((f) => ({ ...f, purchasePrice: e.target.value }))
                         }
-                        required
                       />
+                      <small className="text-muted d-block mt-1">Inward cost price</small>
+                    </div>
+                  </div>
+
+                  {/* Multi-Tier Sales Pricing */}
+                  <div className="p-3 rounded-3 border mb-3" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                    <div className="d-flex align-items-center justify-content-between mb-2">
+                      <div className="fw-bold text-dark small text-uppercase" style={{ letterSpacing: '0.04em' }}>
+                        💰 Sales Price Tiers
+                      </div>
+                      <small className="text-muted">Standard rate is used during billing by default</small>
+                    </div>
+                    <div className="row g-2">
+                      <div className="col-md-4 col-12">
+                        <label className="form-label small fw-semibold mb-1">Standard / Retail Rate (₹) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="form-control text-end"
+                          placeholder="0.00"
+                          value={stockForm.rate}
+                          onChange={(e) =>
+                            setStockForm((f) => ({ ...f, rate: e.target.value }))
+                          }
+                          required
+                        />
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Base billing rate</span>
+                      </div>
+                      <div className="col-md-4 col-12">
+                        <label className="form-label small fw-semibold mb-1">Wholesale Price (₹)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="form-control text-end"
+                          placeholder="0.00"
+                          value={stockForm.wholesalePrice !== undefined ? stockForm.wholesalePrice : ''}
+                          onChange={(e) =>
+                            setStockForm((f) => ({ ...f, wholesalePrice: e.target.value }))
+                          }
+                        />
+                        <span className="text-muted" style={{ fontSize: '11px' }}>B2B / bulk buyers</span>
+                      </div>
+                      <div className="col-md-4 col-12">
+                        <label className="form-label small fw-semibold mb-1">M.R.P. (₹)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="form-control text-end"
+                          placeholder="0.00"
+                          value={stockForm.mrp !== undefined ? stockForm.mrp : ''}
+                          onChange={(e) =>
+                            setStockForm((f) => ({ ...f, mrp: e.target.value }))
+                          }
+                        />
+                        <span className="text-muted" style={{ fontSize: '11px' }}>Maximum Retail Price</span>
+                      </div>
                     </div>
                   </div>
 

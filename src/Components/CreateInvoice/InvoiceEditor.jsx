@@ -51,7 +51,7 @@ function InvoiceEditor({
   const [newCustPastedText, setNewCustPastedText] = useState('');
 
   const isCustomerRegistered = customers.some(
-    (c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
+    (c) => c && c.name && c.name.trim().toLowerCase() === (customerName || '').trim().toLowerCase()
   );
 
   const newCustGstinAnalysis = useMemo(() => {
@@ -105,13 +105,21 @@ function InvoiceEditor({
 
   const handleDescriptionChange = (id, newDesc) => {
     updateItem(id, 'description', newDesc);
+    if (!newDesc) return;
     // If it matches a saved stock item, auto-fill rate, gst, unit, and hsn
     const matchedStock = stockItems.find(
-      (s) => s.name.toLowerCase() === newDesc.trim().toLowerCase()
+      (s) => s && s.name && s.name.trim().toLowerCase() === newDesc.trim().toLowerCase()
     );
     if (matchedStock) {
-      if (matchedStock.rate !== undefined) updateItem(id, 'rate', matchedStock.rate);
-      if (matchedStock.gst !== undefined) updateItem(id, 'gstPercent', matchedStock.gst);
+      const resolvedRate = matchedStock.rate !== undefined && Number(matchedStock.rate) > 0
+        ? Number(matchedStock.rate)
+        : (matchedStock.price !== undefined ? Number(matchedStock.price) : (matchedStock.salesPrice !== undefined ? Number(matchedStock.salesPrice) : 0));
+      const resolvedGst = matchedStock.gst !== undefined
+        ? Number(matchedStock.gst)
+        : (matchedStock.gstRate !== undefined ? Number(matchedStock.gstRate) : (matchedStock.gstPercent !== undefined ? Number(matchedStock.gstPercent) : 18));
+
+      if (resolvedRate > 0) updateItem(id, 'rate', resolvedRate);
+      if (resolvedGst !== undefined) updateItem(id, 'gstPercent', resolvedGst);
       if (matchedStock.unit) updateItem(id, 'unit', matchedStock.unit);
       if (matchedStock.hsn) updateItem(id, 'hsn', matchedStock.hsn);
     }
@@ -1019,11 +1027,16 @@ function InvoiceEditor({
 
       {/* Datalist for fast stock product auto-completion */}
       <datalist id="stock-items-catalog">
-        {stockItems.map((s) => (
-          <option key={s.id} value={s.name}>
-            Rate: ₹{s.rate} | GST: {s.gst}% | Stock: {s.stock} {s.unit || 'PCS'}
-          </option>
-        ))}
+        {stockItems.map((s) => {
+          const catInfo = [s.category, s.subcategory].filter(Boolean).join(' > ');
+          const itemRate = s.rate !== undefined ? s.rate : (s.price || 0);
+          const priceInfo = `Rate: ₹${itemRate}${Number(s.wholesalePrice) > 0 ? ` (WS: ₹${s.wholesalePrice})` : ''}`;
+          return (
+            <option key={s.id} value={s.name}>
+              {priceInfo} | GST: {s.gst ?? s.gstRate ?? s.gstPercent ?? 18}% | Stock: {s.stock} {s.unit || 'PCS'}{catInfo ? ` | [${catInfo}]` : ''}
+            </option>
+          );
+        })}
       </datalist>
 
       {/* Add Item Modal */}

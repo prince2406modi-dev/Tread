@@ -1,5 +1,5 @@
 import Logo from '../../assets/Images/Logo.png';
-import { getSubSectionIcon, getItemIcon } from '../../constants/navigation.js';
+import { getSubSectionIcon, getItemIcon, DISPLAY_MENU_STRUCTURE } from '../../constants/navigation.js';
 import { getNavBadgeForPage } from '../../constants/subscriptionPlans.js';
 
 export default function TopNavbar({
@@ -57,97 +57,146 @@ export default function TopNavbar({
 
               {/* DROPDOWN MENU */}
               {activeMenu === menu && (
-                <div className="dropdown-menu-custom">
-                  {Array.isArray(menus[menu]) ? (
-                    menus[menu].map((option) => {
-                      const tierBadge = getNavBadgeForPage(option, '', menu);
+                menu === 'Display' ? (
+                  <div
+                    className="busy-top-display-dropdown"
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      width: '250px',
+                      background: '#ffffff',
+                      border: '1px solid #7ba7d7',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.22)',
+                      padding: '6px 0',
+                      zIndex: 1200,
+                      maxHeight: '82vh',
+                      overflowY: 'auto',
+                      userSelect: 'none',
+                      fontFamily: "'Segoe UI', Tahoma, Arial, sans-serif",
+                    }}
+                  >
+                    {DISPLAY_MENU_STRUCTURE.map((item, idx) => {
+                      if (item.isSeparator) {
+                        return <div key={`sep-${idx}`} className="busy-display-gap" />;
+                      }
+
                       return (
                         <button
-                          key={option}
+                          key={item.title}
                           type="button"
-                          className="dropdown-item-custom d-flex align-items-center justify-content-between"
-                          onClick={() => onOptionClick(option)}
+                          className="busy-display-item"
+                          onClick={() => {
+                            if (item.targetPage) {
+                              onOptionClick(item.targetPage);
+                            } else {
+                              onOptionClick(item.title, null, 'Display');
+                            }
+                          }}
                         >
-                          <span className="d-flex align-items-center gap-2">
-                            <span className="item-icon">{getItemIcon(option)}</span>
-                            <span>{option}</span>
-                          </span>
-                          {tierBadge && (
-                            <span
-                              className="badge ms-2"
-                              style={{
-                                fontSize: '9px',
-                                padding: '2px 5px',
-                                background: tierBadge === 'ENT' ? 'rgba(147, 51, 234, 0.15)' : 'rgba(245, 158, 11, 0.18)',
-                                color: tierBadge === 'ENT' ? '#c084fc' : '#f59e0b',
-                                border: tierBadge === 'ENT' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
-                                borderRadius: '4px',
-                                letterSpacing: '0.04em',
-                              }}
-                            >
-                              {tierBadge}
-                            </span>
+                          {item.isBullet ? (
+                            <span className="busy-bullet">o</span>
+                          ) : (
+                            <span className="busy-chevron">&gt;</span>
                           )}
+                          <span>{item.title}</span>
                         </button>
                       );
-                    })
-                  ) : (
-                    Object.entries(menus[menu]).map(([subKey, subOptions]) => {
-                      const fullSubKey = `${menu}_${subKey}`;
-                      const isSubOpen = !!openSubSections[fullSubKey];
-                      const subBadge = getNavBadgeForPage('', subKey, menu);
-                      return (
-                        <div key={subKey} className="dropdown-section-block">
+                    })}
+                  </div>
+                ) : (
+                  <div className="dropdown-menu-custom">
+                    {Array.isArray(menus[menu]) ? (
+                      menus[menu].map((option) => {
+                        const tierBadge = getNavBadgeForPage(option, '', menu);
+                        return (
                           <button
+                            key={option}
                             type="button"
-                            className={`dropdown-section-toggle ${isSubOpen ? 'open' : ''}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleSubSection(fullSubKey);
-                            }}
+                            className="dropdown-item-custom d-flex align-items-center justify-content-between"
+                            onClick={() => onOptionClick(option)}
                           >
                             <span className="d-flex align-items-center gap-2">
-                              <span>{getSubSectionIcon(subKey)}</span>
-                              <span>{subKey}</span>
-                              {subBadge && (
-                                <span
-                                  className="badge ms-1"
-                                  style={{
-                                    fontSize: '8.5px',
-                                    padding: '1px 4px',
-                                    background: 'rgba(245, 158, 11, 0.15)',
-                                    color: '#f59e0b',
-                                    border: '1px solid rgba(245, 158, 11, 0.35)',
-                                    borderRadius: '3px',
-                                  }}
-                                >
-                                  {subBadge}
-                                </span>
-                              )}
+                              <span className="item-icon">{getItemIcon(option)}</span>
+                              <span>{option}</span>
                             </span>
-                            <span className="small text-muted">{isSubOpen ? '▲' : '▶'}</span>
+                            {tierBadge && (
+                              <span
+                                className="badge ms-2"
+                                style={{
+                                  fontSize: '9px',
+                                  padding: '2px 5px',
+                                  background: tierBadge === 'ENT' ? 'rgba(147, 51, 234, 0.15)' : 'rgba(245, 158, 11, 0.18)',
+                                  color: tierBadge === 'ENT' ? '#c084fc' : '#f59e0b',
+                                  border: tierBadge === 'ENT' ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)',
+                                  borderRadius: '4px',
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                {tierBadge}
+                              </span>
+                            )}
                           </button>
+                        );
+                      })
+                    ) : (
+                      Object.entries(menus[menu]).map(([subKey, subOptions]) => {
+                        const fullSubKey = `${menu}_${subKey}`;
+                        const isSubOpen = !!openSubSections[fullSubKey];
+                        const subBadge = getNavBadgeForPage('', subKey, menu);
+                        return (
+                          <div key={subKey} className="dropdown-section-block">
+                            <button
+                              type="button"
+                              className={`dropdown-section-toggle ${isSubOpen ? 'open' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleSubSection(fullSubKey);
+                              }}
+                            >
+                              <span className="d-flex align-items-center gap-2">
+                                <span>{getSubSectionIcon(subKey)}</span>
+                                <span>{subKey}</span>
+                                {subBadge && (
+                                  <span
+                                    className="badge ms-1"
+                                    style={{
+                                      fontSize: '8.5px',
+                                      padding: '1px 4px',
+                                      background: 'rgba(245, 158, 11, 0.15)',
+                                      color: '#f59e0b',
+                                      border: '1px solid rgba(245, 158, 11, 0.35)',
+                                      borderRadius: '3px',
+                                    }}
+                                  >
+                                    {subBadge}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="small text-muted">{isSubOpen ? '▲' : '▶'}</span>
+                            </button>
 
-                          {isSubOpen && (
-                            <div className="dropdown-sub-items-container">
-                              {subOptions.map((option) => (
-                                <button
-                                  key={option}
-                                  type="button"
-                                  className="dropdown-sub-item"
-                                  onClick={() => onOptionClick(option, subKey, menu)}
-                                >
-                                  <span className="item-icon">{getItemIcon(option)}</span>
-                                  {option}
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
+                            {isSubOpen && (
+                              <div className="dropdown-sub-items-container">
+                                {subOptions.map((option) => (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    className="dropdown-sub-item"
+                                    onClick={() => onOptionClick(option, subKey, menu)}
+                                  >
+                                    <span className="item-icon">{getItemIcon(option)}</span>
+                                    {option}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )
               )}
             </div>
           ))

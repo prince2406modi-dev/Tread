@@ -6,7 +6,6 @@ import {
   cloudDeleteUser,
   evaluateSubscriptionStatus,
   renewUserSubscription,
-  generateLicenseId,
   ensureValidLicenseId,
 } from '../../services/authApi.js';
 import DeviceAccessControl from './DeviceAccessControl.jsx';
@@ -14,11 +13,9 @@ import DeviceAccessControl from './DeviceAccessControl.jsx';
 function UserManagement({
   users = [],
   currentUser,
-  onSwitchUser,
   onAddUser,
   onLogout,
   onBack,
-  onExtendLicense,
 }) {
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'add-user' | 'device-access' | 'auth-api'
   const [userList, setUserList] = useState(users);

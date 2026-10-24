@@ -6,7 +6,14 @@ import {
   AI_PROVIDERS,
   fetchOllamaModels,
   testOllamaConnection,
+  testJarvisConnection,
 } from '../../services/aiAssistantService.js';
+import {
+  analyzeAnyFile,
+  analysisToInvoice,
+  analysisToPurchaseBill,
+  analysisToStockItems,
+} from '../../services/fileAnalyzerService.js';
 
 export default function TreadAICopilot({
   isOpen,
@@ -29,9 +36,34 @@ export default function TreadAICopilot({
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Document Attachment State
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [isParsingFile, setIsParsingFile] = useState(false);
+  const fileAttachmentRef = useRef(null);
+
   // Settings State
   const [aiConfig, setAiConfig] = useState(getAiConfig);
   const [settingsStatus, setSettingsStatus] = useState('');
+
+  // JARVIS Core Background Live State
+  const [jarvisStatus, setJarvisStatus] = useState({
+    testing: false,
+    connected: null,
+    brain: '',
+    system: '',
+    error: '',
+  });
+
+  const checkJarvisConnectivity = useCallback(async (targetUrl) => {
+    const url = targetUrl || aiConfig.jarvisUrl || 'http://127.0.0.1:5000';
+    setJarvisStatus((prev) => ({ ...prev, testing: true }));
+    const testRes = await testJarvisConnection(url);
+    if (testRes.success) {
+      setJarvisStatus({ testing: false, connected: true, brain: testRes.brain, system: testRes.system, error: '' });
+    } else {
+      setJarvisStatus({ testing: false, connected: false, brain: '', system: '', error: testRes.error });
+    }
+  }, [aiConfig.jarvisUrl]);
 
   // Ollama Live State
   const [ollamaStatus, setOllamaStatus] = useState({
@@ -57,22 +89,25 @@ export default function TreadAICopilot({
 
   useEffect(() => {
     if (isOpen) {
-      checkOllamaConnectivity();
+      checkJarvisConnectivity();
+      if (aiConfig.provider === AI_PROVIDERS.OLLAMA) {
+        checkOllamaConnectivity();
+      }
     }
-  }, [isOpen, checkOllamaConnectivity]);
+  }, [isOpen, aiConfig.provider, checkJarvisConnectivity, checkOllamaConnectivity]);
 
   const [messages, setMessages] = useState([
     {
       id: 'welcome',
       role: 'assistant',
-      text: `👋 **Hello! I am Tread AI Copilot**, your voice-controlled ERP assistant powered by local **Ollama (${aiConfig.ollamaModel || 'qwen2.5:7b'})**.\n\n` +
-        `I understand your natural voice and thoughts to control **every part of Tread**:\n` +
+      text: `🎩 **Good day, Sir. I am J.A.R.V.I.S.**, your executive AI copilot operating silently in the background with **120-Billion Parameter Neural Intelligence**.\n\n` +
+        `I am at your complete disposal across the Tread GST Billing & Inventory platform:\n` +
         `• 🎤 **Voice Invoicing**: *"Bill 10 LED bulbs at 150 each to Sharma Traders"*\n` +
-        `• 🧭 **App Navigation**: *"Go to Dashboard"*, *"Open GSTR-1"*, *"Show Stock items"*, *"Open Customers"*\n` +
+        `• 🧭 **Navigation**: *"Take me to Dashboard"*, *"Open GSTR-1"*, *"Review Stock"* \n` +
         `• 👥 **Parties & Vendors**: *"Add party Raj Electricals mobile 9876543210"*\n` +
-        `• 📦 **Stock Control**: *"Add stock 20W Fast Charger price 299 hsn 8504 gst 18% stock 50"*\n` +
-        `• ☁️ **Cloud & Data**: *"Sync with cloud"*, *"Check low stock"*\n\n` +
-        `Click **🎤 Voice** to speak your thought or type below!`,
+        `• 📦 **Stock Management**: *"Add 50 units of 20W Fast Charger rate 299 HSN 8504"*\n` +
+        `• ☁️ **Cloud Synchronization**: *"Sync with cloud datastore"*, *"Check low stock"*\n\n` +
+        `How may I assist you today, Sir?`,
       timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -220,6 +255,50 @@ export default function TreadAICopilot({
     }
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsParsingFile(true);
+
+    try {
+      const analysis = await analyzeAnyFile(file);
+      setAttachedFile({
+        file,
+        name: file.name,
+        size: file.size,
+        analysis,
+      });
+
+      const docMsg = {
+        id: `file-${Date.now()}`,
+        role: 'assistant',
+        text: `📎 **Document Analyzed**: \`${file.name}\`\n\n` +
+          `• **Type**: ${analysis.documentLabel}\n` +
+          `• **Party**: ${analysis.party.name || 'Unspecified'} ${analysis.party.gstin ? `(\`${analysis.party.gstin}\`)` : ''}\n` +
+          `• **Financials**: Taxable ₹${analysis.meta.subtotal.toFixed(2)} + GST ₹${analysis.meta.totalTax.toFixed(2)} = **Total ₹${analysis.meta.totalAmount.toFixed(2)}**\n` +
+          `• **Items**: ${analysis.items.length} line items extracted.\n\n` +
+          (analysis.anomalies.length > 0 ? `⚠️ **Anomalies**: ${analysis.anomalies.join('; ')}\n\n` : '') +
+          `You can ask me questions about this file or choose an action below:`,
+        action: {
+          type: 'DOCUMENT_ANALYSIS',
+          payload: analysis,
+        },
+        timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      };
+
+      setMessages((prev) => [...prev, docMsg]);
+      if (voiceRepliesEnabled) {
+        speakText(`Analyzed ${file.name}. Found ${analysis.items.length} items totaling ${analysis.meta.totalAmount.toFixed(0)} rupees.`);
+      }
+    } catch (err) {
+      console.error('File parsing error:', err);
+      alert(`Could not analyze file: ${err.message}`);
+    } finally {
+      setIsParsingFile(false);
+      if (fileAttachmentRef.current) fileAttachmentRef.current.value = '';
+    }
+  };
+
   const handleSend = async (customPrompt) => {
     const query = (customPrompt || inputText).trim();
     if (!query || isLoading) return;
@@ -244,6 +323,7 @@ export default function TreadAICopilot({
         customers,
         stockItems,
         purchaseBills,
+        documentAnalysis: attachedFile?.analysis || null,
       };
 
       const result = await queryTreadAI(query, context);
@@ -425,15 +505,34 @@ export default function TreadAICopilot({
                   className="badge rounded-pill fw-medium d-flex align-items-center gap-1"
                   style={{
                     backgroundColor:
-                      aiConfig.provider === AI_PROVIDERS.OLLAMA
+                      aiConfig.provider === AI_PROVIDERS.JARVIS
+                        ? jarvisStatus.connected ? '#1e1b4b' : '#b45309'
+                        : aiConfig.provider === AI_PROVIDERS.OLLAMA
                         ? ollamaStatus.connected ? '#059669' : '#b45309'
                         : aiConfig.provider === AI_PROVIDERS.GEMINI
                         ? '#2563eb'
                         : '#475569',
                     fontSize: '11px',
+                    border: aiConfig.provider === AI_PROVIDERS.JARVIS ? '1px solid rgba(245,158,11,0.5)' : 'none',
                   }}
                 >
-                  {aiConfig.provider === AI_PROVIDERS.OLLAMA ? (
+                  {aiConfig.provider === AI_PROVIDERS.JARVIS ? (
+                    <>
+                      <span>🎩 J.A.R.V.I.S. 120B</span>
+                      <span
+                        className={`badge rounded-pill py-0 px-1 ${
+                          jarvisStatus.connected ? 'bg-white text-success' : 'bg-white text-danger'
+                        }`}
+                        style={{ fontSize: '9.5px' }}
+                      >
+                        {jarvisStatus.connected === true
+                          ? '● Online'
+                          : jarvisStatus.testing
+                          ? '● Checking...'
+                          : '● Offline'}
+                      </span>
+                    </>
+                  ) : aiConfig.provider === AI_PROVIDERS.OLLAMA ? (
                     <>
                       <span>🦙 Ollama: {aiConfig.ollamaModel}</span>
                       <span
@@ -457,7 +556,7 @@ export default function TreadAICopilot({
                 </span>
               </div>
               <small className="text-white-50" style={{ fontSize: '11px' }}>
-                Local Ollama LLM &amp; Natural Voice Assistant
+                J.A.R.V.I.S. Frontier 120B Neural Brain &amp; Voice Copilot
               </small>
             </div>
           </div>
@@ -516,11 +615,84 @@ export default function TreadAICopilot({
               <span>⚙️</span> Tread AI Engine Configuration
             </h5>
             <p className="text-muted small mb-3">
-              Tread AI is configured to use <strong>local Ollama (e.g. Qwen 2.5 7B / 8B)</strong> by default for private, on-device intelligence.
+              Configure Tread AI brain. By default, <strong>J.A.R.V.I.S. Core (120B Frontier Intelligence)</strong> runs silently as a background service on your system.
             </p>
 
             <div className="card p-3 mb-3 border bg-white shadow-xs">
-              {/* Option 1: Ollama Local LLM (Featured & Default) */}
+              {/* Option 1: J.A.R.V.I.S. Core Background Agent (Primary Default) */}
+              <div className="form-check mb-3 pb-3 border-bottom">
+                <input
+                  className="form-check-input"
+                  type="radio"
+                  name="aiProvider"
+                  id="providerJarvis"
+                  checked={aiConfig.provider === AI_PROVIDERS.JARVIS}
+                  onChange={() => setAiConfig((c) => ({ ...c, provider: AI_PROVIDERS.JARVIS }))}
+                />
+                <label className="form-check-label fw-bold text-dark fs-6" htmlFor="providerJarvis">
+                  🎩 J.A.R.V.I.S. Background Core (120B Frontier Intelligence) — Active Default
+                </label>
+                <div className="text-muted small ps-4 mt-1">
+                  Ultra-fast, sophisticated background agent running silently on your device. Powered by Groq 120B neural brain.
+                </div>
+
+                {aiConfig.provider === AI_PROVIDERS.JARVIS && (
+                  <div className="ps-4 mt-3 bg-light p-3 rounded-3 border">
+                    <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="small fw-bold">Live Status:</span>
+                        {jarvisStatus.testing ? (
+                          <span className="badge bg-secondary">Checking...</span>
+                        ) : jarvisStatus.connected ? (
+                          <span className="badge bg-success">
+                            ✓ Online ({jarvisStatus.brain})
+                          </span>
+                        ) : (
+                          <span className="badge bg-warning text-dark">
+                            ⚠️ Unreachable (Fallback to Built-in Engine Active)
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary py-0 px-2 fw-semibold"
+                        style={{ fontSize: '11.5px' }}
+                        onClick={() => checkJarvisConnectivity(aiConfig.jarvisUrl)}
+                        disabled={jarvisStatus.testing}
+                      >
+                        🔄 Test Connection
+                      </button>
+                    </div>
+
+                    {!jarvisStatus.connected && !jarvisStatus.testing && (
+                      <div className="alert alert-warning py-2 px-3 small mb-3">
+                        <div className="fw-semibold mb-1">To run J.A.R.V.I.S. silently in the background:</div>
+                        <div className="small mb-1">
+                          Run <code>C:\Users\Prince\OneDrive\Desktop\JL_old\JARVIS_CORE\run_jarvis_background.bat</code>. It starts windowless with zero popup.
+                        </div>
+                        <div className="text-muted mt-1" style={{ fontSize: '11px' }}>
+                          *Note: When offline, Tread AI automatically defaults to its built-in rule engine so your invoices and commands continue seamlessly!
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="row g-2">
+                      <div className="col-12">
+                        <label className="form-label small fw-semibold">J.A.R.V.I.S. Core Local Endpoint</label>
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          value={aiConfig.jarvisUrl || 'http://127.0.0.1:5000'}
+                          onChange={(e) => setAiConfig((c) => ({ ...c, jarvisUrl: e.target.value }))}
+                          placeholder="http://127.0.0.1:5000"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Option 2: Ollama Local LLM */}
               <div className="form-check mb-3 pb-3 border-bottom">
                 <input
                   className="form-check-input"
@@ -531,7 +703,7 @@ export default function TreadAICopilot({
                   onChange={() => setAiConfig((c) => ({ ...c, provider: AI_PROVIDERS.OLLAMA }))}
                 />
                 <label className="form-check-label fw-bold text-primary fs-6" htmlFor="providerOllama">
-                  🦙 Local Ollama LLM (Qwen 2.5 / Llama 3 / DeepSeek) — Recommended
+                  🦙 Local Ollama LLM (Qwen 2.5 / Llama 3 / DeepSeek)
                 </label>
                 <div className="text-muted small ps-4 mt-1">
                   Runs local open-source LLMs directly on your device. Complete privacy with zero API costs.
@@ -899,6 +1071,66 @@ export default function TreadAICopilot({
                             </button>
                           </div>
                         )}
+
+                        {m.action.type === 'DOCUMENT_ANALYSIS' && (
+                          <div className="bg-light p-2.5 rounded-3 text-dark border">
+                            <div className="fw-bold small mb-1.5 d-flex align-items-center justify-content-between">
+                              <span>⚡ 1-Click Document Actions</span>
+                              <span className="badge bg-primary-subtle text-primary border border-primary-subtle" style={{ fontSize: '10px' }}>
+                                {m.action.payload.items?.length || 0} items
+                              </span>
+                            </div>
+                            <div className="d-grid gap-1.5">
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm fw-semibold shadow-xs d-flex align-items-center justify-content-center gap-1.5"
+                                onClick={() => {
+                                  executeInvoiceAction(analysisToInvoice(m.action.payload));
+                                }}
+                              >
+                                <span>📝</span>
+                                <span>Open as Sales Tax Invoice</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn btn-success btn-sm fw-semibold shadow-xs d-flex align-items-center justify-content-center gap-1.5"
+                                onClick={() => {
+                                  const bill = analysisToPurchaseBill(m.action.payload);
+                                  executePurchaseAction(bill);
+                                  alert(`✓ Recorded Purchase Bill #${bill.billNumber} for ${bill.partyName}`);
+                                }}
+                              >
+                                <span>🛒</span>
+                                <span>Record as Inward Purchase Bill</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn btn-warning btn-sm text-dark fw-semibold shadow-xs d-flex align-items-center justify-content-center gap-1.5"
+                                onClick={() => {
+                                  const stockList = analysisToStockItems(m.action.payload);
+                                  stockList.forEach((it) => executeStockAction(it));
+                                  alert(`✓ Added ${stockList.length} items to Master Stock Catalog!`);
+                                }}
+                              >
+                                <span>📦</span>
+                                <span>Bulk Import Items to Stock</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                className="btn btn-outline-secondary btn-sm fw-semibold d-flex align-items-center justify-content-center gap-1.5"
+                                onClick={() => {
+                                  executeNavigateAction('Universal File AI');
+                                }}
+                              >
+                                <span>🔍</span>
+                                <span>Open Full Document Studio & Editor</span>
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -977,9 +1209,55 @@ export default function TreadAICopilot({
               </div>
             )}
 
-            {/* Input Bar with Voice Recognition Mic Button */}
+            {/* Attached Document Pill Chip */}
+            {attachedFile && (
+              <div className="px-3 py-1.5 bg-light border-top d-flex align-items-center justify-content-between small">
+                <span className="text-truncate d-flex align-items-center gap-1.5 text-dark">
+                  <span>📎</span>
+                  <strong>{attachedFile.name}</strong>
+                  <span className="badge bg-secondary-subtle text-secondary border" style={{ fontSize: '10px' }}>
+                    {attachedFile.analysis?.documentLabel || 'Document'}
+                  </span>
+                  <span className="text-muted" style={{ fontSize: '11px' }}>
+                    ({(attachedFile.size / 1024).toFixed(1)} KB)
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-link text-danger p-0 ms-2 text-decoration-none fw-semibold"
+                  onClick={() => setAttachedFile(null)}
+                  title="Remove attached file"
+                >
+                  ✕ Remove
+                </button>
+              </div>
+            )}
+
+            {/* Input Bar with Voice Recognition Mic & File Attachment */}
             <div className="p-3 bg-white border-top">
               <div className="input-group shadow-xs">
+                {/* File Attachment Hidden Input & Trigger Button */}
+                <input
+                  ref={fileAttachmentRef}
+                  type="file"
+                  accept=".xlsx,.xls,.pdf,.csv,.tsv,.txt,.json,image/*"
+                  className="d-none"
+                  onChange={handleFileUpload}
+                />
+                <button
+                  type="button"
+                  className="btn btn-outline-secondary px-2.5 d-flex align-items-center justify-content-center"
+                  onClick={() => fileAttachmentRef.current?.click()}
+                  disabled={isLoading || isParsingFile}
+                  title="Attach any Excel, PDF, CSV, TXT, JSON, or Receipt Image to analyze"
+                >
+                  {isParsingFile ? (
+                    <div className="spinner-border spinner-border-sm text-primary" role="status" style={{ width: '14px', height: '14px' }} />
+                  ) : (
+                    <span style={{ fontSize: '15px' }}>📎</span>
+                  )}
+                </button>
+
                 {voiceSupported && (
                   <>
                     <button

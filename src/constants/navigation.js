@@ -59,19 +59,38 @@ export const MENUS = {
     ],
   },
   GST: [
+    'Universal File AI (Excel, PDF, Images)',
     'GST File Importer (All Types)',
     'GSTR-1 (Sales Outward)',
     'GSTR-2B (ITC Reconcile)',
     'GSTR-3B Return Summary',
     'GSTIN & HSN Directory',
   ],
-  Display: [
-    'Dashboard',
-    '✨ Tread AI Copilot',
-    'All Transactions',
-    'Company Details',
-    'Reports',
-  ],
+  Display: {
+    'Final Results': ['Balance Sheet', 'Profit & Loss A/c', 'Payment & Receipt Statement'],
+    'Trial Balance': ['Closing Trial Balance', 'Opening Trial Balance', 'Group-wise Trial Balance'],
+    'Account Books': ['Day Book', 'Account Ledger', 'Cash / Bank Book'],
+    'Account Summary': ['Account Group Summary', 'Monthly Summary'],
+    'Outstanding Analysis': ['Amount Receivable (Debtors)', 'Bills Receivable'],
+    'Interest Calculation': ['Interest on Receivables'],
+    'Depreciation Chart': ['Fixed Assets Depreciation Schedule'],
+    'My Dash Board': ['Executive Dashboard'],
+    'Stock Status': ['Closing Stock', 'Low Stock Alert', 'Stock Valuation Summary'],
+    'Inventory Books': ['Item Movement Ledger', 'Item Inward / Outward Register'],
+    'Inventory Summary': ['Category Summary', 'Subcategory Summary'],
+    'MRP-wise Reports': ['Price List Directory'],
+    'Order/Challan Processing': ['Sales Orders', 'Purchase Orders'],
+    'GST Reports': ['GSTR-1 (Sales Outward)', 'GSTR-3B Return Summary'],
+    'MIS Reports': ['Cash Flow Summary', 'Financial Ratios'],
+    'Check List': ['Audit Checklist'],
+    'Sales Analysis': ['Monthly Sales Trend', 'Customer-wise Sales'],
+    'Purchase Analysis': ['Supplier-wise Purchase'],
+    'Issue-Receipt Analysis': ['Movement Balance'],
+    'Consumption Analysis': ['Inventory Turnover'],
+    'Item Receivable/Issuable': ['Pending Deliveries'],
+    'Production Reports': ['Production Logs'],
+    'Query System': ['Universal Voucher Query'],
+  },
   'Print/Email/SMS': [
     'Print Invoice',
     'Email Invoice',
@@ -180,6 +199,7 @@ export const getSubSectionIcon = (sub) => {
 };
 
 export const getItemIcon = (item) => {
+  if (item.includes('Universal File') || item.includes('Smart File') || item.includes('Analyze')) return '⚡';
   if (item.includes('Import') || item.includes('Download')) return '📥';
   if (item.includes('GSTR-1') || item.includes('Export')) return '📤';
   if (item.includes('Reconcile') || item.includes('GSTR-2B') || item.includes('2B')) return '⚖️';
@@ -209,3 +229,47 @@ export const getItemIcon = (item) => {
   if (item.includes('Directory')) return '🔍';
   return '•';
 };
+
+export const DISPLAY_MENU_STRUCTURE = [
+  // Group 1: Financial Results & Accounts
+  { title: 'Final Results', hasSub: true, subItems: ['Balance Sheet', 'Profit & Loss A/c', 'Payment & Receipt Statement'] },
+  { title: 'Trial Balance', hasSub: true, subItems: ['Closing Trial Balance', 'Opening Trial Balance', 'Group-wise Trial Balance'] },
+  { title: 'Account Books', hasSub: true, subItems: ['Day Book', 'Account Ledger', 'Cash / Bank Book'] },
+  { title: 'Account Summary', hasSub: true, subItems: ['Account Group Summary', 'Monthly Summary'] },
+  { title: 'Outstanding Analysis', hasSub: true, subItems: ['Amount Receivable (Debtors)', 'Bills Receivable'] },
+  { title: 'Interest Calculation', hasSub: true, subItems: ['Interest on Receivables'] },
+  { title: 'Depreciation Chart', hasSub: true, subItems: ['Fixed Assets Depreciation Schedule'] },
+
+  { isSeparator: true },
+
+  // Group 2: My Dash Board
+  { title: 'My Dash Board', hasSub: false, isBullet: true, targetPage: 'Dashboard' },
+
+  { isSeparator: true },
+
+  // Group 3: Inventory / Stock
+  { title: 'Stock Status', hasSub: true, subItems: ['Closing Stock', 'Low Stock Alert', 'Stock Valuation Summary'] },
+  { title: 'Inventory Books', hasSub: true, subItems: ['Item Movement Ledger', 'Item Inward / Outward Register'] },
+  { title: 'Inventory Summary', hasSub: true, subItems: ['Category Summary', 'Subcategory Summary'] },
+  { title: 'MRP-wise Reports', hasSub: true, subItems: ['Price List Directory'] },
+  { title: 'Order/Challan Processing', hasSub: true, subItems: ['Sales Orders', 'Purchase Orders'] },
+
+  { isSeparator: true },
+
+  // Group 4: GST Reports
+  { title: 'GST Reports', hasSub: true, subItems: ['GSTR-1 (Sales Outward)', 'GSTR-3B Return Summary'] },
+
+  { isSeparator: true },
+
+  // Group 5: MIS & Analysis
+  { title: 'MIS Reports', hasSub: true, subItems: ['Cash Flow Summary', 'Financial Ratios'] },
+  { title: 'Check List', hasSub: true, subItems: ['Audit Checklist'] },
+  { title: 'Sales Analysis', hasSub: true, subItems: ['Monthly Sales Trend', 'Customer-wise Sales'] },
+  { title: 'Purchase Analysis', hasSub: true, subItems: ['Supplier-wise Purchase'] },
+  { title: 'Issue-Receipt Analysis', hasSub: true, subItems: ['Movement Balance'] },
+  { title: 'Consumption Analysis', hasSub: true, subItems: ['Inventory Turnover'] },
+  { title: 'Item Receivable/Issuable', hasSub: true, subItems: ['Pending Deliveries'] },
+  { title: 'Production Reports', hasSub: true, subItems: ['Production Logs'] },
+  { title: 'Query System', hasSub: true, subItems: ['Universal Voucher Query'] },
+];
+

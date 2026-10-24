@@ -8,7 +8,6 @@ export default function SalesOrderManager({
   stockItems = [],
   company = {},
   onConvertToInvoice,
-  onNavigate,
   initialMode = 'list',
 }) {
   const [activeTab, setActiveTab] = useState(initialMode === 'add' ? 'create' : 'register');
@@ -26,7 +25,7 @@ export default function SalesOrderManager({
   }, [orders]);
 
   // Form State
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     orderNumber: nextOrderNumber,
     orderDate: new Date().toISOString().slice(0, 10),
     validUntil: new Date(Date.now() + 15 * 86400000).toISOString().slice(0, 10),
@@ -49,7 +48,7 @@ export default function SalesOrderManager({
         gstRate: 18,
       },
     ],
-  });
+  }));
 
   // Handle Customer Selection
   const handleSelectCustomer = (name) => {
@@ -104,11 +103,12 @@ export default function SalesOrderManager({
 
         // If product chosen from stock, auto-populate details
         if (field === 'description') {
-          const stock = stockItems.find((s) => s.name === value);
+          const stock = stockItems.find((s) => s && s.name && s.name.trim().toLowerCase() === (value || '').trim().toLowerCase());
           if (stock) {
             updated.hsn = stock.hsn || updated.hsn;
             updated.rate = stock.sellingPrice || stock.price || updated.rate;
-            updated.gstRate = stock.gstRate !== undefined ? stock.gstRate : updated.gstRate;
+            updated.gstRate = stock.gstRate ?? stock.gst ?? stock.gstPercent ?? updated.gstRate;
+            updated.rate = stock.sellingPrice ?? stock.rate ?? stock.price ?? updated.rate;
             updated.unit = stock.unit || updated.unit;
           }
         }
@@ -138,9 +138,6 @@ export default function SalesOrderManager({
       const tax = (taxable * gstRate) / 100;
       const lineTotal = taxable + tax;
 
-      subtotal += taxable;
-      totalTax += tax;
-
       return {
         ...item,
         taxable,
@@ -148,6 +145,11 @@ export default function SalesOrderManager({
         lineTotal,
       };
     });
+
+    for (const it of itemsComputed) {
+      subtotal += it.taxable;
+      totalTax += it.tax;
+    }
 
     const grandTotal = Math.round((subtotal + totalTax) * 100) / 100;
     const roundOff = Math.round((Math.round(grandTotal) - grandTotal) * 100) / 100;
@@ -501,7 +503,7 @@ export default function SalesOrderManager({
                               onClick: () => setSelectedOrderForView(order),
                             }}
                             actions={[
-                              !isConverted ? {
+                              !isConverted && !isCancelled ? {
                                 label: 'Convert to Invoice',
                                 icon: '⚡',
                                 variant: 'success',

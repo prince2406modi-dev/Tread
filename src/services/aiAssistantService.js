@@ -1,19 +1,22 @@
 /**
  * Tread AI Service
- * Supports 3 intelligent engines:
- * 1. Built-in Offline Business & GST Rules Intelligence (Default - zero setup, works everywhere)
- * 2. Ollama Local LLM (Qwen 2.5 / Llama / Custom Models via http://localhost:11434)
- * 3. Google Gemini Cloud API (Ultra-fast cloud reasoning)
+ * Supports 4 intelligent engines:
+ * 1. J.A.R.V.I.S. Background AI Agent (120B Frontier Neural Brain via Groq on http://127.0.0.1:5000)
+ * 2. Built-in Offline Business & GST Rules Intelligence (Default fallback - zero setup, works everywhere)
+ * 3. Ollama Local LLM (Qwen 2.5 / Llama / Custom Models via http://localhost:11434)
+ * 4. Google Gemini Cloud API (Ultra-fast cloud reasoning)
  */
 
 export const AI_PROVIDERS = {
+  JARVIS: 'jarvis',
   BUILTIN: 'builtin',
   OLLAMA: 'ollama',
   GEMINI: 'gemini',
 };
 
 export const DEFAULT_AI_CONFIG = {
-  provider: AI_PROVIDERS.OLLAMA,
+  provider: AI_PROVIDERS.JARVIS,
+  jarvisUrl: 'http://127.0.0.1:5000',
   ollamaUrl: 'http://localhost:11434',
   ollamaModel: 'qwen2.5:7b',
   geminiApiKey: '',
@@ -29,7 +32,8 @@ export function getAiConfig() {
     return {
       ...DEFAULT_AI_CONFIG,
       ...parsed,
-      provider: parsed.provider || AI_PROVIDERS.OLLAMA,
+      provider: parsed.provider || AI_PROVIDERS.JARVIS,
+      jarvisUrl: parsed.jarvisUrl || 'http://127.0.0.1:5000',
     };
   } catch {
     return DEFAULT_AI_CONFIG;
@@ -39,6 +43,25 @@ export function getAiConfig() {
 export function saveAiConfig(cfg) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem('tread-ai-config', JSON.stringify(cfg));
+}
+
+/**
+ * Test connectivity to J.A.R.V.I.S. Core background agent
+ */
+export async function testJarvisConnection(url = 'http://127.0.0.1:5000') {
+  try {
+    const cleanUrl = url.replace(/\/+$/, '');
+    const res = await fetch(`${cleanUrl}/api/diagnostics`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return {
+      success: true,
+      brain: data.brain_is_groq ? '120B Frontier Neural Brain (Groq)' : 'Local Offline Engine',
+      system: `${data.system || 'Windows'} (${data.free_disk_gb || 0} GB free)`,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
 }
 
 /**
@@ -431,6 +454,68 @@ export function generateBuiltinResponse(prompt, context) {
   const lower = prompt.toLowerCase();
   const action = parseNaturalLanguageAction(prompt, context);
 
+  // Handle Attached Document Analysis Q&A
+  if (context?.documentAnalysis) {
+    const doc = context.documentAnalysis;
+    const items = doc.items || [];
+
+    if (lower.includes('convert to invoice') || lower.includes('bill this') || lower.includes('make invoice') || lower.includes('create invoice')) {
+      return {
+        reply: `Ready to convert document **${doc.fileName}** into an active Sales Invoice for **${doc.party.name || 'Customer'}** (${items.length} items totaling ₹${doc.meta.totalAmount.toFixed(2)}).`,
+        action: {
+          type: 'CREATE_INVOICE',
+          payload: {
+            customerName: doc.party.name || 'Cash Customer',
+            items: items.map((it) => ({
+              description: it.name,
+              quantity: it.quantity,
+              rate: it.rate,
+              gstPercent: it.gstPercent,
+              unit: it.unit,
+            })),
+          },
+        },
+      };
+    }
+
+    if (lower.includes('purchase') || lower.includes('record purchase') || lower.includes('convert to purchase')) {
+      return {
+        reply: `Ready to record document **${doc.fileName}** as an Inward Purchase Bill from vendor **${doc.party.name || 'Vendor'}** (Total: ₹${doc.meta.totalAmount.toFixed(2)}).`,
+        action: {
+          type: 'RECORD_PURCHASE',
+          payload: {
+            partyName: doc.party.name || 'Vendor',
+            billNumber: doc.meta.invoiceNumber || `BILL-${Date.now().toString().slice(-4)}`,
+            amount: doc.meta.totalAmount,
+            date: doc.meta.date,
+            items,
+          },
+        },
+      };
+    }
+
+    if (lower.includes('highest') || lower.includes('max') || lower.includes('costliest')) {
+      const sorted = [...items].sort((a, b) => (b.rate || 0) - (a.rate || 0));
+      if (sorted.length > 0) {
+        return {
+          reply: `In **${doc.fileName}**, the highest rate item is **${sorted[0].name}** at **₹${sorted[0].rate}** per ${sorted[0].unit || 'PCS'}.`,
+        };
+      }
+    }
+
+    if (lower.includes('party') || lower.includes('vendor') || lower.includes('customer') || lower.includes('gstin')) {
+      return {
+        reply: `**Document Party Details**:\n- **Name**: ${doc.party.name || 'Not detected'}\n- **GSTIN**: ${doc.party.gstin ? `\`${doc.party.gstin}\`` : 'None found'}\n- **Address**: ${doc.party.address || 'N/A'}\n- **Phone**: ${doc.party.phone || 'N/A'}`,
+      };
+    }
+
+    if (lower.includes('tax') || lower.includes('gst') || lower.includes('cgst') || lower.includes('sgst')) {
+      return {
+        reply: `**Tax Breakdown for ${doc.fileName}**:\n- **Taxable Subtotal**: ₹${doc.meta.subtotal.toFixed(2)}\n- **CGST**: ₹${doc.meta.cgst.toFixed(2)}\n- **SGST**: ₹${doc.meta.sgst.toFixed(2)}\n- **IGST**: ₹${doc.meta.igst.toFixed(2)}\n- **Total GST**: ₹${doc.meta.totalTax.toFixed(2)}\n- **Grand Total**: ₹${doc.meta.totalAmount.toFixed(2)}`,
+      };
+    }
+  }
+
   // 1. Action detected (Invoice / Customer / Stock creation / Navigation / Sync)
   if (action) {
     if (action.type === 'NAVIGATE') {
@@ -683,10 +768,56 @@ Respond concisely with helpful guidance on GST, invoicing, party details, naviga
 }
 
 /**
+ * Query J.A.R.V.I.S. Core Background Agent
+ */
+async function queryJarvis(prompt, context, config) {
+  const url = (config.jarvisUrl || 'http://127.0.0.1:5000').replace(/\/+$/, '');
+
+  const businessContext = context?.company?.name
+    ? `[Tread System Context: Company="${context.company.name}", GSTIN="${context?.company?.gstin || ''}", Total Invoices=${context?.invoices?.length || 0}, StockItems=${context?.stockItems?.length || 0}, Customers=${context?.customers?.length || 0}]\n`
+    : '';
+
+  const fullPrompt = `${businessContext}User request: ${prompt}`;
+
+  const res = await fetch(`${url}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt: fullPrompt }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`J.A.R.V.I.S. Core responded with HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data.reply || 'At your service, Sir, though no specific instructions were generated.';
+  const action = parseNaturalLanguageAction(prompt, context);
+
+  return {
+    reply: text,
+    action,
+    jarvisAction: data.action || null,
+  };
+}
+
+/**
  * Universal Unified AI Query Entrypoint
  */
 export async function queryTreadAI(prompt, context = {}) {
   const config = getAiConfig();
+
+  if (config.provider === AI_PROVIDERS.JARVIS) {
+    try {
+      return await queryJarvis(prompt, context, config);
+    } catch (err) {
+      console.warn('J.A.R.V.I.S. agent unreachable, falling back to built-in offline engine:', err.message);
+      const fallback = generateBuiltinResponse(prompt, context);
+      return {
+        ...fallback,
+        reply: `*(J.A.R.V.I.S. Core Notice: Background agent offline at ${config.jarvisUrl || 'http://127.0.0.1:5000'} [${err.message}]. Utilizing built-in offline intelligence)*\n\n` + fallback.reply,
+      };
+    }
+  }
 
   if (config.provider === AI_PROVIDERS.OLLAMA) {
     try {

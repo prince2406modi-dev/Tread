@@ -32,8 +32,18 @@ function parseHtmlTableToRows(htmlString) {
       const cells = [];
       let cellMatch;
       while ((cellMatch = thTdRegex.exec(rowHtml)) !== null) {
-        // Strip nested tags like <font>, <b>, <u>, etc.
-        const text = decodeEntities(cellMatch[1].replace(/<[^>]+>/g, '')).trim();
+        // Convert line-break tags to commas to preserve multi-line address lines
+        const inner = cellMatch[1]
+          .replace(/<br\s*\/?>/gi, ', ')
+          .replace(/<\/(p|div|li)>/gi, ', ')
+          .replace(/<[^>]+>/g, ' ');
+        const text = decodeEntities(inner)
+          .replace(/[\r\n\t]+/g, ' ')
+          .replace(/\s*,\s*,+/g, ', ')
+          .replace(/\s{2,}/g, ' ')
+          .replace(/^,\s*/, '')
+          .replace(/,\s*$/, '')
+          .trim();
         cells.push(text);
       }
       if (cells.length > 0 && cells.some((c) => c.length > 0)) {
@@ -47,7 +57,17 @@ function parseHtmlTableToRows(htmlString) {
       const doc = parser.parseFromString(htmlString, 'text/html');
       const trElements = Array.from(doc.querySelectorAll('tr'));
       for (const tr of trElements) {
-        const cells = Array.from(tr.querySelectorAll('td, th')).map((c) => decodeEntities(c.textContent.trim()));
+        const cells = Array.from(tr.querySelectorAll('td, th')).map((c) => {
+          c.querySelectorAll('br').forEach((b) => b.replaceWith(document.createTextNode(', ')));
+          c.querySelectorAll('p, div, li').forEach((el) => el.append(document.createTextNode(', ')));
+          return decodeEntities(c.textContent)
+            .replace(/[\r\n\t]+/g, ' ')
+            .replace(/\s*,\s*,+/g, ', ')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/^,\s*/, '')
+            .replace(/,\s*$/, '')
+            .trim();
+        });
         if (cells.length > 0 && cells.some((c) => c.length > 0)) {
           rawRows.push(cells);
         }
@@ -114,9 +134,13 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         'Name': 'AAKSH',
         'Alias': '',
         'Group Name': 'Sundry Debtors',
+        'Address': 'Shop 14, Main Commercial Complex',
+        'City': 'Jaipur',
+        'State': 'Rajasthan',
+        'Pincode': '302001',
         'Opening Bal.in Base Currency': '15,17,755.00 Dr',
         'Prev. Bal': '15,17,755.00 Dr',
-        'GST No.': '07ABCDE1234F1Z5',
+        'GST No.': '08ABCDE1234F1Z5',
         'Tel. No.': '9876512345',
         'PrintName': 'AAKSH',
         'Tax Category': 'Registered Dealer',
@@ -125,6 +149,10 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         'Name': 'Alok Enterprises',
         'Alias': '',
         'Group Name': 'Sundry Debtors',
+        'Address': 'Plot 45, Phase 2, Industrial Area',
+        'City': 'Noida',
+        'State': 'Uttar Pradesh',
+        'Pincode': '201301',
         'Opening Bal.in Base Currency': '2,84,365.00 Dr',
         'Prev. Bal': '2,84,365.00 Dr',
         'GST No.': '09FEUPS9620P1Z3',
@@ -136,6 +164,10 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         'Name': 'GULATI CATERERS',
         'Alias': '',
         'Group Name': 'Sundry Debtors',
+        'Address': '12/4, GT Road, Near Railway Crossing',
+        'City': 'Ghaziabad',
+        'State': 'Uttar Pradesh',
+        'Pincode': '201001',
         'Opening Bal.in Base Currency': '2,57,387.00 Dr',
         'Prev. Bal': '2,57,387.00 Dr',
         'GST No.': '09ABVPG5831F1ZD',
@@ -147,9 +179,13 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         'Name': 'Apex Hardware Supplies',
         'Alias': '',
         'Group Name': 'Sundry Creditors',
+        'Address': 'Building 88, Sector 18',
+        'City': 'Gurugram',
+        'State': 'Haryana',
+        'Pincode': '122001',
         'Opening Bal.in Base Currency': '1,50,000.00 Cr',
         'Prev. Bal': '1,50,000.00 Cr',
-        'GST No.': '09AABCA9876C1Z2',
+        'GST No.': '06AABCA9876C1Z2',
         'Tel. No.': '9811122334',
         'PrintName': 'Apex Hardware Supplies',
         'Tax Category': 'Supplier Vendor',
@@ -158,14 +194,18 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
 
     const worksheet = XLSX.utils.json_to_sheet(sampleData);
     worksheet['!cols'] = [
-      { wch: 32 }, // Name
+      { wch: 28 }, // Name
       { wch: 10 }, // Alias
-      { wch: 18 }, // Group Name
+      { wch: 16 }, // Group Name
+      { wch: 34 }, // Address
+      { wch: 14 }, // City
+      { wch: 16 }, // State
+      { wch: 12 }, // Pincode
       { wch: 22 }, // Opening Bal
       { wch: 18 }, // Prev Bal
       { wch: 18 }, // GST No.
       { wch: 16 }, // Tel No.
-      { wch: 32 }, // PrintName
+      { wch: 26 }, // PrintName
       { wch: 18 }, // Tax Category
     ];
 
@@ -176,11 +216,11 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
 
   // Download Sample CSV Template (.csv)
   const downloadSampleCsv = () => {
-    const sample = `Name,Alias,Group Name,Opening Bal.in Base Currency,Prev. Bal,GST No.,Tel. No.,PrintName,Tax Category
-"AAKSH",,"Sundry Debtors","15,17,755.00 Dr","15,17,755.00 Dr",,,"AAKSH",
-"Alok Enterprises",,"Sundry Debtors",,,"09FEUPS9620P1Z3",,"Alok Enterprises",
-"AMIT DESIGN",,"Sundry Debtors","6,05,444.98 Dr","6,05,444.98 Dr","09AAVFA4747K1ZQ",,"AMIT DESIGN",
-"GULATI CATERERS",,"Sundry Debtors","2,57,387.00 Dr","2,57,387.00 Dr","09ABVPG5831F1ZD","7217706305","GULATI CATERERS",`;
+    const sample = `Name,Alias,Group Name,Address,City,State,Pincode,Opening Bal.in Base Currency,Prev. Bal,GST No.,Tel. No.,PrintName,Tax Category
+"AAKSH",,"Sundry Debtors","Shop 14, Main Commercial Complex","Jaipur","Rajasthan","302001","15,17,755.00 Dr","15,17,755.00 Dr","08ABCDE1234F1Z5","9876512345","AAKSH","Registered Dealer"
+"Alok Enterprises",,"Sundry Debtors","Plot 45, Phase 2, Industrial Area","Noida","Uttar Pradesh","201301",,"09FEUPS9620P1Z3","9812345678","Alok Enterprises","Regular GST"
+"AMIT DESIGN",,"Sundry Debtors","Sector 62, Near Metro","Noida","Uttar Pradesh","201309","6,05,444.98 Dr","6,05,444.98 Dr","09AAVFA4747K1ZQ",,"AMIT DESIGN",
+"GULATI CATERERS",,"Sundry Debtors","12/4, GT Road, Near Railway Crossing","Ghaziabad","Uttar Pradesh","201001","2,57,387.00 Dr","2,57,387.00 Dr","09ABVPG5831F1ZD","7217706305","GULATI CATERERS","Regular GST"`;
 
     const blob = new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -268,18 +308,6 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       'partyemail',
     ]);
 
-    // Extract Address & State
-    const address = findVal([
-      'billingaddress',
-      'address',
-      'fulladdress',
-      'location',
-      'street',
-      'city',
-      'addressline',
-    ]);
-    const state = findVal(['state', 'statecode', 'province']);
-
     // Extract Opening Balance & Notes
     const openingBal = findVal([
       'openingbalinbasecurrency',
@@ -314,15 +342,215 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       }
     }
 
-    // Auto deduce State from GSTIN if address is empty
-    let resolvedAddress = address;
-    if (!resolvedAddress && gstin && gstin.length >= 2) {
-      const stateCode = gstin.slice(0, 2);
-      const stateName = GST_STATE_CODES[stateCode];
-      if (stateName) {
-        resolvedAddress = `${stateName} (${stateCode}), India`;
+    // -----------------------------------------------------------------
+    // COMPREHENSIVE MULTI-COLUMN & MULTI-LINE ADDRESS EXTRACTOR
+    // -----------------------------------------------------------------
+    const cleanKey = (k) => k.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    // 1. Gather numbered address lines (Address 1..6, Add 1..6, AddressLine 1..6)
+    const numberedLines = [];
+    const usedAddressKeys = new Set();
+    const lineIndices = ['1', '2', '3', '4', '5', '6'];
+
+    for (const num of lineIndices) {
+      const matchKey = keys.find((k) => {
+        const c = cleanKey(k);
+        return (
+          c === `address${num}` ||
+          c === `addressline${num}` ||
+          c === `add${num}` ||
+          c === `addr${num}` ||
+          c === `billingaddress${num}` ||
+          c === `street${num}` ||
+          c === `line${num}`
+        );
+      });
+      if (matchKey && row[matchKey] !== undefined && row[matchKey] !== null) {
+        const val = String(row[matchKey]).trim();
+        if (val) {
+          numberedLines.push(val);
+          usedAddressKeys.add(matchKey);
+        }
       }
     }
+
+    // 2. If no numbered lines found, gather general/billing address columns
+    const generalAddressParts = [];
+    if (numberedLines.length === 0) {
+      const generalKey = keys.find((k) => {
+        const c = cleanKey(k);
+        return (
+          c === 'address' ||
+          c === 'billingaddress' ||
+          c === 'partyaddress' ||
+          c === 'customeraddress' ||
+          c === 'vendoraddress' ||
+          c === 'fulladdress' ||
+          c === 'officeaddress' ||
+          c === 'registeredaddress' ||
+          c === 'postaladdress' ||
+          c === 'location' ||
+          c === 'street' ||
+          c.includes('billingaddress') ||
+          c.includes('partyaddress') ||
+          c.includes('customeraddress')
+        );
+      });
+      if (generalKey && row[generalKey] !== undefined && row[generalKey] !== null) {
+        const val = String(row[generalKey]).trim();
+        if (val) {
+          // Split on newlines if multiple lines were entered in a single cell
+          const sublines = val
+            .split(/[\r\n]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+          generalAddressParts.push(...sublines);
+          usedAddressKeys.add(generalKey);
+        }
+      }
+    }
+
+    // 3. Extra street / locality / area / building / landmark / colony / sector
+    const extraLocalityKeys = keys.filter((k) => {
+      if (usedAddressKeys.has(k)) return false;
+      const c = cleanKey(k);
+      return (
+        c === 'locality' ||
+        c === 'area' ||
+        c === 'landmark' ||
+        c === 'building' ||
+        c === 'colony' ||
+        c === 'sector' ||
+        c === 'street' ||
+        c === 'floor' ||
+        c === 'plot'
+      );
+    });
+    const extraLocalities = extraLocalityKeys
+      .map((k) => String(row[k] || '').trim())
+      .filter(Boolean);
+
+    // 4. City / District / Town / Station / Place
+    const cityKey = keys.find((k) => {
+      const c = cleanKey(k);
+      return (
+        c === 'city' ||
+        c === 'district' ||
+        c === 'town' ||
+        c === 'station' ||
+        c === 'place' ||
+        c === 'village' ||
+        c === 'tehsil'
+      );
+    });
+    const city = cityKey && row[cityKey] !== undefined && row[cityKey] !== null
+      ? String(row[cityKey]).trim()
+      : '';
+
+    // 5. State / Province / State UT
+    const stateKey = keys.find((k) => {
+      const c = cleanKey(k);
+      return (
+        c === 'state' ||
+        c === 'statename' ||
+        c === 'stateut' ||
+        c === 'statecode' ||
+        c === 'province' ||
+        c === 'region'
+      );
+    });
+    let state = stateKey && row[stateKey] !== undefined && row[stateKey] !== null
+      ? String(row[stateKey]).trim()
+      : '';
+
+    // 6. Pincode / Postal Code / PIN / Zip
+    const pinKey = keys.find((k) => {
+      const c = cleanKey(k);
+      return (
+        c === 'pincode' ||
+        c === 'pin' ||
+        c === 'postalcode' ||
+        c === 'zip' ||
+        c === 'zipcode' ||
+        c === 'pincodeno'
+      );
+    });
+    const pincode = pinKey && row[pinKey] !== undefined && row[pinKey] !== null
+      ? String(row[pinKey]).trim().replace(/[^0-9]/g, '')
+      : '';
+
+    // 7. Country / Nation
+    const countryKey = keys.find((k) => {
+      const c = cleanKey(k);
+      return c === 'country' || c === 'nation';
+    });
+    const country = countryKey && row[countryKey] !== undefined && row[countryKey] !== null
+      ? String(row[countryKey]).trim()
+      : '';
+
+    // Auto deduce State from GSTIN if state is missing
+    if (!state && gstin && gstin.length >= 2) {
+      const stateCode = gstin.slice(0, 2);
+      if (GST_STATE_CODES[stateCode]) {
+        state = GST_STATE_CODES[stateCode];
+      }
+    }
+
+    // Assemble the complete address from all available parts without duplicates
+    const allBaseParts = [
+      ...numberedLines,
+      ...generalAddressParts,
+      ...extraLocalities,
+    ];
+    const uniqueBase = [];
+    allBaseParts.forEach((part) => {
+      const trimmed = part.trim();
+      if (!trimmed) return;
+      if (!uniqueBase.some((u) => u.toLowerCase() === trimmed.toLowerCase())) {
+        uniqueBase.push(trimmed);
+      }
+    });
+
+    let resolvedAddress = uniqueBase.join(', ');
+
+    // Append City if not already present
+    if (city) {
+      const addrLower = resolvedAddress.toLowerCase();
+      const cityLower = city.toLowerCase();
+      if (!addrLower.includes(cityLower)) {
+        resolvedAddress = resolvedAddress ? `${resolvedAddress}, ${city}` : city;
+      }
+    }
+
+    // Append State if not already present
+    if (state) {
+      const addrLower = resolvedAddress.toLowerCase();
+      const stateLower = state.toLowerCase();
+      if (!addrLower.includes(stateLower)) {
+        resolvedAddress = resolvedAddress ? `${resolvedAddress}, ${state}` : state;
+      }
+    }
+
+    // Append Pincode if provided and not already in address
+    if (pincode && pincode.length >= 4) {
+      if (!resolvedAddress.includes(pincode)) {
+        resolvedAddress = resolvedAddress ? `${resolvedAddress} - ${pincode}` : pincode;
+      }
+    }
+
+    // Append Country if not already present
+    const nation = country || (resolvedAddress ? 'India' : '');
+    if (nation && !resolvedAddress.toLowerCase().includes(nation.toLowerCase())) {
+      resolvedAddress = resolvedAddress ? `${resolvedAddress}, ${nation}` : nation;
+    }
+
+    // Clean up punctuation and spacing
+    resolvedAddress = resolvedAddress
+      .replace(/\s*,\s*,+/g, ', ')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/^,\s*/, '')
+      .replace(/,\s*$/, '')
+      .trim();
 
     // GSTIN Analysis
     let gstinValid = null;
@@ -351,7 +579,7 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
       phone: phone || '',
       email: email || '',
       gstin: gstin || '',
-      address: resolvedAddress || (state ? `${state}, India` : ''),
+      address: resolvedAddress || '',
       notes: notes || '',
       alias: alias || '',
       printName: printName || '',
@@ -408,7 +636,7 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
         // Detect which row is the actual header row using flexible keyword matching.
         // Handles multi-word column names like "Group Name", "GST No.", "Tel. No.",
         // "Tax Category", "Opening Bal.in Base Currency", and leading title rows.
-        const HEADER_CELL_KEYWORDS = /name|alias|group|gst|tel|phone|printname|tax|opening|balance|email|address|prev|currency/i;
+        const HEADER_CELL_KEYWORDS = /name|alias|group|gst|tel|phone|printname|tax|opening|balance|email|address|prev|currency|city|state|pin|station/i;
         let headerRowIdx = -1;
         for (let i = 0; i < Math.min(rawAoa.length, 10); i++) {
           const row = rawAoa[i];
@@ -960,7 +1188,9 @@ function CustomerExcelImport({ existingCustomers = [], onConfirmImport, onCancel
                             className="form-control form-control-sm"
                             value={row.address}
                             onChange={(e) => updateRowField(idx, 'address', e.target.value)}
-                            placeholder="Address, State"
+                            placeholder="Complete Billing Address"
+                            title={row.address || 'No address extracted'}
+                            style={{ minWidth: '220px' }}
                           />
                         </td>
                         <td>

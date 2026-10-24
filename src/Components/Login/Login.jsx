@@ -110,7 +110,6 @@ function Login({ users = [], onLogin, onRegister, isOnline = true }) {
   );
 
   // License Lookup & Direct Renewal state
-  const [lookupOpen, setLookupOpen] = useState(false);
   const [lookupQuery, setLookupQuery] = useState('');
   const [lookupPassword, setLookupPassword] = useState('');
   const [lookupResult, setLookupResult] = useState(null);

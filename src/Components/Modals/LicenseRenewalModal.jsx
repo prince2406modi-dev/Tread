@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { generateLicenseId, ensureValidLicenseId } from '../../services/authApi';
+import { ensureValidLicenseId } from '../../services/authApi';
 
 const PLANS = [
   {
@@ -59,7 +59,6 @@ export default function LicenseRenewalModal({
   onRenew,
   onCheckStatus,
   companyPhone = '+91 98765 43210',
-  companyEmail = 'support@tread.local',
   allowClose = true,
 }) {
   const [selectedPlan, setSelectedPlan] = useState(
@@ -144,7 +143,7 @@ export default function LicenseRenewalModal({
           });
         }
       }
-    } catch (err) {
+    } catch {
       setNotice({ type: 'danger', text: 'Could not connect to cloud license server.' });
     } finally {
       setIsChecking(false);

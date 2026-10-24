@@ -3,6 +3,7 @@ import { GST_UNITS, DEFAULT_UNIT } from '../../constants/units.js';
 import { validateHSN, COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 function AddItem({ onAddItem, onClose, stockItems = [] }) {
+  const [selectedStock, setSelectedStock] = useState(null);
   const [item, setItem] = useState({
     name: '',
     hsn: '',
@@ -30,13 +31,14 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
     if (!stockId) return;
     const selected = stockItems.find((s) => s.id === stockId);
     if (selected) {
+      setSelectedStock(selected);
       setItem({
         name: selected.name,
         hsn: selected.hsn || '',
         quantity: 1,
         unit: selected.unit || DEFAULT_UNIT,
-        price: selected.rate,
-        gst: selected.gst || 18,
+        price: selected.price !== undefined ? selected.price : (selected.rate !== undefined ? selected.rate : ''),
+        gst: selected.gst !== undefined ? selected.gst : (selected.gstRate !== undefined ? selected.gstRate : 18),
       });
     }
   };
@@ -113,12 +115,52 @@ function AddItem({ onAddItem, onClose, stockItems = [] }) {
                     <option value="" disabled>
                       Choose a product from stock...
                     </option>
-                    {stockItems.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} — ₹{s.rate} ({s.stock} {s.unit || 'in stock'})
-                      </option>
-                    ))}
+                    {stockItems.map((s) => {
+                      const tags = [s.category, s.subcategory].filter(Boolean).join(' / ');
+                      return (
+                        <option key={s.id} value={s.id}>
+                          {s.name} — Retail ₹{s.rate !== undefined ? s.rate : (s.price || 0)}{Number(s.wholesalePrice) > 0 ? ` | WS ₹${s.wholesalePrice}` : ''} ({s.stock} {s.unit || 'PCS'}){tags ? ` [${tags}]` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
+
+                  {/* Multi-Price Tier Selector Chips */}
+                  {selectedStock && (Number(selectedStock.wholesalePrice) > 0 || Number(selectedStock.mrp) > 0) && (
+                    <div className="mt-2 pt-2 border-top d-flex align-items-center flex-wrap gap-1">
+                      <span className="text-secondary small fw-semibold me-1" style={{ fontSize: '11px' }}>
+                        💰 Price Tier:
+                      </span>
+                      <button
+                        type="button"
+                        className={`btn btn-xs py-0 px-2 rounded-pill small ${Number(item.price) === Number(selectedStock.rate ?? selectedStock.price ?? 0) ? 'btn-primary' : 'btn-outline-primary'}`}
+                        style={{ fontSize: '11px' }}
+                        onClick={() => setItem((prev) => ({ ...prev, price: selectedStock.rate ?? selectedStock.price ?? 0 }))}
+                      >
+                        Retail ₹{selectedStock.rate ?? selectedStock.price ?? 0}
+                      </button>
+                      {Number(selectedStock.wholesalePrice) > 0 && (
+                        <button
+                          type="button"
+                          className={`btn btn-xs py-0 px-2 rounded-pill small ${Number(item.price) === Number(selectedStock.wholesalePrice) ? 'btn-success' : 'btn-outline-success'}`}
+                          style={{ fontSize: '11px' }}
+                          onClick={() => setItem((prev) => ({ ...prev, price: selectedStock.wholesalePrice }))}
+                        >
+                          Wholesale ₹{selectedStock.wholesalePrice}
+                        </button>
+                      )}
+                      {Number(selectedStock.mrp) > 0 && (
+                        <button
+                          type="button"
+                          className={`btn btn-xs py-0 px-2 rounded-pill small ${Number(item.price) === Number(selectedStock.mrp) ? 'btn-dark' : 'btn-outline-dark'}`}
+                          style={{ fontSize: '11px' }}
+                          onClick={() => setItem((prev) => ({ ...prev, price: selectedStock.mrp }))}
+                        >
+                          MRP ₹{selectedStock.mrp}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

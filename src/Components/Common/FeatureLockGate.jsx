@@ -1,4 +1,3 @@
-import React from 'react';
 import { getRequiredPlanForFeature, FEATURE_PERMISSIONS } from '../../constants/subscriptionPlans.js';
 
 export default function FeatureLockGate({

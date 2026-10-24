@@ -125,13 +125,14 @@ export const INDIAN_STATES = Object.keys(STATE_TO_GST_CODE).sort();
  * Total: 13 digits all-numeric, completely impossible to guess or brute-force.
  */
 export function generateLocationLicenseId(locationInfo = {}) {
+  const seedStr = locationInfo.seed || '';
   // 1. Country Code: 2 digits (India is 91)
   const country = locationInfo.country || '91';
   let countryCode = String(country).replace(/\D/g, '').slice(0, 2);
   if (!countryCode || countryCode.length < 2) countryCode = '91';
 
   // 2. State Code: 2 digits (from GST state codes 01 - 38)
-  let stateCode = '';
+  let stateCode;
   const stateVal = (locationInfo.state || '').trim();
   if (stateVal && STATE_TO_GST_CODE[stateVal]) {
     stateCode = STATE_TO_GST_CODE[stateVal];
@@ -153,7 +154,7 @@ export function generateLocationLicenseId(locationInfo = {}) {
   stateCode = stateCode.padStart(2, '0').slice(0, 2);
 
   // 3. Locality / Area Code: 3 digits
-  let localityCode = '';
+  let localityCode;
   const localityVal = (locationInfo.locality || locationInfo.city || '').trim();
   const pincodeVal = (locationInfo.pincode || '').replace(/\D/g, '');
   if (pincodeVal.length >= 3) {
@@ -166,7 +167,6 @@ export function generateLocationLicenseId(locationInfo = {}) {
     localityCode = String(100 + Math.abs(hash));
   } else {
     // Generate deterministic 3 digits from seed or random
-    const seedStr = locationInfo.seed || '';
     if (seedStr) {
       let hash = 0;
       for (let i = 0; i < seedStr.length; i++) {
@@ -181,8 +181,7 @@ export function generateLocationLicenseId(locationInfo = {}) {
   localityCode = localityCode.padStart(3, '0').slice(-3);
 
   // 4. Secure, Non-Guessable Cryptographic Numbers (5 digits)
-  let secretRandom = 0;
-  const seedStr = locationInfo.seed || '';
+  let secretRandom;
   if (seedStr) {
     // Generate stable high-entropy 5 digits from seed so ID never fluctuates across renders
     let seedHash = 5381;

@@ -20,6 +20,7 @@ import { useVoiceAssistant } from './hooks/useVoiceAssistant.js';
 
 // Services
 import { getNextInvoiceNumber } from './services/invoiceStorage.js';
+import { TreadBackend } from './services/treadBackend.js';
 import {
   syncAllUsersFromCloud,
   getLocalUsers,
@@ -229,6 +230,7 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(invoiceStorageKey(currentUser.username), JSON.stringify(invoices));
+    TreadBackend.saveEntity('invoices', currentUser.username, invoices);
   }, [invoices, currentUser]);
 
   // =========================================================
@@ -250,6 +252,8 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(customersStorageKey(currentUser.username), JSON.stringify(customers));
+    TreadBackend.saveEntity('customers', currentUser.username, customers);
+    TreadBackend.updateCache('customers', customers);
   }, [customers, currentUser]);
 
   const handleSaveCustomers = (updatedCustomers) => {
@@ -313,6 +317,8 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(stockStorageKey(currentUser.username), JSON.stringify(stockItems));
+    TreadBackend.saveEntity('stockItems', currentUser.username, stockItems);
+    TreadBackend.updateCache('stockItems', stockItems);
   }, [stockItems, currentUser]);
 
   const handleSaveStock = (updatedStock) => {
@@ -342,6 +348,7 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(purchasesStorageKey(currentUser.username), JSON.stringify(purchaseBills));
+    TreadBackend.saveEntity('purchaseBills', currentUser.username, purchaseBills);
   }, [purchaseBills, currentUser]);
 
   const handleSavePurchaseBills = (updatedBills) => {
@@ -371,6 +378,7 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(salesOrdersStorageKey(currentUser.username), JSON.stringify(salesOrders));
+    TreadBackend.saveEntity('salesOrders', currentUser.username, salesOrders);
   }, [salesOrders, currentUser]);
 
   // =========================================================
@@ -396,6 +404,7 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(purchaseOrdersStorageKey(currentUser.username), JSON.stringify(purchaseOrders));
+    TreadBackend.saveEntity('purchaseOrders', currentUser.username, purchaseOrders);
   }, [purchaseOrders, currentUser]);
 
   // =========================================================
@@ -421,6 +430,7 @@ function Index() {
   useEffect(() => {
     if (typeof window === 'undefined' || !currentUser) return;
     window.localStorage.setItem(paymentsStorageKey(currentUser.username), JSON.stringify(payments));
+    TreadBackend.saveEntity('payments', currentUser.username, payments);
   }, [payments, currentUser]);
 
   // 1-Click Convert Sales Order to Invoice
@@ -464,7 +474,7 @@ function Index() {
   const handleConvertPOToPurchaseBill = (po) => {
     if (!po) return;
     const newBill = {
-      id: `bill_${Date.now()}`,
+      id: 'bill_' + uuidv4(),
       billNumber: `BILL-${po.poNumber}`,
       billDate: new Date().toISOString().slice(0, 10),
       vendorName: po.vendorName || '',
@@ -472,7 +482,7 @@ function Index() {
       vendorPhone: po.vendorPhone || '',
       vendorAddress: po.vendorAddress || '',
       items: (po.items || []).map((it) => ({
-        id: `item_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+        id: 'item_' + uuidv4(),
         name: it.description,
         hsn: it.hsn || '',
         quantity: Number(it.qty) || 1,
@@ -891,7 +901,7 @@ function Index() {
   };
 
   // Dropdown option click handler
-  const handleOptionClick = (rawOption, subKey, menu) => {
+  const handleOptionClick = (rawOption, subKey) => {
     setActiveMenu(null);
 
     let option = rawOption;
@@ -1274,6 +1284,12 @@ function Index() {
         });
       }
 
+      // 7. Favourites
+      if (Array.isArray(cloudData.favourites) && cloudData.favourites.length > 0) {
+        setFavourites(cloudData.favourites);
+        window.localStorage.setItem('gst-invoice-app-favourites', JSON.stringify(cloudData.favourites));
+      }
+
       const syncTimestamp = new Date().toLocaleTimeString('en-IN');
       setCloudSyncStatus('synced');
       setLastSyncTime(syncTimestamp);
@@ -1288,7 +1304,7 @@ function Index() {
         isRemoteSyncingRef.current = false;
       }, 500);
     }
-  }, []);
+  }, [currentUser?.username]);
 
   // Extract user's complete data from Firebase Cloud Firestore
   const extractUserDataFromCloud = useCallback(
@@ -1323,7 +1339,7 @@ function Index() {
         return { success: false, error: err.message };
       }
     },
-    [currentUser?.username, applyCloudData]
+    [currentUser?.username, applyCloudData, setCloudSyncStatus]
   );
 
   // 1. EXTRACT DATA ON APPLICATION STARTUP (When App Opens)
@@ -1389,6 +1405,10 @@ function Index() {
         customers,
         stockItems,
         purchaseBills,
+        salesOrders,
+        purchaseOrders,
+        payments,
+        favourites,
         company,
         settings,
       })
@@ -1404,7 +1424,7 @@ function Index() {
     }, 2500);
 
     return () => clearTimeout(timer);
-  }, [invoices, customers, stockItems, purchaseBills, company, settings, currentUser?.username]);
+  }, [invoices, customers, stockItems, purchaseBills, salesOrders, purchaseOrders, payments, favourites, company, settings, currentUser?.username]);
 
   // Manual Cloud Sync Handlers
   const handleForceCloudSync = async () => {
@@ -1433,6 +1453,10 @@ function Index() {
         customers,
         stockItems,
         purchaseBills,
+        salesOrders,
+        purchaseOrders,
+        payments,
+        favourites,
         company,
         settings,
       });

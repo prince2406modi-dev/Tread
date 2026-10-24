@@ -8,6 +8,7 @@ import {
 } from '../../services/gstFileParser.js';
 import { validateGSTIN } from '../../services/gstinValidator.js';
 import { searchHSNCatalog } from '../../services/hsnValidator.js';
+import { analyzeAnyFile } from '../../services/fileAnalyzerService.js';
 
 export default function GstHub({
   invoices = [],
@@ -68,8 +69,36 @@ export default function GstHub({
           type: 'success',
           text: `✓ Successfully parsed ${parsed.fileType.label} with ${parsed.invoices.length} records.`,
         });
+      } else if (lower.endsWith('.pdf') || lower.endsWith('.txt') || lower.endsWith('.tsv') || file.type?.startsWith('image/')) {
+        const analyzed = await analyzeAnyFile(file);
+        setImportResult({
+          fileType: { label: analyzed.documentLabel, type: analyzed.documentType },
+          summary: {
+            b2bCount: analyzed.items.length,
+            totalTaxable: analyzed.meta.subtotal,
+            totalTax: analyzed.meta.totalTax,
+            totalInvoiceValue: analyzed.meta.totalAmount,
+          },
+          invoices: analyzed.items.map((it, idx) => ({
+            id: `parsed-${idx}`,
+            invoiceNumber: analyzed.meta.invoiceNumber || `DOC-${idx + 1}`,
+            invoiceDate: analyzed.meta.date,
+            customerName: analyzed.party.name || 'Unspecified',
+            customerGstin: analyzed.party.gstin || '',
+            items: [it],
+            totals: {
+              subtotal: it.quantity * it.rate,
+              totalGst: (it.quantity * it.rate * it.gstPercent) / 100,
+              total: it.total || (it.quantity * it.rate * (1 + it.gstPercent / 100)),
+            },
+          })),
+        });
+        setStatusMessage({
+          type: 'success',
+          text: `✓ Parsed ${analyzed.documentLabel} ("${analyzed.fileName}") with ${analyzed.items.length} line items.`,
+        });
       } else {
-        throw new Error('Unsupported file extension. Please upload a .json, .xlsx, .xls, or .csv GST file.');
+        throw new Error('Unsupported file extension. Please upload a .xlsx, .xls, .pdf, .csv, .json, or receipt image.');
       }
     } catch (err) {
       console.error('GST Import Error:', err);

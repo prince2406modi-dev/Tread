@@ -722,6 +722,15 @@ function CustomersPage({
                               </span>
                             ) : null;
                           })()}
+                          {customer.address && (
+                            <div
+                              className="text-secondary small mt-1 text-truncate"
+                              style={{ maxWidth: '280px', fontSize: '0.74rem' }}
+                              title={customer.address}
+                            >
+                              📍 {customer.address}
+                            </div>
+                          )}
                         </td>
                         <td>
                           {isVendor ? (
@@ -1024,7 +1033,7 @@ function CustomersPage({
 
                     <textarea
                       className="form-control"
-                      rows={2}
+                      rows={3}
                       placeholder="Principal Place of Business / Billing Street, City, State, PIN"
                       value={form.address}
                       onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}

@@ -9,7 +9,7 @@ import autoTable from 'jspdf-autotable';
  * @param {Object} company - The company profile data object
  * @param {Object} currentUser - The currently logged-in user or session info
  */
-export function downloadCompanyProfilePDF(company = {}, currentUser = {}) {
+export function downloadCompanyProfilePDF(company = {}) {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = 210;
   const pageHeight = 297;

@@ -5,7 +5,6 @@ const Dashboard = lazy(() => import('./Dashboard/index.jsx'));
 const InvoiceEditor = lazy(() => import('./CreateInvoice/index.jsx'));
 const InvoicesList = lazy(() => import('./Invoices/index.jsx'));
 const CompanyProfile = lazy(() => import('./Company/index.jsx'));
-const Reports = lazy(() => import('./Reports/index.jsx'));
 const UserManagement = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.UserManagement })));
 const AppSettings = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.AppSettings })));
 const RolesPermissions = lazy(() => import('./Administration/index.jsx').then((m) => ({ default: m.RolesPermissions })));
@@ -20,9 +19,12 @@ const GstHub = lazy(() => import('./GST/index.jsx'));
 const SalesOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({ default: m.SalesOrderManager })));
 const PurchaseOrderManager = lazy(() => import('./Orders/index.jsx').then((m) => ({ default: m.PurchaseOrderManager })));
 const PaymentManager = lazy(() => import('./Payments/index.jsx'));
+const DisplayHub = lazy(() => import('./Display/index.jsx'));
+const UniversalFileAnalyzer = lazy(() => import('./AI/UniversalFileAnalyzer.jsx'));
 import Login from './Login/index.jsx';
 import FeatureLockGate from './Common/FeatureLockGate.jsx';
 import { hasFeatureAccess } from '../constants/subscriptionPlans.js';
+import { DISPLAY_MENU_STRUCTURE } from '../constants/navigation.js';
 
 export default function ViewRouter({
   activePage,
@@ -582,13 +584,35 @@ export default function ViewRouter({
     );
   }
 
-  // 10. Reports
-  if (activePage === 'Reports') {
+  // 10. Display & Reports Center (Authentic Busy-Style)
+  const isDisplayReport =
+    activePage === 'Display' ||
+    activePage === 'Reports' ||
+    DISPLAY_MENU_STRUCTURE.some(
+      (m) => m.title === activePage || (m.subItems && m.subItems.includes(activePage))
+    );
+
+  if (isDisplayReport) {
+    const targetSection =
+      activePage === 'Display' || activePage === 'Reports'
+        ? 'Final Results'
+        : DISPLAY_MENU_STRUCTURE.find(
+            (m) => m.title === activePage || (m.subItems && m.subItems.includes(activePage))
+          )?.title || 'Final Results';
+
     return (
-      <Reports
+      <DisplayHub
         key={activePage}
+        initialSection={targetSection}
         invoices={invoices}
+        customers={customers}
+        stockItems={stockItems}
+        purchaseBills={purchaseBills}
+        salesOrders={salesOrders}
+        purchaseOrders={purchaseOrders}
+        payments={payments}
         company={company}
+        onNavigate={onNavigate}
         onDownloadPDF={onDownloadPDF}
       />
     );
@@ -733,10 +757,35 @@ export default function ViewRouter({
     );
   }
 
-  // 17. GST Hub (All GST returns, file importer, reconciliations)
+  // 16b. Universal AI File & Document Intelligence (Excel, PDF, CSV, TXT, JSON, Receipts)
+  if (
+    activePage === 'Universal File AI' ||
+    activePage === 'Universal File AI (Excel, PDF, Images)' ||
+    activePage === 'Smart File AI' ||
+    activePage === 'Analyze Files' ||
+    activePage === 'Universal File Importer' ||
+    activePage === 'GST File Importer (All Types)' ||
+    activePage === 'Document AI'
+  ) {
+    return (
+      <UniversalFileAnalyzer
+        key={activePage}
+        onLoadInvoiceToEditor={loadInvoiceToEditor}
+        onSavePurchaseBills={onSavePurchaseBills}
+        onSaveStock={onSaveStock}
+        onSaveCustomers={onSaveCustomers}
+        onNavigate={onNavigate}
+        onBack={() => onNavigate(null)}
+        customers={customers}
+        stockItems={stockItems}
+        purchaseBills={purchaseBills}
+      />
+    );
+  }
+
+  // 17. GST Hub (All GST returns, GSTR-1, GSTR-2B, GSTR-3B, reconciliations)
   if (
     activePage === 'GST' ||
-    activePage === 'GST File Importer (All Types)' ||
     activePage === 'GSTR-1 (Sales Outward)' ||
     activePage === 'GSTR-2B (ITC Reconcile)' ||
     activePage === 'GSTR-3B Return Summary' ||
