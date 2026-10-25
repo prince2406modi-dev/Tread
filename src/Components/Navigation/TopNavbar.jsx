@@ -114,7 +114,7 @@ export default function TopNavbar({
                             key={option}
                             type="button"
                             className="dropdown-item-custom d-flex align-items-center justify-content-between"
-                            onClick={() => onOptionClick(option)}
+                            onClick={() => onOptionClick(option, null, menu)}
                           >
                             <span className="d-flex align-items-center gap-2">
                               <span className="item-icon">{getItemIcon(option)}</span>

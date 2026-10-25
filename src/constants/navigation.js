@@ -58,6 +58,16 @@ export const MENUS = {
       'Restore',
     ],
   },
+  'Product Network': [
+    'Overview',
+    'Manufacturer Catalogs',
+    'Discover Products',
+    'My Catalog Imports',
+    'Manufacturer Connections',
+    'Catalog Updates',
+    'Import History',
+    'Settings',
+  ],
   GST: [
     'Universal File AI (Excel, PDF, Images)',
     'GST File Importer (All Types)',
@@ -150,6 +160,12 @@ export const ALL_SHORTCUTS = [
   { name: 'Master Item Catalog & API', category: 'Administration', icon: '🏷️' },
   { name: 'Reports', category: 'Display', icon: '📈' },
   { name: 'Company Details', category: 'Company', icon: '🏢' },
+  { name: 'Product Network Overview', category: 'Product Network', icon: '🌐' },
+  { name: 'Discover Products', category: 'Product Network', icon: '🔍' },
+  { name: 'Manufacturer Catalogs', category: 'Product Network', icon: '🏭' },
+  { name: 'My Catalog Imports', category: 'Product Network', icon: '📥' },
+  { name: 'Manufacturer Connections', category: 'Product Network', icon: '🤝' },
+  { name: 'Catalog Updates', category: 'Product Network', icon: '🔔' },
   { name: 'Users', category: 'Administration', icon: '👤' },
   { name: 'Settings', category: 'Administration', icon: '⚙️' },
   { name: 'Company Profile PDF', category: 'Print/Email/SMS', icon: '🏢' },
@@ -167,6 +183,8 @@ export const getCategoryIcon = (group) => {
       return '📦';
     case 'GST':
       return '🏛️';
+    case 'Product Network':
+      return '🌐';
     case 'Display':
       return '📊';
     case 'Administration':
@@ -199,6 +217,13 @@ export const getSubSectionIcon = (sub) => {
 };
 
 export const getItemIcon = (item) => {
+  if (item === 'Overview' || item.includes('Overview')) return '📊';
+  if (item.includes('Manufacturer Catalog') || item === 'Manufacturer Catalogs') return '🏭';
+  if (item.includes('Discover Products') || item === 'Discover Products') return '🔍';
+  if (item.includes('My Catalog Imports') || item === 'My Catalog Imports') return '📥';
+  if (item.includes('Manufacturer Connection') || item === 'Manufacturer Connections') return '🤝';
+  if (item.includes('Catalog Updates') || item === 'Catalog Updates') return '🔔';
+  if (item.includes('Import History') || item === 'Import History') return '📜';
   if (item.includes('Universal File') || item.includes('Smart File') || item.includes('Analyze')) return '⚡';
   if (item.includes('Import') || item.includes('Download')) return '📥';
   if (item.includes('GSTR-1') || item.includes('Export')) return '📤';

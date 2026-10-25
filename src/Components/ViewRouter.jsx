@@ -21,6 +21,7 @@ const PurchaseOrderManager = lazy(() => import('./Orders/index.jsx').then((m) =>
 const PaymentManager = lazy(() => import('./Payments/index.jsx'));
 const DisplayHub = lazy(() => import('./Display/index.jsx'));
 const UniversalFileAnalyzer = lazy(() => import('./AI/UniversalFileAnalyzer.jsx'));
+const ProductNetwork = lazy(() => import('./ProductNetwork/index.jsx'));
 import Login from './Login/index.jsx';
 import FeatureLockGate from './Common/FeatureLockGate.jsx';
 import { hasFeatureAccess } from '../constants/subscriptionPlans.js';
@@ -821,6 +822,41 @@ export default function ViewRouter({
         onSavePurchaseBills={onSavePurchaseBills}
         onBack={() => onNavigate(null)}
         initialTab={initialGstTab}
+      />
+    );
+  }
+
+  // 17.5. TREAD Product Network
+  const isProductNetwork =
+    activePage === 'Product Network' ||
+    (typeof activePage === 'string' && activePage.startsWith('Product Network')) ||
+    activePage === 'Manufacturer Catalogs' ||
+    activePage === 'Discover Products' ||
+    activePage === 'My Catalog Imports' ||
+    activePage === 'Manufacturer Connections' ||
+    activePage === 'Catalog Updates' ||
+    activePage === 'Import History';
+
+  if (isProductNetwork) {
+    let subTab = 'overview';
+    if (typeof activePage === 'string') {
+      if (activePage.includes(':')) {
+        subTab = activePage.split(':')[1].trim();
+      } else {
+        subTab = activePage;
+      }
+    }
+
+    return (
+      <ProductNetwork
+        initialSubTab={subTab}
+        stockItems={stockItems}
+        onSaveStock={onSaveStock}
+        company={company}
+        currentUser={currentUser}
+        users={users}
+        subscriptionStatus={subscriptionStatus}
+        onNavigate={onNavigate}
       />
     );
   }

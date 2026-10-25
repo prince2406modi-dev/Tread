@@ -102,7 +102,7 @@ export default function MobileDrawer({
                               type="button"
                               className={`mobile-nav-link d-flex align-items-center justify-content-between ${activePage === item ? 'active' : ''}`}
                               onClick={() => {
-                                onSelectOption(item);
+                                onSelectOption(item, null, group);
                                 onClose();
                               }}
                             >

@@ -901,7 +901,7 @@ function Index() {
   };
 
   // Dropdown option click handler
-  const handleOptionClick = (rawOption, subKey) => {
+  const handleOptionClick = (rawOption, subKey, menuGroup) => {
     setActiveMenu(null);
 
     let option = rawOption;
@@ -922,6 +922,24 @@ function Index() {
       } else if (subKey === 'Items') {
         option = option === 'Add' ? 'Add Item' : option === 'Modify' ? 'Modify Item' : 'List Items';
       }
+    }
+
+    // Product Network Actions
+    if (
+      menuGroup === 'Product Network' ||
+      option === 'Product Network' ||
+      option === 'Manufacturer Catalogs' ||
+      option === 'Discover Products' ||
+      option === 'My Catalog Imports' ||
+      option === 'Manufacturer Connections' ||
+      option === 'Catalog Updates' ||
+      option === 'Import History' ||
+      (option === 'Overview' && (menuGroup === 'Product Network' || !subKey)) ||
+      (option === 'Settings' && menuGroup === 'Product Network')
+    ) {
+      const targetSub = option === 'Product Network' ? 'Overview' : option;
+      setActivePage(`Product Network: ${targetSub}`);
+      return;
     }
 
     if (!currentUser && option !== 'Login' && option !== 'About Tread') {
