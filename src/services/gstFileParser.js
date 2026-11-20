@@ -37,25 +37,25 @@ export function detectGstFileType(fileName = '', contentObj = null, workbook = n
 
   if (contentObj && typeof contentObj === 'object') {
     if (contentObj.gstin && (contentObj.b2b || contentObj.b2cl || contentObj.b2cs || contentObj.hsn || contentObj.doc_issue)) {
-      return { type: 'GSTR1_JSON', label: 'GSTR-1 Sales Return (JSON)', category: 'sales', icon: 'ðŸ“¤' };
+      return { type: 'GSTR1_JSON', label: 'GSTR-1 Sales Return (JSON)', category: 'sales', icon: '📤' };
     }
     if (contentObj.docdata && (contentObj.docdata.b2b || contentObj.docdata.b2ba || contentObj.docdata.cdnr)) {
-      return { type: 'GSTR2B_JSON', label: 'GSTR-2B Auto-Drafted ITC Statement (JSON)', category: 'purchase', icon: 'ðŸ“¥' };
+      return { type: 'GSTR2B_JSON', label: 'GSTR-2B Auto-Drafted ITC Statement (JSON)', category: 'purchase', icon: '📥' };
     }
     if (contentObj.b2b && Array.isArray(contentObj.b2b) && contentObj.b2b[0]?.inv) {
-      return { type: 'GSTR2A_JSON', label: 'GSTR-2A Inward Supplies (JSON)', category: 'purchase', icon: 'ðŸ“¥' };
+      return { type: 'GSTR2A_JSON', label: 'GSTR-2A Inward Supplies (JSON)', category: 'purchase', icon: '📥' };
     }
     if (contentObj.sup_details || contentObj.itc_elg || contentObj.inward_sup) {
-      return { type: 'GSTR3B_JSON', label: 'GSTR-3B Return Summary (JSON)', category: 'summary', icon: 'ðŸ“Š' };
+      return { type: 'GSTR3B_JSON', label: 'GSTR-3B Return Summary (JSON)', category: 'summary', icon: '📊' };
     }
     if (contentObj.Irn || contentObj.irn || (contentObj.ValDtls && contentObj.BuyerDtls)) {
-      return { type: 'EINVOICE_JSON', label: 'e-Invoice IRN Standard Schema (JSON)', category: 'sales', icon: 'âš¡' };
+      return { type: 'EINVOICE_JSON', label: 'e-Invoice IRN Standard Schema (JSON)', category: 'sales', icon: '⚡' };
     }
     if (contentObj.ewbNo || contentObj.ewbDate || contentObj.GenGstin) {
-      return { type: 'EWAYBILL_JSON', label: 'e-Way Bill Schema (JSON)', category: 'logistics', icon: 'ðŸšš' };
+      return { type: 'EWAYBILL_JSON', label: 'e-Way Bill Schema (JSON)', category: 'logistics', icon: '🚚' };
     }
     if (Array.isArray(contentObj) && contentObj.length > 0 && (contentObj[0].gstin || contentObj[0].GSTIN)) {
-      return { type: 'TAXPAYER_MASTER_JSON', label: 'Taxpayer Master / GSTIN Directory (JSON)', category: 'parties', icon: 'ðŸ‘¥' };
+      return { type: 'TAXPAYER_MASTER_JSON', label: 'Taxpayer Master / GSTIN Directory (JSON)', category: 'parties', icon: '👥' };
     }
   }
 
@@ -67,28 +67,28 @@ export function detectGstFileType(fileName = '', contentObj = null, workbook = n
     const hasGstr2B = sheetNamesLower.some((s) => s.includes('gstr-2b') || s.includes('gstr2b') || s.includes('itc'));
 
     if (hasGstr2B || lowerName.includes('gstr2b') || lowerName.includes('gstr-2b') || lowerName.includes('2b')) {
-      return { type: 'GSTR2B_EXCEL', label: 'GSTR-2B ITC Statement (Excel)', category: 'purchase', icon: 'ðŸ“¥' };
+      return { type: 'GSTR2B_EXCEL', label: 'GSTR-2B ITC Statement (Excel)', category: 'purchase', icon: '📥' };
     }
     if (hasB2B && (hasB2CS || hasHSN || lowerName.includes('gstr1') || lowerName.includes('gstr-1'))) {
-      return { type: 'GSTR1_EXCEL', label: 'GSTR-1 Portal Offline Tool (Excel)', category: 'sales', icon: 'ðŸ“¤' };
+      return { type: 'GSTR1_EXCEL', label: 'GSTR-1 Portal Offline Tool (Excel)', category: 'sales', icon: '📤' };
     }
     if (sheetNamesLower.some((s) => s.includes('3b') || s.includes('gstr-3b'))) {
-      return { type: 'GSTR3B_EXCEL', label: 'GSTR-3B Return (Excel)', category: 'summary', icon: 'ðŸ“Š' };
+      return { type: 'GSTR3B_EXCEL', label: 'GSTR-3B Return (Excel)', category: 'summary', icon: '📊' };
     }
-    return { type: 'GENERIC_GST_EXCEL', label: 'GST Spreadsheet (.XLSX/.CSV)', category: 'general', icon: 'ðŸ“Š' };
+    return { type: 'GENERIC_GST_EXCEL', label: 'GST Spreadsheet (.XLSX/.CSV)', category: 'general', icon: '📊' };
   }
 
   if (lowerName.includes('gstr1') || lowerName.includes('gstr-1')) {
-    return { type: 'GSTR1_GENERIC', label: 'GSTR-1 File', category: 'sales', icon: 'ðŸ“¤' };
+    return { type: 'GSTR1_GENERIC', label: 'GSTR-1 File', category: 'sales', icon: '📤' };
   }
   if (lowerName.includes('gstr2b') || lowerName.includes('gstr-2b') || lowerName.includes('2b')) {
-    return { type: 'GSTR2B_GENERIC', label: 'GSTR-2B Statement', category: 'purchase', icon: 'ðŸ“¥' };
+    return { type: 'GSTR2B_GENERIC', label: 'GSTR-2B Statement', category: 'purchase', icon: '📥' };
   }
   if (lowerName.includes('einvoice') || lowerName.includes('e-invoice') || lowerName.includes('irn')) {
-    return { type: 'EINVOICE_GENERIC', label: 'e-Invoice File', category: 'sales', icon: 'âš¡' };
+    return { type: 'EINVOICE_GENERIC', label: 'e-Invoice File', category: 'sales', icon: '⚡' };
   }
 
-  return { type: 'UNKNOWN_GST', label: 'GST Document / Spreadsheet', category: 'general', icon: 'ðŸ“„' };
+  return { type: 'UNKNOWN_GST', label: 'GST Document / Spreadsheet', category: 'general', icon: '📄' };
 }
 
 export function parseGstJsonFile(jsonString) {
@@ -216,7 +216,7 @@ export function parseGstJsonFile(jsonString) {
               invoiceDate: normalizeGstDate(inv.idt),
               customerName: `Inter-State Consumer (${GST_STATE_CODES[pos] || pos})`,
               customerGstin: 'URP',
-              invoiceType: 'B2C Large (> â‚¹2.5 Lakhs)',
+              invoiceType: 'B2C Large (> ₹2.5 Lakhs)',
               pos,
               totals: { subtotal: invTaxable, totalGst: invIgst, igst: invIgst, total: invTotal },
               sourceSection: 'B2CL',

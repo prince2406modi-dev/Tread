@@ -329,7 +329,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   const tableBody = rawItems.map((item, idx) => {
     const sn = `${idx + 1}`;
     const desc = item.description || item.name || 'Product Item';
-    const hsn = item.hsn || item.hsnCode || 'â€”';
+    const hsn = item.hsn || item.hsnCode || '-';
     const qty = Number(item.quantity ?? item.stock ?? 1) || 1;
     const unit = item.unit || 'PCS';
     primaryUnit = unit;
@@ -357,7 +357,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
     const slabKey = `${gstPct}%`;
     if (!taxSlabMap[slabKey]) {
       taxSlabMap[slabKey] = {
-        hsn: hsn !== 'â€”' ? hsn : '2106',
+        hsn: hsn !== '-' ? hsn : '2106',
         rate: `${gstPct}%`,
         taxable: 0,
         cgst: 0,
@@ -574,7 +574,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   if (isInterState) {
     taxRows.push([
       'Total',
-      'â€”',
+      '-',
       totalTaxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       totalIgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       totalIgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -582,7 +582,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   } else {
     taxRows.push([
       'Total',
-      'â€”',
+      '-',
       totalTaxableValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       totalCgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       totalSgstAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -705,7 +705,7 @@ function downloadPDF(invoice, company = null, copyType = 'Original for Recipient
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7.5);
   doc.setTextColor(30, 58, 138);
-  doc.text('ðŸ¦ BANK & SETTLEMENT DETAILS', margin + 4, curY + 4);
+  doc.text('BANK & SETTLEMENT DETAILS', margin + 4, curY + 4);
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);

@@ -186,7 +186,7 @@ function Index() {
         ? JSON.parse(saved)
         : {
             defaultGst: '18',
-            currencySymbol: 'â‚¹',
+            currencySymbol: '₹',
             invoicePrefix: 'INV',
             autoInvoiceNumber: true,
             enableVoice: true,
@@ -281,21 +281,27 @@ function Index() {
   };
 
   const handleSaveSingleCustomer = (newCust) => {
+    if (!newCust?.name?.trim()) {
+      alert('Please enter a valid customer name.');
+      return;
+    }
+    const targetName = newCust.name.trim().toLowerCase();
     const exists = customers.some(
-      (c) => c.name.toLowerCase() === newCust.name.toLowerCase()
+      (c) => (c?.name || '').trim().toLowerCase() === targetName
     );
     if (exists) {
-      alert(`Customer "${newCust.name}" is already saved in your directory.`);
+      alert(`Customer "${newCust.name.trim()}" is already saved in your directory.`);
       return;
     }
     const newEntry = {
       id: uuidv4(),
       type: 'Customer',
       ...newCust,
+      name: newCust.name.trim(),
       createdAt: new Date().toISOString(),
     };
     setCustomers((prev) => [newEntry, ...prev]);
-    alert(`✓ Customer "${newCust.name}" saved to your Sales Directory!`);
+    alert(`✓ Customer "${newCust.name.trim()}" saved to your Sales Directory!`);
   };
 
   // =========================================================
@@ -436,6 +442,7 @@ function Index() {
   // 1-Click Convert Sales Order to Invoice
   const handleConvertSalesOrderToInvoice = (order) => {
     if (!order) return;
+    setSalesOrderNumber(order.orderNumber || '');
     setCustomerName(order.customerName || '');
     setCustomerPhone(order.customerPhone || '');
     setCustomerAddress(order.customerAddress || '');
@@ -450,15 +457,20 @@ function Index() {
 
     if (Array.isArray(order.items) && order.items.length > 0) {
       setItems(
-        order.items.map((it) => ({
-          id: uuidv4(),
-          description: it.description || 'Order Item',
-          hsn: it.hsn || '',
-          unit: it.unit || 'PCS',
-          quantity: Number(it.qty) || 1,
-          rate: Number(it.rate) || 0,
-          gstPercent: Number(it.gstRate) || 18,
-        }))
+        order.items.map((it) => {
+          const rawRate = Number(it.rate) || 0;
+          const discountPct = Number(it.discount) || 0;
+          const effectiveRate = discountPct > 0 ? +(rawRate * (1 - discountPct / 100)).toFixed(2) : rawRate;
+          return {
+            id: uuidv4(),
+            description: it.description || 'Order Item',
+            hsn: it.hsn || '',
+            unit: it.unit || 'PCS',
+            quantity: Number(it.qty) || 1,
+            rate: effectiveRate,
+            gstPercent: Number(it.gstRate) || 18,
+          };
+        })
       );
     }
 
@@ -473,31 +485,50 @@ function Index() {
   // 1-Click Convert Purchase Order to Purchase Bill
   const handleConvertPOToPurchaseBill = (po) => {
     if (!po) return;
+    const subtotal = Number(po.subtotal || po.grandTotal || 0);
+    const totalTax = Number(po.totalTax || 0);
+    const grandTotal = Number(po.grandTotal || subtotal + totalTax);
+    const vendorName = po.vendorName || po.partyName || '';
+    const vendorGstin = po.vendorGstin || po.partyGstin || '';
+
     const newBill = {
       id: 'bill_' + uuidv4(),
       billNumber: `BILL-${po.poNumber}`,
       billDate: new Date().toISOString().slice(0, 10),
-      vendorName: po.vendorName || '',
-      vendorGstin: po.vendorGstin || '',
+      poNumber: po.poNumber || '',
+      vendorName: vendorName,
+      partyName: vendorName,
+      vendorGstin: vendorGstin,
+      partyGstin: vendorGstin,
       vendorPhone: po.vendorPhone || '',
       vendorAddress: po.vendorAddress || '',
+      totalAmount: grandTotal,
+      grandTotal: grandTotal,
+      totals: {
+        subtotal,
+        totalTax,
+        grandTotal,
+      },
       items: (po.items || []).map((it) => ({
         id: 'item_' + uuidv4(),
-        name: it.description,
+        description: it.description || it.name || 'Order Item',
+        name: it.description || it.name || 'Order Item',
         hsn: it.hsn || '',
-        quantity: Number(it.qty) || 1,
-        purchasePrice: Number(it.rate) || 0,
-        gstRate: Number(it.gstRate) || 18,
+        quantity: Number(it.qty || it.quantity) || 1,
+        rate: Number(it.rate || it.purchasePrice) || 0,
+        purchasePrice: Number(it.rate || it.purchasePrice) || 0,
+        gstPercent: Number(it.gstRate || it.gstPercent) || 18,
+        gstRate: Number(it.gstRate || it.gstPercent) || 18,
         unit: it.unit || 'PCS',
+        amount: (Number(it.qty || it.quantity) || 1) * (Number(it.rate || it.purchasePrice) || 0),
       })),
-      totalAmount: po.grandTotal || 0,
       notes: `Converted from PO #${po.poNumber}`,
       createdAt: new Date().toISOString(),
     };
 
     setPurchaseBills((prev) => [newBill, ...prev]);
     setPurchaseOrders((prev) =>
-      prev.map((p) => (p.id === po.id ? { ...p, status: 'Received / Fulfilled' } : p))
+      prev.map((p) => (p.id === po.id ? { ...p, status: 'Received / Fulfilled', poStatus: 'Converted to Bill' } : p))
     );
 
     setActivePage('List Purchase');
@@ -507,6 +538,8 @@ function Index() {
   // =========================================================
   // ACTIVE INVOICE DRAFT STATE
   // =========================================================
+  const [editingInvoiceId, setEditingInvoiceId] = useState(null);
+  const [salesOrderNumber, setSalesOrderNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
@@ -516,23 +549,30 @@ function Index() {
   const [items, setItems] = useState([]);
 
   const totals = useMemo(() => {
-    const subtotal = items.reduce((sum, item) => {
-      const q = Number(item.quantity || 1);
-      const r = Number(item.rate || 0);
-      return sum + q * r;
-    }, 0);
+    const round2 = (num) => Math.round((Number(num || 0) + Number.EPSILON) * 100) / 100;
 
-    const totalGst = items.reduce((sum, item) => {
-      const q = Number(item.quantity || 1);
-      const r = Number(item.rate || 0);
-      const g = Number(item.gstPercent || 0);
-      return sum + (q * r * g) / 100;
-    }, 0);
+    const subtotal = round2(
+      items.reduce((sum, item) => {
+        const q = Number(item.quantity || 1);
+        const r = Number(item.rate || 0);
+        return sum + q * r;
+      }, 0)
+    );
+
+    const totalGst = round2(
+      items.reduce((sum, item) => {
+        const q = Number(item.quantity || 1);
+        const r = Number(item.rate || 0);
+        const g = Number(item.gstPercent || 0);
+        return sum + (q * r * g) / 100;
+      }, 0)
+    );
 
     const isCentral = invoiceType === 'central';
-    const cgst = isCentral ? 0 : totalGst / 2;
-    const sgst = isCentral ? 0 : totalGst / 2;
+    const cgst = isCentral ? 0 : round2(totalGst / 2);
+    const sgst = isCentral ? 0 : round2(totalGst - cgst);
     const igst = isCentral ? totalGst : 0;
+    const total = round2(subtotal + totalGst);
 
     return {
       subtotal,
@@ -540,13 +580,15 @@ function Index() {
       sgst,
       igst,
       totalGst,
-      total: subtotal + totalGst,
+      total,
       invoiceType,
       isInterState: isCentral,
     };
   }, [items, invoiceType]);
 
   const resetInvoice = (currentInvoices) => {
+    setEditingInvoiceId(null);
+    setSalesOrderNumber('');
     setCustomerName('');
     setInvoiceNumber(getNextInvoiceNumber(currentInvoices || []));
     setInvoiceDate(new Date().toISOString().slice(0, 10));
@@ -605,11 +647,11 @@ function Index() {
     }
 
     const matchedCustomer = customers.find(
-      (c) => c.name.trim().toLowerCase() === customerName.trim().toLowerCase()
+      (c) => c?.name?.trim().toLowerCase() === customerName.trim().toLowerCase()
     );
     if (!matchedCustomer) {
       alert(
-        `âŒ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nPlease select a saved customer or register them in the Customer folder first.`
+        `❌ Error: Customer "${customerName.trim()}" is not saved in your Customers folder.\n\nPlease select a saved customer or register them in the Customer folder first.`
       );
       return;
     }
@@ -621,18 +663,19 @@ function Index() {
 
     const calculatedInvoiceNumber = invoiceNumber.trim() || getNextInvoiceNumber(invoices);
 
-    // Pull the customer's GSTIN from their saved contact card so it travels
-    // with the invoice (needed for GST reports, exports, and the printed PDF).
+    // Guard against duplicate invoice numbers assigned to distinct invoices
+    const duplicateInv = invoices.find(
+      (i) => i.id !== editingInvoiceId && i.invoiceNumber?.trim().toLowerCase() === calculatedInvoiceNumber.toLowerCase()
+    );
+    if (duplicateInv) {
+      alert(`⚠️ Invoice number "${calculatedInvoiceNumber}" is already in use by another invoice. Please specify a unique invoice number.`);
+      return;
+    }
+
+    // Pull customer GSTIN
     const buyerGstin = (matchedCustomer.gstin || '').trim().toUpperCase();
     const isCentral = invoiceType === 'central';
 
-    // Work out "Place of Supply" / customer state. If the customer has a
-    // valid 15-char GSTIN, its first 2 digits are the official state code -
-    // that's the real, correct place of supply. If they don't have one
-    // (a normal walk-in/retail customer), there is no dedicated "customer
-    // state" field yet, so we fall back to our own business's state - which
-    // is accurate for the common same-state sale, but is a known
-    // approximation for an inter-state sale to a non-GSTIN customer.
     let placeOfSupply = (company.state || '').trim();
     if (buyerGstin.length === 15) {
       const buyerStateCode = buyerGstin.slice(0, 2);
@@ -642,8 +685,15 @@ function Index() {
       }
     }
 
-    const newInvoice = {
-      id: uuidv4(),
+    const isEditing = Boolean(editingInvoiceId);
+    const existingInvoice = isEditing ? invoices.find((i) => i.id === editingInvoiceId) : null;
+    const oldItems = existingInvoice?.items || [];
+    const targetSalesOrderNo = isEditing
+      ? (salesOrderNumber || existingInvoice?.salesOrderNumber || '')
+      : salesOrderNumber;
+
+    const invoicePayload = {
+      id: isEditing ? editingInvoiceId : uuidv4(),
       customerName: customerName.trim(),
       invoiceNumber: calculatedInvoiceNumber,
       invoiceDate,
@@ -654,25 +704,60 @@ function Index() {
       placeOfSupply,
       invoiceType,
       isInterState: isCentral,
+      salesOrderNumber: targetSalesOrderNo,
       items,
       totals,
-      createdAt: new Date().toISOString(),
+      createdAt: existingInvoice?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
-    const updatedInvoices = [newInvoice, ...invoices];
+    let updatedInvoices;
+    if (isEditing) {
+      updatedInvoices = invoices.map((i) => (i.id === editingInvoiceId ? invoicePayload : i));
+    } else {
+      updatedInvoices = [invoicePayload, ...invoices];
+    }
     setInvoices(updatedInvoices);
 
-    // Deduct sold quantity from inventory
+    // If invoice number was changed during edit, cascade rename to linked payments
+    if (isEditing && existingInvoice?.invoiceNumber && existingInvoice.invoiceNumber !== calculatedInvoiceNumber) {
+      setPayments((prevPayments) =>
+        (prevPayments || []).map((p) =>
+          p.linkedDocument === existingInvoice.invoiceNumber
+            ? { ...p, linkedDocument: calculatedInvoiceNumber }
+            : p
+        )
+      );
+    }
+
+    // Ensure linked sales order is marked converted
+    if (targetSalesOrderNo) {
+      setSalesOrders((prev) =>
+        (prev || []).map((o) =>
+          o.orderNumber === targetSalesOrderNo ? { ...o, orderStatus: 'Converted to Invoice' } : o
+        )
+      );
+    }
+
+    // Reconcile inventory stock levels:
+    // If updating: delta = newSold - oldSold (returns stock if qty reduced; deducts if increased)
+    // If creating: oldSold = 0, delta = newSold (deducts full sold quantity)
     setStockItems((prevStock) =>
       prevStock.map((stockItem) => {
-        const matchingSold = items.find(
-          (it) => it.description.trim().toLowerCase() === stockItem.name.trim().toLowerCase()
+        const nameLower = stockItem.name.trim().toLowerCase();
+        const oldSold = oldItems.reduce(
+          (sum, it) => (it.description?.trim().toLowerCase() === nameLower ? sum + (Number(it.quantity) || 1) : sum),
+          0
         );
-        if (matchingSold) {
-          const soldQty = Number(matchingSold.quantity) || 1;
+        const newSold = items.reduce(
+          (sum, it) => (it.description?.trim().toLowerCase() === nameLower ? sum + (Number(it.quantity) || 1) : sum),
+          0
+        );
+        const netDelta = newSold - oldSold;
+        if (netDelta !== 0) {
           return {
             ...stockItem,
-            stock: Math.max(0, (Number(stockItem.stock) || 0) - soldQty),
+            stock: Math.max(0, (Number(stockItem.stock) || 0) - netDelta),
           };
         }
         return stockItem;
@@ -680,7 +765,7 @@ function Index() {
     );
 
     resetInvoice(updatedInvoices);
-    alert(`âœ“ Invoice ${calculatedInvoiceNumber} saved successfully!`);
+    alert(`✓ Invoice ${calculatedInvoiceNumber} ${isEditing ? 'updated' : 'saved'} successfully!`);
   };
 
   // =========================================================
@@ -797,18 +882,81 @@ function Index() {
   };
 
   const loadInvoiceToEditor = (inv) => {
-    setCustomerName(inv.customerName || '');
-    setInvoiceNumber(inv.invoiceNumber || '');
-    setInvoiceDate(inv.invoiceDate || new Date().toISOString().slice(0, 10));
-    setCustomerPhone(inv.customerPhone || '');
-    setCustomerAddress(inv.customerAddress || '');
-    setInvoiceType(inv.invoiceType || (inv.isInterState ? 'central' : 'local'));
-    setItems(inv.items || []);
+    setEditingInvoiceId(inv?.id || null);
+    setSalesOrderNumber(inv?.salesOrderNumber || '');
+    setCustomerName(inv?.customerName || '');
+    setInvoiceNumber(inv?.invoiceNumber || '');
+    setInvoiceDate(inv?.invoiceDate || new Date().toISOString().slice(0, 10));
+    setCustomerPhone(inv?.customerPhone || '');
+    setCustomerAddress(inv?.customerAddress || '');
+    setInvoiceType(inv?.invoiceType || (inv?.isInterState ? 'central' : 'local'));
+    setItems(inv?.items || []);
     setActivePage('Add Sales');
   };
 
   const deleteInvoice = (id) => {
+    const invoiceToDelete = invoices.find((i) => i.id === id);
+    if (!invoiceToDelete) return;
+
+    // Check for linked payment vouchers
+    const linkedPayments = (payments || []).filter(
+      (p) => p.linkedDocument && p.linkedDocument === invoiceToDelete.invoiceNumber
+    );
+
+    if (linkedPayments.length > 0) {
+      const totalLinked = linkedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      const confirmMsg = `Notice: Invoice ${invoiceToDelete.invoiceNumber} has ${linkedPayments.length} linked payment voucher(s) totaling ₹${totalLinked.toFixed(2)}.\n\nDeleting this invoice will unlink these vouchers. Do you wish to proceed?`;
+      if (!window.confirm(confirmMsg)) {
+        return;
+      }
+      setPayments((prev) =>
+        (prev || []).map((p) =>
+          p.linkedDocument === invoiceToDelete.invoiceNumber
+            ? {
+                ...p,
+                linkedDocument: '',
+                narration: (p.narration ? p.narration + ' | ' : '') + `[Unlinked from deleted invoice ${invoiceToDelete.invoiceNumber}]`,
+              }
+            : p
+        )
+      );
+    }
+
+    // Revert converted Sales Order status back to 'Open / Pending' if linked
+    if (invoiceToDelete.salesOrderNumber) {
+      setSalesOrders((prev) =>
+        (prev || []).map((o) =>
+          o.orderNumber === invoiceToDelete.salesOrderNumber
+            ? { ...o, orderStatus: 'Open / Pending' }
+            : o
+        )
+      );
+    }
+
+    // Replenish / restore sold stock items back to inventory catalog
+    if (Array.isArray(invoiceToDelete.items)) {
+      setStockItems((prevStock) =>
+        prevStock.map((stockItem) => {
+          const nameLower = stockItem.name.trim().toLowerCase();
+          const restoredQty = invoiceToDelete.items.reduce(
+            (sum, it) => (it.description?.trim().toLowerCase() === nameLower ? sum + (Number(it.quantity) || 1) : sum),
+            0
+          );
+          if (restoredQty > 0) {
+            return {
+              ...stockItem,
+              stock: (Number(stockItem.stock) || 0) + restoredQty,
+            };
+          }
+          return stockItem;
+        })
+      );
+    }
+
     setInvoices((current) => current.filter((i) => i.id !== id));
+    if (editingInvoiceId === id) {
+      resetInvoice();
+    }
   };
 
   const clearAllInvoices = () => {
@@ -1141,7 +1289,7 @@ function Index() {
     }
     if (option === 'Clear Temporary Data') {
       resetInvoice();
-      alert('âœ“ Unsaved invoice draft cleared.');
+      alert('✓ Unsaved invoice draft cleared.');
       return;
     }
 
@@ -2022,6 +2170,7 @@ function Index() {
               totals={totals}
               resetInvoice={resetInvoice}
               saveInvoice={saveInvoice}
+              isEditingInvoice={Boolean(editingInvoiceId)}
               loadInvoiceToEditor={loadInvoiceToEditor}
               deleteInvoice={deleteInvoice}
               clearAllInvoices={clearAllInvoices}

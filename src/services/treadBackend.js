@@ -370,8 +370,7 @@ export function computePartyLedger(partyName, data = {}) {
   const partyDetails = findCustomerFast(partyName, customers);
 
   // 1. Initial Opening Balance
-  let runningBalance = Number(partyDetails?.openingBalance) || 0;
-  const initialOpening = runningBalance;
+  const initialOpening = Number(partyDetails?.openingBalance) || 0;
   let totalDebit = 0;
   let totalCredit = 0;
 
@@ -398,7 +397,7 @@ export function computePartyLedger(partyName, data = {}) {
   purchaseBills.forEach((bill) => {
     const vName = (bill.vendorName || bill.partyName || '').trim().toLowerCase();
     if (vName === pLower) {
-      const amount = Number(bill.totalAmount || bill.grandTotal || 0);
+      const amount = Number(bill.totals?.grandTotal ?? bill.totalAmount ?? bill.grandTotal ?? 0);
       rawTransactions.push({
         date: bill.billDate || '2026-01-01',
         vchType: 'Purchase Bill',
@@ -435,29 +434,43 @@ export function computePartyLedger(partyName, data = {}) {
   // 5. Chronological Sort by Date
   rawTransactions.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
-  // 6. Build Ledger Entries with Running Balances
-  const entries = [];
+  // 6. Partition Transactions: Prior Period (accumulated into opening balance) vs Visible Period
+  let periodOpeningBalance = initialOpening;
+  const visibleTransactions = [];
 
-  if (initialOpening !== 0) {
+  rawTransactions.forEach((tx) => {
+    if (fromDate && tx.date < fromDate) {
+      periodOpeningBalance += tx.debit - tx.credit;
+      return;
+    }
+    if (toDate && tx.date > toDate) {
+      return;
+    }
+    visibleTransactions.push(tx);
+  });
+
+  // 7. Build Ledger Entries with Running Balances for the Filtered Period
+  const entries = [];
+  let runningBalance = periodOpeningBalance;
+
+  if (periodOpeningBalance !== 0 || fromDate) {
     entries.push({
-      date: 'Opening',
+      date: fromDate || 'Opening',
       vchType: 'Opening Balance',
       vchNo: '—',
-      particulars: 'Opening Balance b/f',
-      debit: initialOpening > 0 ? initialOpening : 0,
-      credit: initialOpening < 0 ? Math.abs(initialOpening) : 0,
+      particulars: fromDate ? `Opening Balance b/f (as of ${fromDate})` : 'Opening Balance b/f',
+      debit: periodOpeningBalance > 0 ? periodOpeningBalance : 0,
+      credit: periodOpeningBalance < 0 ? Math.abs(periodOpeningBalance) : 0,
       balance: Math.abs(runningBalance),
       balanceType: runningBalance >= 0 ? 'Dr' : 'Cr',
     });
-    if (initialOpening > 0) totalDebit += initialOpening;
-    else totalCredit += Math.abs(initialOpening);
+    if (!fromDate) {
+      if (periodOpeningBalance > 0) totalDebit += periodOpeningBalance;
+      else totalCredit += Math.abs(periodOpeningBalance);
+    }
   }
 
-  rawTransactions.forEach((tx) => {
-    // Date Range Filtering (if provided)
-    if (fromDate && tx.date < fromDate) return;
-    if (toDate && tx.date > toDate) return;
-
+  visibleTransactions.forEach((tx) => {
     runningBalance += tx.debit - tx.credit;
     totalDebit += tx.debit;
     totalCredit += tx.credit;
@@ -471,7 +484,7 @@ export function computePartyLedger(partyName, data = {}) {
 
   return {
     entries,
-    openingBalance: initialOpening,
+    openingBalance: periodOpeningBalance,
     totalDebit,
     totalCredit,
     closingBalance: Math.abs(runningBalance),

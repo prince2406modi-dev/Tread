@@ -8,13 +8,11 @@
 
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
-import { COMMON_HSN_SAC_CODES, validateHSN } from './hsnValidator.js';
-import { validateGSTIN } from './gstinValidator.js';
+import { COMMON_HSN_SAC_CODES } from './hsnValidator.js';
 
 // Local storage keys scoped by company / user
 const STORAGE_PREFIX = 'tread_product_network';
 const getKey = (scope, username) => `${STORAGE_PREFIX}_${scope}_${(username || 'admin').toLowerCase().trim()}`;
-const getGlobalKey = (scope) => `${STORAGE_PREFIX}_${scope}_global`;
 
 // Standard GST Rate slabs recognized in Indian GST law
 export const STANDARD_GST_RATES = [0, 5, 12, 18, 28];
@@ -680,7 +678,9 @@ export function saveAccessRequests(requests) {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.setItem(ACCESS_REQUESTS_KEY, JSON.stringify(requests));
-  } catch {}
+  } catch (err) {
+    console.warn('Failed to save access requests:', err);
+  }
 }
 
 export function submitCatalogAccessRequest({

@@ -95,7 +95,7 @@ export default function DisplayHub({
   }, [filteredInvoices]);
 
   const totalPurchaseGross = useMemo(() => {
-    return filteredPurchases.reduce((acc, b) => acc + Number(b.totalAmount || 0), 0);
+    return filteredPurchases.reduce((acc, b) => acc + Number(b.totals?.grandTotal ?? b.totalAmount ?? b.grandTotal ?? 0), 0);
   }, [filteredPurchases]);
 
   const stockValuation = useMemo(() => {
@@ -650,6 +650,16 @@ function AccountBooksReport({
   selectedParty,
   setSelectedParty,
 }) {
+  const [ledgerFromDate, setLedgerFromDate] = useState('');
+  const [ledgerToDate, setLedgerToDate] = useState('');
+
+  // Find party object
+  const partyObj = useMemo(() => {
+    if (!selectedParty) return null;
+    const lower = selectedParty.trim().toLowerCase();
+    return (customers || []).find((c) => (c?.name || '').trim().toLowerCase() === lower);
+  }, [selectedParty, customers]);
+
   // Day book merges sales invoices, purchase bills
   const dayBookRows = useMemo(() => {
     const list = [];
@@ -668,25 +678,45 @@ function AccountBooksReport({
         date: b.billDate || 'N/A',
         type: 'Purchase Bill',
         vchNo: b.billNumber || 'PUR-DRAFT',
-        party: b.partyName || 'Vendor',
-        debit: b.totalAmount || 0,
+        party: b.partyName || b.vendorName || 'Vendor',
+        debit: Number(b.totals?.grandTotal ?? b.totalAmount ?? b.grandTotal ?? 0),
         credit: 0,
       });
     });
     return list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [invoices, purchaseBills]);
 
-  // Real-time double-entry party ledger calculation via core backend engine
+  // Real-time double-entry party ledger calculation via core backend engine with date filtering
   const partyLedgerResult = useMemo(() => {
     return computePartyLedger(selectedParty, {
       invoices,
       purchaseBills,
       payments,
       customers,
+      fromDate: ledgerFromDate || null,
+      toDate: ledgerToDate || null,
     });
-  }, [selectedParty, customers, invoices, purchaseBills, payments]);
+  }, [selectedParty, customers, invoices, purchaseBills, payments, ledgerFromDate, ledgerToDate]);
 
   const partyLedger = partyLedgerResult.entries;
+
+  const setPeriodPreset = (preset) => {
+    const now = new Date();
+    if (preset === 'all') {
+      setLedgerFromDate('');
+      setLedgerToDate('');
+    } else if (preset === 'this-month') {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      setLedgerFromDate(start);
+      setLedgerToDate(end);
+    } else if (preset === 'last-30') {
+      const prior = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      const end = now.toISOString().slice(0, 10);
+      setLedgerFromDate(prior);
+      setLedgerToDate(end);
+    }
+  };
 
   return (
     <div>
@@ -745,69 +775,301 @@ function AccountBooksReport({
       )}
 
       {activeSubTab === 'Account Ledger' && (
-        <div className="card border shadow-sm">
-          <div className="card-header bg-light py-2 d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div className="fw-bold text-dark">📖 Account Statement &amp; Ledger</div>
-            <div className="d-flex align-items-center gap-2">
-              <span className="small text-muted fw-semibold">Select Account:</span>
-              <select
-                className="form-select form-select-sm"
-                style={{ minWidth: '220px' }}
-                value={selectedParty}
-                onChange={(e) => setSelectedParty(e.target.value)}
-              >
-                <option value="">-- Choose Party / Customer --</option>
-                {customers.map((c) => (
-                  <option key={c.id || c.name} value={c.name}>
-                    {c.name} {c.groupName ? `[${c.groupName}]` : ''}
-                  </option>
-                ))}
-              </select>
+        <div className="d-flex flex-column gap-3">
+          {/* Party Selector & Date Filters Bar */}
+          <div className="card border-0 shadow-sm rounded-4 p-3 bg-white">
+            <div className="row g-3 align-items-center justify-content-between">
+              <div className="col-12 col-lg-5">
+                <label className="form-label small fw-bold text-muted text-uppercase mb-1" style={{ letterSpacing: '0.04em' }}>
+                  Select Party Account
+                </label>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0">👤</span>
+                  <select
+                    className="form-select form-select-sm border-start-0 fw-semibold"
+                    value={selectedParty}
+                    onChange={(e) => setSelectedParty(e.target.value)}
+                  >
+                    <option value="">-- Choose Party / Customer Account --</option>
+                    {customers.map((c) => (
+                      <option key={c.id || c.name} value={c.name}>
+                        {c.name} {c.groupName ? `[${c.groupName}]` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="col-12 col-lg-7">
+                <div className="d-flex flex-wrap align-items-center justify-content-lg-end gap-2">
+                  <div className="d-flex align-items-center gap-1">
+                    <span className="small text-muted fw-semibold">From:</span>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm rounded-2 font-monospace"
+                      style={{ width: '135px' }}
+                      value={ledgerFromDate}
+                      onChange={(e) => setLedgerFromDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="d-flex align-items-center gap-1">
+                    <span className="small text-muted fw-semibold">To:</span>
+                    <input
+                      type="date"
+                      className="form-control form-control-sm rounded-2 font-monospace"
+                      style={{ width: '135px' }}
+                      value={ledgerToDate}
+                      onChange={(e) => setLedgerToDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="btn-group btn-group-sm">
+                    <button
+                      type="button"
+                      className={`btn btn-outline-secondary ${!ledgerFromDate && !ledgerToDate ? 'active fw-bold' : ''}`}
+                      onClick={() => setPeriodPreset('all')}
+                    >
+                      All Time
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => setPeriodPreset('this-month')}
+                    >
+                      This Month
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary"
+                      onClick={() => setPeriodPreset('last-30')}
+                    >
+                      30 Days
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 rounded-2 shadow-xs"
+                    onClick={() => window.print()}
+                  >
+                    <span>🖨️</span>
+                    <span>Print</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="table-responsive">
-            <table className="table table-hover table-striped mb-0" id="active-report-table">
-              <thead className="table-light">
-                <tr>
-                  <th className="ps-3">Date</th>
-                  <th>Particulars</th>
-                  <th>Vch Type</th>
-                  <th>Vch No.</th>
-                  <th className="text-end">Debit (Dr ₹)</th>
-                  <th className="text-end">Credit (Cr ₹)</th>
-                  <th className="text-end pe-3">Running Balance (₹)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partyLedger.map((row, i) => (
-                  <tr key={i}>
-                    <td className="ps-3 font-monospace">{row.date}</td>
-                    <td className="fw-semibold">{row.particulars}</td>
-                    <td><span className="badge bg-light text-dark border">{row.vchType}</span></td>
-                    <td className="font-monospace">{row.vchNo}</td>
-                    <td className="text-end font-monospace">{row.debit > 0 ? `₹${row.debit.toFixed(2)}` : '—'}</td>
-                    <td className="text-end font-monospace">{row.credit > 0 ? `₹${row.credit.toFixed(2)}` : '—'}</td>
-                    <td className="text-end pe-3 font-monospace fw-bold text-primary">
-                      ₹{Math.abs(row.balance).toFixed(2)} {row.balance >= 0 ? 'Dr' : 'Cr'}
-                    </td>
-                  </tr>
-                ))}
-                {!selectedParty && (
+
+          {/* Party Hero Summary Card (when party selected) */}
+          {selectedParty && (
+            <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+              <div
+                className="p-3 text-white d-flex flex-wrap justify-content-between align-items-center gap-3"
+                style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)' }}
+              >
+                <div className="d-flex align-items-center gap-3">
+                  <div
+                    className="rounded-circle bg-primary bg-opacity-25 d-flex align-items-center justify-content-center text-primary fs-4 border border-primary border-opacity-25"
+                    style={{ width: '48px', height: '48px' }}
+                  >
+                    🏢
+                  </div>
+                  <div>
+                    <div className="d-flex align-items-center gap-2">
+                      <h3 className="h5 mb-0 fw-bold text-white">{selectedParty}</h3>
+                      {partyObj?.groupName && (
+                        <span className="badge bg-light bg-opacity-20 text-white border border-white border-opacity-25 rounded-pill small">
+                          {partyObj.groupName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="small text-white-50 mt-1 d-flex flex-wrap gap-3">
+                      {partyObj?.gstin && <span>GSTIN: <strong className="text-white font-monospace">{partyObj.gstin}</strong></span>}
+                      {partyObj?.phone && <span>📞 {partyObj.phone}</span>}
+                      {partyObj?.address && <span>📍 {partyObj.address}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-end">
+                  <span className="small text-white-50 text-uppercase fw-semibold d-block">Current Position</span>
+                  <span
+                    className={`badge px-3 py-1.5 rounded-pill fs-6 ${
+                      partyLedgerResult.closingType === 'Dr'
+                        ? 'bg-primary text-white shadow-sm'
+                        : partyLedgerResult.closingType === 'Cr'
+                        ? 'bg-success text-white shadow-sm'
+                        : 'bg-secondary text-white'
+                    }`}
+                  >
+                    ₹{partyLedgerResult.closingBalance.toFixed(2)} {partyLedgerResult.closingType === 'Dr' ? 'Dr (Receivable)' : partyLedgerResult.closingType === 'Cr' ? 'Cr (Advance)' : 'Settled'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 4 Financial Metric Cards */}
+              <div className="row g-0 border-top">
+                <div className="col-6 col-md-3 border-end p-3">
+                  <div className="small text-muted fw-semibold text-uppercase" style={{ letterSpacing: '0.03em' }}>Opening b/f</div>
+                  <div className="fs-5 fw-bold text-dark font-monospace mt-1">
+                    ₹{Math.abs(partyLedgerResult.openingBalance).toFixed(2)}
+                    <small className="text-muted fw-normal ms-1 fs-6">{partyLedgerResult.openingBalance >= 0 ? 'Dr' : 'Cr'}</small>
+                  </div>
+                  <div className="small text-muted" style={{ fontSize: '11px' }}>
+                    {ledgerFromDate ? `As of ${ledgerFromDate}` : 'Initial b/f'}
+                  </div>
+                </div>
+
+                <div className="col-6 col-md-3 border-end p-3">
+                  <div className="small text-muted fw-semibold text-uppercase" style={{ letterSpacing: '0.03em' }}>Total Invoiced (Dr)</div>
+                  <div className="fs-5 fw-bold text-dark font-monospace mt-1">
+                    ₹{partyLedgerResult.totalDebit.toFixed(2)}
+                  </div>
+                  <div className="small text-muted" style={{ fontSize: '11px' }}>Total bill debits in period</div>
+                </div>
+
+                <div className="col-6 col-md-3 border-end p-3">
+                  <div className="small text-muted fw-semibold text-uppercase" style={{ letterSpacing: '0.03em' }}>Total Settled (Cr)</div>
+                  <div className="fs-5 fw-bold text-success font-monospace mt-1">
+                    ₹{partyLedgerResult.totalCredit.toFixed(2)}
+                  </div>
+                  <div className="small text-muted" style={{ fontSize: '11px' }}>Receipts & credits in period</div>
+                </div>
+
+                <div className="col-6 col-md-3 p-3 bg-light bg-opacity-50">
+                  <div className="small text-muted fw-semibold text-uppercase" style={{ letterSpacing: '0.03em' }}>Net Period Balance</div>
+                  <div className="fs-5 fw-bold text-primary font-monospace mt-1">
+                    ₹{partyLedgerResult.closingBalance.toFixed(2)}
+                    <small className="ms-1 fs-6">{partyLedgerResult.closingType}</small>
+                  </div>
+                  <div className="small text-muted" style={{ fontSize: '11px' }}>
+                    {partyLedgerResult.closingType === 'Dr' ? 'Net due to collect' : 'Credit advance'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Statement of Account Ledger Table */}
+          <div className="card border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+            <div className="card-header bg-white py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+              <div>
+                <h4 className="h6 mb-0 fw-bold text-dark">Statement of Account Transactions</h4>
+                <small className="text-muted">
+                  Double-entry chronology of all sales bills, purchase inwards, and payments.
+                </small>
+              </div>
+              <span className="badge bg-light text-secondary border rounded-pill px-2.5 py-1 small">
+                {partyLedger.length} Ledger Rows
+              </span>
+            </div>
+
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0" id="active-report-table">
+                <thead className="table-light small text-uppercase text-muted" style={{ letterSpacing: '0.03em' }}>
                   <tr>
-                    <td colSpan="7" className="text-center py-4 text-muted">
-                      Please select an account from the dropdown above to view their detailed statement.
-                    </td>
+                    <th className="ps-4 py-3" style={{ minWidth: '120px' }}>Date</th>
+                    <th style={{ minWidth: '220px' }}>Particulars / Description</th>
+                    <th style={{ minWidth: '130px' }}>Voucher Type</th>
+                    <th style={{ minWidth: '130px' }}>Vch #</th>
+                    <th className="text-end" style={{ minWidth: '130px' }}>Debit (Dr ₹)</th>
+                    <th className="text-end" style={{ minWidth: '130px' }}>Credit (Cr ₹)</th>
+                    <th className="text-end pe-4" style={{ minWidth: '150px' }}>Running Balance (₹)</th>
                   </tr>
+                </thead>
+                <tbody className="border-top-0">
+                  {partyLedger.map((row, i) => {
+                    const isOpening = row.vchType === 'Opening Balance';
+                    const isSale = row.vchType === 'Sales Invoice';
+                    const isReceipt = row.vchType === 'Receipt';
+                    const isPayment = row.vchType === 'Payment Out';
+                    const isPurchase = row.vchType === 'Purchase Bill';
+
+                    const vchBadgeClass = isSale
+                      ? 'bg-primary-subtle text-primary border border-primary'
+                      : isReceipt
+                      ? 'bg-success-subtle text-success border border-success'
+                      : isPayment
+                      ? 'bg-danger-subtle text-danger border border-danger'
+                      : isPurchase
+                      ? 'bg-warning-subtle text-dark border border-warning'
+                      : 'bg-secondary-subtle text-secondary border';
+
+                    return (
+                      <tr key={i} className={isOpening ? 'table-light fw-semibold' : ''}>
+                        <td className="ps-4 font-monospace small text-secondary">{row.date}</td>
+                        <td className="fw-semibold text-dark">{row.particulars}</td>
+                        <td>
+                          <span className={`badge ${vchBadgeClass}`} style={{ fontSize: '11px' }}>
+                            {row.vchType}
+                          </span>
+                        </td>
+                        <td className="font-monospace text-primary small fw-bold">{row.vchNo}</td>
+                        <td className="text-end font-monospace fw-semibold text-dark">
+                          {row.debit > 0 ? `₹${row.debit.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="text-end font-monospace fw-semibold text-success">
+                          {row.credit > 0 ? `₹${row.credit.toFixed(2)}` : '—'}
+                        </td>
+                        <td className="text-end pe-4 font-monospace fw-bold text-dark">
+                          <span className="me-1">₹{Math.abs(row.balance).toFixed(2)}</span>
+                          <span
+                            className={`badge ${
+                              row.balanceType === 'Dr'
+                                ? 'bg-primary-subtle text-primary border'
+                                : 'bg-success-subtle text-success border'
+                            }`}
+                            style={{ fontSize: '10px' }}
+                          >
+                            {row.balanceType}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {!selectedParty && (
+                    <tr>
+                      <td colSpan="7" className="text-center py-5 text-muted">
+                        <div className="fs-1 mb-2">📖</div>
+                        <h6 className="fw-bold text-dark mb-1">No Account Selected</h6>
+                        <p className="small text-muted mb-0">
+                          Please choose a customer or supplier account from the dropdown above to render their detailed ledger.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+
+                  {selectedParty && partyLedger.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="text-center py-5 text-muted">
+                        <div className="fs-1 mb-2">📋</div>
+                        <h6 className="fw-bold text-dark mb-1">No Transactions Found</h6>
+                        <p className="small text-muted mb-0">
+                          There are no recorded bills or receipts for {selectedParty} within the selected date range.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+                {selectedParty && partyLedger.length > 0 && (
+                  <tfoot className="table-light fw-bold small border-top">
+                    <tr>
+                      <td colSpan="4" className="ps-4 py-3 text-uppercase text-muted">
+                        Grand Totals ({partyLedger.length} Transactions)
+                      </td>
+                      <td className="text-end font-monospace fs-6 text-dark">
+                        ₹{partyLedgerResult.totalDebit.toFixed(2)}
+                      </td>
+                      <td className="text-end font-monospace fs-6 text-success">
+                        ₹{partyLedgerResult.totalCredit.toFixed(2)}
+                      </td>
+                      <td className="text-end pe-4 font-monospace fs-6 text-primary">
+                        ₹{partyLedgerResult.closingBalance.toFixed(2)} {partyLedgerResult.closingType}
+                      </td>
+                    </tr>
+                  </tfoot>
                 )}
-                {selectedParty && partyLedger.length === 0 && (
-                  <tr>
-                    <td colSpan="7" className="text-center py-4 text-muted">
-                      No voucher history found for {selectedParty}.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -871,7 +1133,7 @@ function AccountSummaryReport({ customers, invoices, purchaseBills }) {
       invoices.reduce((s, i) => s + (Number(i.totals?.total) || 0), 0);
 
     const creditorsBal = creditors.reduce((s, c) => s + (Number(c.openingBalance) || 0), 0) +
-      purchaseBills.reduce((s, b) => s + (Number(b.totalAmount) || 0), 0);
+      purchaseBills.reduce((s, b) => s + Number(b.totals?.grandTotal ?? b.totalAmount ?? b.grandTotal ?? 0), 0);
 
     return [
       { name: 'Sundry Debtors (Customers)', count: debtors.length, nature: 'Asset (Receivable)', total: debtorsBal },
@@ -1344,7 +1606,7 @@ function InventoryBooksReport({ stockItems, selectedItem, setSelectedItem, invoi
             date: b.billDate || 'N/A',
             type: 'Purchase Inward',
             vchNo: b.billNumber || 'PUR',
-            party: b.partyName || 'Supplier',
+            party: b.partyName || b.vendorName || 'Supplier',
             inward: Number(it.quantity || 1),
             outward: 0,
             rate: Number(it.rate || 0),
@@ -1841,9 +2103,9 @@ function PurchaseAnalysisReport({ purchaseBills }) {
               <tr key={b.id}>
                 <td className="ps-3 font-monospace">{b.billDate || '—'}</td>
                 <td className="font-monospace fw-semibold">{b.billNumber || 'PUR'}</td>
-                <td className="fw-bold text-dark">{b.partyName || 'Vendor'}</td>
+                <td className="fw-bold text-dark">{b.partyName || b.vendorName || 'Vendor'}</td>
                 <td>{b.items?.length || 1} items</td>
-                <td className="text-end pe-3 font-monospace fw-bold text-danger">₹{(b.totalAmount || 0).toFixed(2)}</td>
+                <td className="text-end pe-3 font-monospace fw-bold text-danger">₹{Number(b.totals?.grandTotal ?? b.totalAmount ?? b.grandTotal ?? 0).toFixed(2)}</td>
               </tr>
             ))}
             {purchaseBills.length === 0 && (
@@ -1987,16 +2249,17 @@ function QuerySystemReport({ invoices, purchaseBills, searchQuery, setSearchQuer
     });
 
     purchaseBills.forEach((b) => {
+      const party = b.partyName || b.vendorName || '';
       const match =
         (b.billNumber || '').toLowerCase().includes(q) ||
-        (b.partyName || '').toLowerCase().includes(q);
+        party.toLowerCase().includes(q);
       if (match) {
         results.push({
           type: 'Purchase Bill',
           no: b.billNumber,
           date: b.billDate,
-          party: b.partyName,
-          amount: b.totalAmount || 0,
+          party: party || 'Vendor',
+          amount: Number(b.totals?.grandTotal ?? b.totalAmount ?? b.grandTotal ?? 0),
         });
       }
     });

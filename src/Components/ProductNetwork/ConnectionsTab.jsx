@@ -6,7 +6,6 @@ export default function ConnectionsTab({
   onApproveConnection,
   onRevokeConnection,
   onUpdatePermissionTier,
-  onNavigateToCatalogs,
   company,
 }) {
   const [activeSubTab, setActiveSubTab] = useState('directory'); // 'directory' | 'connected' | 'requests'

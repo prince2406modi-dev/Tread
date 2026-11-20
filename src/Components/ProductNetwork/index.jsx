@@ -53,6 +53,11 @@ export default function ProductNetwork({
   onNavigate,
 }) {
   const [activeTab, setActiveTab] = useState(() => resolveProductNetworkTab(initialSubTab));
+  const [prevSubTab, setPrevSubTab] = useState(initialSubTab);
+  if (initialSubTab !== prevSubTab) {
+    setPrevSubTab(initialSubTab);
+    setActiveTab(resolveProductNetworkTab(initialSubTab));
+  }
   const [selectedProductForModal, setSelectedProductForModal] = useState(null);
 
   const isMasterAdmin =
@@ -74,12 +79,6 @@ export default function ProductNetwork({
     saveNetworkData(currentUser?.username, networkState);
   }, [networkState, currentUser?.username]);
 
-  // Keep active tab in sync if initialSubTab prop changes
-  useEffect(() => {
-    if (initialSubTab) {
-      setActiveTab(resolveProductNetworkTab(initialSubTab));
-    }
-  }, [initialSubTab]);
 
   // Helpers to update individual slices of state
   const updateManufacturers = (updated) => setNetworkState((prev) => ({ ...prev, manufacturers: updated }));

@@ -549,20 +549,36 @@ export function analysisToInvoice(analysis) {
  * Convert Extracted Analysis to Inward Purchase Bill Payload
  */
 export function analysisToPurchaseBill(analysis) {
+  const totalAmount = analysis.meta?.totalAmount || 0;
+  const partyName = analysis.party?.name || 'Vendor';
+  const partyGstin = analysis.party?.gstin || '';
+  const subtotal = analysis.meta?.subtotal || totalAmount;
+  const totalTax = analysis.meta?.taxTotal || 0;
+
   return {
     id: `pur-${Date.now()}`,
-    billNumber: analysis.meta.invoiceNumber || `PUR-${Date.now().toString().slice(-4)}`,
-    billDate: analysis.meta.date || new Date().toISOString().slice(0, 10),
-    partyName: analysis.party.name || 'Vendor',
-    partyGstin: analysis.party.gstin || '',
-    totalAmount: analysis.meta.totalAmount || 0,
+    billNumber: analysis.meta?.invoiceNumber || `PUR-${Date.now().toString().slice(-4)}`,
+    billDate: analysis.meta?.date || new Date().toISOString().slice(0, 10),
+    partyName: partyName,
+    vendorName: partyName,
+    partyGstin: partyGstin,
+    vendorGstin: partyGstin,
+    totalAmount: totalAmount,
+    grandTotal: totalAmount,
+    totals: {
+      subtotal: subtotal,
+      totalTax: totalTax,
+      grandTotal: totalAmount,
+    },
     items: (analysis.items || []).map((it) => ({
-      name: it.name,
+      name: it.name || it.description || 'Imported Item',
+      description: it.description || it.name || 'Imported Item',
       hsn: it.hsn || '',
       quantity: it.quantity || 1,
       unit: it.unit || 'PCS',
       rate: it.rate || 0,
       gstPercent: it.gstPercent || 18,
+      amount: (it.quantity || 1) * (it.rate || 0),
     })),
   };
 }

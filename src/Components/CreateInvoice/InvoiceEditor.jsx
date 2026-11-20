@@ -24,6 +24,7 @@ function InvoiceEditor({
   totals,
   resetInvoice,
   saveInvoice,
+  isEditing = false,
   recognitionActive,
   setRecognitionActive,
   voiceSupported,
@@ -315,7 +316,14 @@ function InvoiceEditor({
       {/* Header */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
         <div>
-          <h1 className="h3 fw-bold mb-1">GST Tax Invoice Generator</h1>
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <h1 className="h3 fw-bold mb-1">GST Tax Invoice Generator</h1>
+            {isEditing && (
+              <span className="badge bg-warning text-dark border border-warning-subtle py-1 px-2.5 rounded-pill fw-bold" style={{ fontSize: '11.5px' }}>
+                ✏️ Edit Mode (#{invoiceNumber})
+              </span>
+            )}
+          </div>
           <p className="text-muted mb-0">
             Create GST compliant bills, add line items with automated tax calculations, or use voice commands.
           </p>
@@ -357,10 +365,10 @@ function InvoiceEditor({
           </button>
           <button
             type="button"
-            className="btn btn-success shadow-sm"
+            className={`btn ${isEditing ? 'btn-primary' : 'btn-success'} shadow-sm fw-bold`}
             onClick={handleQuickSave}
           >
-            💾 Save Invoice
+            {isEditing ? '💾 Update Invoice' : '💾 Save Invoice'}
           </button>
           {items.length > 0 && (
             <button

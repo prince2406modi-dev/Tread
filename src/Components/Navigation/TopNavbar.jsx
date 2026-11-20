@@ -208,34 +208,29 @@ export default function TopNavbar({
       </div>
 
       {currentUser && (
-        <div className="d-none d-md-flex align-items-center gap-2 ms-auto pe-3">
+        <div className="d-none d-lg-flex align-items-center gap-1 ms-auto flex-shrink-0">
           <button
             type="button"
-            className="btn btn-sm py-1 px-2.5 d-flex align-items-center gap-1.5 shadow-sm border-0"
+            className="btn btn-sm py-1 px-2 d-flex align-items-center gap-1 shadow-sm border-0"
             style={{
               background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(99,102,241,0.2) 100%)',
               border: '1px solid rgba(245,158,11,0.45)',
-              borderRadius: '9px',
+              borderRadius: '7px',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
             }}
             onClick={onOpenRenewalModal}
-            title="Click to view Customer License details and renewal options"
+            title={`Customer License ID: ${subscriptionStatus?.licenseId || currentUser?.licenseId || 'N/A'}. Click to view license details & renewal.`}
           >
-            <span style={{ fontSize: '11px', color: '#fde68a', fontWeight: 700 }}>LICENSE:</span>
+            <span style={{ fontSize: '11px', color: '#fde68a', fontWeight: 700 }}>👑</span>
             <span
-              className="font-monospace fw-bold"
-              style={{ fontSize: '12px', color: '#ffffff', letterSpacing: '0.04em' }}
-            >
-              {subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000'}
-            </span>
-            <span
-              className="badge ms-1"
+              className="badge"
               style={{
                 fontSize: '9.5px',
                 background: subscriptionStatus?.isExpired ? '#ef4444' : '#10b981',
                 color: '#ffffff',
-                padding: '2px 6px',
-                borderRadius: '6px',
+                padding: '2px 5px',
+                borderRadius: '4px',
               }}
             >
               {subscriptionStatus?.isAdmin ? 'Master' : subscriptionStatus?.isExpired ? 'Expired' : 'Active'}

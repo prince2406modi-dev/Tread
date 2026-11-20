@@ -5,7 +5,6 @@ export default function OverviewTab({
   onNavigateTab,
   onOpenImportModal,
   company,
-  roleMode,
   currentUser,
   isMasterAdmin = false,
 }) {

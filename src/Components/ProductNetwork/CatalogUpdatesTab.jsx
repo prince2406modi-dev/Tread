@@ -3,7 +3,6 @@ import { useState } from 'react';
 export default function CatalogUpdatesTab({
   updates = [],
   catalogs = [],
-  stockItems = [],
   onAcceptUpdateDiff,
   onRejectUpdateDiff,
   onAcceptAllInUpdate,

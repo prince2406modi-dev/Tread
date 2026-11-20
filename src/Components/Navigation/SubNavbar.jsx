@@ -81,10 +81,10 @@ export default function SubNavbar({
       </div>
 
       {/* Quick Favourites Pills (Desktop/Tablet) */}
-      {currentUser && (
-        <div className="favourites-pills d-none d-md-flex">
-          <span className="text-muted small me-1">⭐ Quick:</span>
-          {favourites.map((fav) => (
+      {currentUser && favourites?.length > 0 && (
+        <div className="favourites-pills d-none d-lg-flex align-items-center">
+          <span className="text-muted small me-1">⭐</span>
+          {favourites.slice(0, 4).map((fav) => (
             <button
               key={fav}
               type="button"
@@ -98,9 +98,9 @@ export default function SubNavbar({
       )}
 
       {/* User Account & Quick Status */}
-      <div className="d-flex align-items-center gap-2">
+      <div className="d-flex align-items-center gap-2 flex-shrink-0">
         {currentUser ? (
-          <div className="d-flex align-items-center gap-2 flex-wrap">
+          <div className="d-flex align-items-center gap-2 flex-nowrap">
             {/* On-Demand Cloud Sync Button — disabled when offline */}
             <button
               type="button"
@@ -111,7 +111,7 @@ export default function SubNavbar({
               title={
                 !isOnline
                   ? 'Cloud sync unavailable — no internet connection'
-                  : `On-Demand Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`
+                  : `Cloud Sync (Last: ${lastSyncTime || 'Never'}). Click to open sync panel.`
               }
             >
               {!isOnline ? (
@@ -121,9 +121,7 @@ export default function SubNavbar({
               ) : cloudSyncStatus === 'error' ? (
                 <span className="text-danger fw-semibold">⚠️ Sync Error</span>
               ) : (
-                <span className="text-dark fw-medium">
-                  ☁️ Sync {lastSyncTime ? `(${lastSyncTime})` : 'Now'}
-                </span>
+                <span className="text-dark fw-medium">☁️ Sync</span>
               )}
             </button>
 
@@ -143,23 +141,7 @@ export default function SubNavbar({
               <span>Ask AI</span>
             </button>
 
-            {/* Universal Smart File AI Button */}
-            <button
-              type="button"
-              className="btn btn-sm py-0 px-2 d-flex align-items-center gap-1 shadow-xs fw-semibold text-white"
-              style={{
-                fontSize: '11.5px',
-                background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-                border: 'none',
-              }}
-              onClick={() => onSelectFavourite('Universal File AI')}
-              title="Universal AI File & Document Intelligence: Analyze Excel, PDF, CSV, JSON, Receipts"
-            >
-              <span>⚡</span>
-              <span>Smart File AI</span>
-            </button>
-
-            {/* Customer License ID & Expiry Pill */}
+            {/* Customer License & Expiry Pill */}
             <button
               type="button"
               className={`btn btn-sm py-0 px-2 fw-semibold d-flex align-items-center gap-1 shadow-xs border ${
@@ -174,18 +156,20 @@ export default function SubNavbar({
               title={`Unique Customer License ID: ${subscriptionStatus?.licenseId || currentUser?.licenseId || 'N/A'}. Click to view license & renewal options.`}
             >
               <span>{subscriptionStatus?.isExpired ? '🚨' : subscriptionStatus?.isExpiringSoon ? '⚠️' : '👑'}</span>
-              <span className="font-monospace fw-bold">{subscriptionStatus?.licenseId || currentUser?.licenseId || '91-00-000-000000'}</span>
-              <span className="text-muted">•</span>
               <span>
                 {subscriptionStatus?.isAdmin
-                  ? 'Master'
+                  ? 'Admin'
                   : subscriptionStatus?.isExpired
                   ? 'Expired'
-                  : `${subscriptionStatus?.daysRemaining ?? 365}d`}
+                  : `${subscriptionStatus?.daysRemaining ?? 365}d left`}
               </span>
             </button>
 
-            <span className="badge bg-primary text-white py-1 px-2 fw-semibold">
+            <span
+              className="badge bg-light text-secondary border py-1 px-2 fw-semibold d-none d-sm-inline-block"
+              style={{ maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={`Logged in as: ${currentUser.username}`}
+            >
               👤 {currentUser.username}
             </span>
 

@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { STANDARD_GST_RATES, validateProductRow } from '../../services/productNetworkService.js';
-import { COMMON_HSN_SAC_CODES } from '../../services/hsnValidator.js';
 
 export default function ManufacturerCatalogsTab({
   catalogs = [],

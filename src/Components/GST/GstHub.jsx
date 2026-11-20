@@ -534,7 +534,7 @@ export default function GstHub({
           <div className="d-flex gap-2 flex-wrap">
             {onBack && (
               <button type="button" className="btn btn-outline-light btn-sm" onClick={onBack}>
-                â† Dashboard
+                ← Dashboard
               </button>
             )}
             <button
@@ -582,7 +582,7 @@ export default function GstHub({
             className={`nav-link fw-bold ${activeTab === 'reconciliation' ? 'active' : ''}`}
             onClick={() => setActiveTab('reconciliation')}
           >
-            âš–ï¸ GSTR-2B vs Books ITC Reconcile
+            ⚖️ GSTR-2B vs Books ITC Reconcile
           </button>
         </li>
         <li className="nav-item">
@@ -634,7 +634,7 @@ export default function GstHub({
                   />
                   <div className="fs-1 mb-2">📁</div>
                   <div className="fw-bold mb-1">
-                    {isProcessing ? 'â³ Parsing GST Document...' : 'Drag & Drop GST File or Click to Browse'}
+                    {isProcessing ? '⏳ Parsing GST Document...' : 'Drag & Drop GST File or Click to Browse'}
                   </div>
                   <p className="text-muted small mb-3">
                     Supports <strong>GSTR-1 JSON</strong>, <strong>GSTR-2B JSON</strong>, <strong>e-Invoice IRN</strong>, <strong>e-Way Bill</strong>, and <strong>GST Offline Excel Tool (.XLSX, .CSV)</strong>
@@ -880,7 +880,7 @@ export default function GstHub({
       {activeTab === 'reconciliation' && (
         <div className="card shadow-sm border-0">
           <div className="card-header bg-white py-3">
-            <h2 className="h5 mb-0 fw-bold">âš–ï¸ GSTR-2B (Portal) vs Purchase Books (ITC Reconciliation)</h2>
+            <h2 className="h5 mb-0 fw-bold">⚖️ GSTR-2B (Portal) vs Purchase Books (ITC Reconciliation)</h2>
             <small className="text-muted">Compare auto-drafted ITC statements against recorded purchase vouchers</small>
           </div>
           <div className="card-body p-4">
@@ -917,7 +917,7 @@ export default function GstHub({
 
             {reconciliationData.matched.length === 0 && reconciliationData.portalOnly.length === 0 ? (
               <div className="alert alert-info">
-                â„¹ï¸ To run live ITC Reconciliation, upload a <strong>GSTR-2B JSON or Excel file</strong> in the <strong>&quot;Universal GST Importer&quot;</strong> tab.
+                ℹ️ To run live ITC Reconciliation, upload a <strong>GSTR-2B JSON or Excel file</strong> in the <strong>&quot;Universal GST Importer&quot;</strong> tab.
               </div>
             ) : null}
           </div>
@@ -998,7 +998,7 @@ export default function GstHub({
                 />
                 {gstinAnalysis ? (
                   <div className={`p-3 rounded-3 ${gstinAnalysis.isValid ? 'bg-success bg-opacity-10 border border-success' : 'bg-danger bg-opacity-10 border border-danger'}`}>
-                    <div className="fw-bold mb-2">{gstinAnalysis.isValid ? '✅ Valid GSTIN Format' : 'âŒ Invalid GSTIN Format'}</div>
+                    <div className="fw-bold mb-2">{gstinAnalysis.isValid ? '✅ Valid GSTIN Format' : '❌ Invalid GSTIN Format'}</div>
                     <ul className="mb-0 small ps-3">
                       <li><strong>State:</strong> {gstinAnalysis.stateName} (Code: {gstinAnalysis.stateCode})</li>
                       <li><strong>PAN:</strong> {gstinAnalysis.pan}</li>

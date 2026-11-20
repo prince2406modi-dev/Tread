@@ -6,7 +6,6 @@ export default function MyImportsTab({
   onSyncImportsToStock,
   onMapToLocalStock,
   onRemoveImport,
-  onSelectProductDetails,
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterManufacturer, setFilterManufacturer] = useState('');

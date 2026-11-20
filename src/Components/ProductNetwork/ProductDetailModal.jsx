@@ -7,15 +7,16 @@ export default function ProductDetailModal({
   isImported = false,
   isManufacturerView = false,
 }) {
-  if (!product) return null;
-
+  const specs = product?.specs;
   const specsList = useMemo(() => {
-    if (!product.specs) return [];
-    if (typeof product.specs === 'object') {
-      return Object.entries(product.specs).map(([key, val]) => ({ key, val: String(val) }));
+    if (!specs) return [];
+    if (typeof specs === 'object') {
+      return Object.entries(specs).map(([key, val]) => ({ key, val: String(val) }));
     }
     return [];
-  }, [product.specs]);
+  }, [specs]);
+
+  if (!product) return null;
 
   return (
     <div

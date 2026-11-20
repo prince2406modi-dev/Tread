@@ -5,7 +5,6 @@ export default function NetworkSettingsTab({
   onSaveSettings,
   auditLogs = [],
   company,
-  currentUser,
 }) {
   const [localSettings, setLocalSettings] = useState(settings);
   const [isSavedNotice, setIsSavedNotice] = useState(false);

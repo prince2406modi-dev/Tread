@@ -1,17 +1,28 @@
 import { defineConfig } from 'vite'
-import react, { reactCompilerPreset } from '@vitejs/plugin-react'
-import babel from '@rolldown/plugin-babel'
+import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss(),
-    babel({ presets: [reactCompilerPreset()] })
+    tailwindcss()
   ],
   base: './',
   build: {
-    chunkSizeWarningLimit: 1000
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase')) return 'vendor-firebase';
+            if (id.includes('xlsx')) return 'vendor-xlsx';
+            if (id.includes('jspdf')) return 'vendor-jspdf';
+            if (id.includes('bootstrap')) return 'vendor-bootstrap';
+            if (id.includes('react') || id.includes('react-dom')) return 'vendor-react';
+          }
+        }
+      }
+    }
   }
 })

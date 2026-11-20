@@ -8,7 +8,6 @@ export default function DiscoverProductsTab({
   myImports = [],
   onImportToInventory,
   onBulkImportToInventory,
-  onRequestConnection,
   onSelectProductDetails,
   onSubmitAccessRequest,
   currentUser,
@@ -35,6 +34,7 @@ export default function DiscoverProductsTab({
   // Map of catalog ID to access info
   const catalogAccessMap = useMemo(() => {
     const map = new Map();
+    void accessGrants;
     catalogs.forEach((c) => {
       map.set(c.id, checkCatalogPaidAccess(currentUser, currentUser?.licenseId, c.id));
     });

@@ -18,12 +18,22 @@ export default function PaymentManager({
   const [modeFilter, setModeFilter] = useState('ALL');
   const deferredSearch = useDeferredValue(searchQuery);
 
-  // Auto voucher number generator
+  // Auto voucher number generator with collision-free maximum sequence detection
   const getNextVoucherNumber = (type) => {
     const year = new Date().getFullYear();
     const prefix = type === 'Payment In' ? 'RCP' : 'PAY';
-    const count = (payments || []).filter((p) => p.type === type).length + 1;
-    return `${prefix}-${year}-${String(count).padStart(4, '0')}`;
+    const regex = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+    let maxSeq = 0;
+    (payments || []).forEach((p) => {
+      if (p.voucherNumber) {
+        const m = String(p.voucherNumber).match(regex);
+        if (m) {
+          const num = parseInt(m[1], 10);
+          if (num > maxSeq) maxSeq = num;
+        }
+      }
+    });
+    return `${prefix}-${year}-${String(maxSeq + 1).padStart(4, '0')}`;
   };
 
   // Form State
@@ -219,12 +229,12 @@ export default function PaymentManager({
   const docCandidates = useMemo(() => {
     if (formData.type === 'Payment In') {
       return (invoices || []).map((inv) => ({
-        label: `Inv #${inv.invoiceNumber} - ${inv.customerName} (₹${inv.grandTotal || inv.total || 0})`,
+        label: `Inv #${inv.invoiceNumber} - ${inv.customerName} (₹${(inv.totals?.total ?? inv.grandTotal ?? inv.total ?? 0).toFixed(2)})`,
         value: inv.invoiceNumber,
       }));
     }
     return (purchaseBills || []).map((bill) => ({
-      label: `Bill #${bill.billNumber} - ${bill.vendorName} (₹${bill.totalAmount || bill.grandTotal || 0})`,
+      label: `Bill #${bill.billNumber} - ${bill.vendorName || bill.partyName || 'Vendor'} (₹${(bill.totals?.grandTotal ?? bill.totalAmount ?? bill.grandTotal ?? 0).toFixed(2)})`,
       value: bill.billNumber,
     }));
   }, [formData.type, invoices, purchaseBills]);

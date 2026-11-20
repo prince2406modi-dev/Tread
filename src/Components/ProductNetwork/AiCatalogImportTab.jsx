@@ -9,16 +9,13 @@ import {
 
 export default function AiCatalogImportTab({
   catalogs = [],
-  stockItems = [],
   onImportToTreadStock,
   onImportToCatalog,
-  onCancel,
 }) {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseResult, setParseResult] = useState(null);
-  const [columnMapping, setColumnMapping] = useState({});
   const [editableRows, setEditableRows] = useState([]);
   const [importTarget, setImportTarget] = useState('inventory'); // 'inventory' | 'catalog'
   const [selectedCatalogId, setSelectedCatalogId] = useState(catalogs[0]?.id || '');
@@ -32,7 +29,6 @@ export default function AiCatalogImportTab({
     try {
       const parsed = await parseCatalogFile(file);
       setParseResult(parsed);
-      setColumnMapping(parsed.detectedMapping);
       setEditableRows(parsed.rows);
     } catch (err) {
       alert(`Error parsing catalog file: ${err.message}`);
@@ -72,10 +68,6 @@ export default function AiCatalogImportTab({
     });
   };
 
-  // Quick fix for standard GST rate
-  const handleApplyGstFix = (rowIndex, rate) => {
-    handleCellEdit(rowIndex, 'gstRate', rate);
-  };
 
   // Filtered rows for the preview table
   const filteredRows = editableRows.filter((r) => {
