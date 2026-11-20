@@ -489,13 +489,14 @@ export function reconcile2bWithPurchaseBills(gstr2bInvoices = [], purchaseBills 
 
     const foundBook = purchaseBills.find((b) => {
       const bNum = String(b.billNumber || '').trim().toLowerCase();
-      const bGstin = String(b.vendorGstin || '').trim().toUpperCase();
-      return bNum === pNum || (bGstin && bGstin === pGstin && Math.abs(Number(b.totals?.total || 0) - pTotal) < 5);
+      const bGstin = String(b.vendorGstin || b.partyGstin || '').trim().toUpperCase();
+      const bAmt = Number(b.totals?.grandTotal ?? b.totals?.total ?? b.totalAmount ?? b.grandTotal ?? 0);
+      return bNum === pNum || (bGstin && bGstin === pGstin && Math.abs(bAmt - pTotal) < 5);
     });
 
     if (foundBook) {
       matchedBookIds.add(foundBook.id);
-      const bTotal = Number(foundBook.totals?.total || 0);
+      const bTotal = Number(foundBook.totals?.grandTotal ?? foundBook.totals?.total ?? foundBook.totalAmount ?? foundBook.grandTotal ?? 0);
       const diff = Math.abs(pTotal - bTotal);
       if (diff > 1) {
         amountMismatch.push({
@@ -535,9 +536,9 @@ export function reconcile2bWithPurchaseBills(gstr2bInvoices = [], purchaseBills 
     amountMismatch,
     totalPortalBills: gstr2bInvoices.length,
     totalBookBills: purchaseBills.length,
-    claimableItcMatched: matched.reduce((acc, m) => acc + Number(m.portalInvoice.totals?.totalGst || 0), 0),
-    unclaimedPortalItc: portalOnly.reduce((acc, p) => acc + Number(p.portalInvoice.totals?.totalGst || 0), 0),
-    atRiskBooksItc: booksOnly.reduce((acc, b) => acc + Number(b.bookBill.totals?.totalGst || 0), 0),
+    claimableItcMatched: matched.reduce((acc, m) => acc + Number(m.portalInvoice.totals?.totalGst ?? m.portalInvoice.claimableItc ?? 0), 0),
+    unclaimedPortalItc: portalOnly.reduce((acc, p) => acc + Number(p.portalInvoice.totals?.totalGst ?? p.portalInvoice.claimableItc ?? 0), 0),
+    atRiskBooksItc: booksOnly.reduce((acc, b) => acc + Number(b.bookBill.totals?.totalTax ?? b.bookBill.totals?.totalGst ?? 0), 0),
   };
 }
 
